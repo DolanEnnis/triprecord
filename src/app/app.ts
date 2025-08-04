@@ -1,12 +1,22 @@
-import { Component, signal } from '@angular/core';
+import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { MatSidenavModule } from '@angular/material/sidenav';
+import { HeaderComponent } from './navigation/header/header';
+import { SidenavListComponent } from './navigation/sidenav-list/sidenav-list';
+import { FooterComponent } from './footer/footer'; // 1. Import the footer
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  standalone: true,
+
+  imports: [RouterOutlet,
+            MatSidenavModule,
+            HeaderComponent,
+            SidenavListComponent,
+            FooterComponent],
   templateUrl: './app.html',
-  styleUrl: './app.css'
+  styleUrls: ['./app.css'],
 })
-export class App {
-  protected readonly title = signal('triprecord-app');
+export class AppComponent {
+  title = 'triprecord';
 }

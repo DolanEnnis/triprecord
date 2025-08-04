@@ -1,56 +1,49 @@
-import { Injectable } from '@angular/core';
-import { Auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, User } from '@angular/fire/auth';
-import { Subject } from 'rxjs';
+import { Injectable, NgZone, computed, inject } from '@angular/core'; // 1. Import NgZone
+import { toSignal } from '@angular/core/rxjs-interop';
+import {
+  Auth,
+  authState,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  User
+} from '@angular/fire/auth';
+import { Router } from '@angular/router';
 
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
-  // Use a Subject to track and emit changes in authentication state
-  authChange = new Subject<boolean>();
-  private user: User | null = null;
+  private auth: Auth = inject(Auth);
+  private router: Router = inject(Router);
+  private zone: NgZone = inject(NgZone); // 2. Inject NgZone using the inject() function
 
-  constructor(private auth: Auth) {
-    // Listen for changes in the authentication state
-    onAuthStateChanged(this.auth, user => {
-      this.user = user;
-      if (user) {
-        this.authChange.next(true);
-      } else {
-        this.authChange.next(false);
-      }
-    });
-  }
+  private user$ = authState(this.auth);
+  user = toSignal(this.user$);
 
-  // Method to register a new user
+  isAuthenticated = computed(() => this.user() !== null);
+  displayName = computed(() => this.user()?.email ?? 'Not Logged In');
+
   registerUser(authData: { email: string, password: string }) {
-    createUserWithEmailAndPassword(this.auth, authData.email, authData.password)
-      .then(result => {
-        console.log(result);
-      })
-      .catch(error => {
-        console.log(error);
-      });
+    // 3. Wrap the Firebase call in this.zone.run()
+    return this.zone.run(() =>
+      createUserWithEmailAndPassword(this.auth, authData.email, authData.password)
+    );
   }
 
-  // Method to log in a user
   login(authData: { email: string, password: string }) {
-    signInWithEmailAndPassword(this.auth, authData.email, authData.password)
-      .then(result => {
-        console.log(result);
-      })
-      .catch(error => {
-        console.log(error);
-      });
+    // 3. Wrap the Firebase call in this.zone.run()
+    return this.zone.run(() =>
+      signInWithEmailAndPassword(this.auth, authData.email, authData.password)
+    );
   }
 
-  // Method to log out the current user
   logout() {
-    signOut(this.auth);
-  }
-
-  // Method to check if a user is authenticated
-  isAuth(): boolean {
-    return this.user != null;
+    // 3. Wrap the Firebase call in this.zone.run()
+    this.zone.run(() => {
+      signOut(this.auth).then(() => {
+        this.router.navigate(['/']);
+      });
+    });
   }
 }
