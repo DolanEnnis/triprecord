@@ -1,0 +1,53 @@
+.toolbar-content {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.app-title a {
+  font-size: 1.25rem;
+}
+
+a {
+  text-decoration: none;
+  color: white;
+}
+
+a:hover,
+a:active,
+.logout-link:hover {
+  color: lightgray;
+}
+
+.spacer {
+  flex: 1 1 auto; /* Pushes content to the sides */
+}
+
+.nav-links ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  gap: 15px;
+}
+
+.logout-link {
+  cursor: pointer;
+}
+
+/* --- Responsive CSS to replace fxHide/fxShow --- */
+
+/* For mobile (screens <= 600px wide) */
+.nav-links {
+  display: none; /* Hide the full navigation on small screens */
+}
+
+/* For desktop (screens > 600px wide) */
+@media (min-width: 601px) {
+  .menu-button {
+    display: none; /* Hide the hamburger menu on large screens */
+  }
+  .nav-links {
+    display: flex; /* Show the full navigation on large screens */
+  }
+}
