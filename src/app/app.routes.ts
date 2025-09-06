@@ -1,10 +1,28 @@
 import { Routes } from '@angular/router';
-import { LoginComponent } from './auth/login/login';
-import { SignupComponent } from './auth/signup/signup';
+import { roleGuard } from './auth/guards/role.guard';
 
 export const routes: Routes = [
-  { path: 'login', component: LoginComponent },
-  { path: 'signup', component: SignupComponent },
-  { path: '', redirectTo: '/login', pathMatch: 'full' },
-  { path: '**', redirectTo: '/login' } // Wildcard route for unknown paths
+  // An empty path will attempt to navigate to '/main'.
+  // The roleGuard on the '/main' route will handle redirection if the user is not authenticated or authorized.
+  { path: '', redirectTo: 'main', pathMatch: 'full' },
+
+  {
+    path: 'main',
+    loadComponent: () => import('./main/main').then(c => c.MainComponent),
+    canActivate: [roleGuard]
+  },
+  // Group authentication-related routes under the 'auth' path.
+  {
+    path: 'auth',
+    children: [
+      {
+        path: 'login',
+        // Use dynamic import (lazy loading) for the component.
+        loadComponent: () => import('./auth/login/login').then(c => c.LoginComponent)
+      }
+    ]
+  },
+
+  // A wildcard route to catch any undefined paths and redirect them to the login page.
+  { path: '**', redirectTo: 'auth/login' }
 ];

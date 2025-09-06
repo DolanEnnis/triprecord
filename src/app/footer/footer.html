@@ -3,8 +3,8 @@
     <span>&copy; 2025 Brian Dolan</span>
     <span class="spacer"></span>
 
-    @if (authService.isAuthenticated()) {
-      <span>Logged in as: {{ authService.displayName() }}</span>
+    @if (authService.currentUserSig(); as user) {
+      <span>Logged in as: {{ user.displayName }} ({{ user.userType }})</span>
     } @else {
       <span>Not Logged In</span>
     }

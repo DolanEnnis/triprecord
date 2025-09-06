@@ -2,14 +2,18 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100%;
+  min-height: 100vh; /* Use min-height to fill the viewport */
+  background: #f0f2f5; /* Fallback background */
+  background-image: linear-gradient(to top, #dfe9f3 0%, white 100%);
 }
 
 mat-card {
   max-width: 400px;
   width: 90%;
-  padding: 20px;
+  padding: 2rem;
   box-sizing: border-box;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
 mat-card-content {
@@ -17,8 +21,7 @@ mat-card-content {
   flex-direction: column;
 }
 
-mat-form-field,
-mat-checkbox {
+mat-form-field {
   width: 100%;
 }
 
@@ -30,8 +33,16 @@ mat-checkbox {
 }
 
 .button-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-top: 10px;
+  margin-top: 1rem;
+}
+
+.login-button {
+  width: 100%;
+  padding: 1.5rem 0;
+  line-height: 0; /* Adjust for consistent height */
+  transition: background-color 0.3s ease;
+}
+
+.login-button:hover {
+  opacity: 0.9;
 }

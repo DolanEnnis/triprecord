@@ -1,13 +1,16 @@
-import { Component } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { RouterLink } from '@angular/router';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { Router } from '@angular/router';
 import { AuthService } from '../auth';
+import { finalize } from 'rxjs';
 
 @Component({
   selector: 'app-login',
@@ -20,27 +23,66 @@ import { AuthService } from '../auth';
     MatInputModule,
     MatButtonModule,
     MatProgressSpinnerModule,
-    //RouterLink
+    MatIconModule,
+    MatSnackBarModule
   ],
   templateUrl: './login.html',
   styleUrl: './login.css'
 })
 export class LoginComponent {
-  loginForm: FormGroup;
-  isLoading = false;
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly fb = inject(FormBuilder);
+  private readonly snackBar = inject(MatSnackBar);
 
-  constructor(private authService: AuthService) {
-    this.loginForm = new FormGroup({
-      email: new FormControl('', { validators: [Validators.required, Validators.email] }),
-      password: new FormControl('', { validators: [Validators.required] }),
-    });
+  readonly isLoading = signal(false);
+  readonly hidePassword = signal(true);
+
+  readonly loginForm = this.fb.nonNullable.group({
+    email: ['', [Validators.required, Validators.email]],
+    password: ['', [Validators.required]],
+  });
+
+  get email() {
+    return this.loginForm.get('email');
+  }
+
+  get password() {
+    return this.loginForm.get('password');
   }
 
   onSubmit() {
-    if (this.loginForm.valid) {
-      this.isLoading = true;
-      this.authService.login(this.loginForm.value);
-      // The isLoading will be handled by the AuthService subscription later
+    if (this.loginForm.invalid) {
+      return;
     }
+
+    this.isLoading.set(true);
+    const { email, password } = this.loginForm.getRawValue();
+
+    this.authService
+      .login(email, password)
+      .pipe(finalize(() => this.isLoading.set(false)))
+      .subscribe({
+        // The `next` block now only runs after the AuthService has fully
+        // resolved the user's profile, preventing the race condition.
+        next: (profile) => {
+          if (profile) {
+            this.router.navigate(['/main']);
+          } else {
+            // This case is a fallback for unexpected errors during profile resolution.
+            this.snackBar.open('Login succeeded, but failed to retrieve user profile.', 'Close', {
+              duration: 5000,
+              verticalPosition: 'top',
+            });
+          }
+        },
+        error: (err) => {
+          // Show a user-friendly error message instead of just logging to the console.
+          this.snackBar.open('Login failed. Please check your email and password.', 'Close', {
+            duration: 5000,
+            verticalPosition: 'top',
+          });
+        },
+      });
   }
 }

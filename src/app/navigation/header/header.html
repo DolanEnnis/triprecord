@@ -14,17 +14,20 @@
 
     <nav class="nav-links">
       <ul>
-        @if (!authService.isAuthenticated()) {
-          <li><a routerLink="/signup">Signup</a></li>
-          <li><a routerLink="/login">Login</a></li>
-        }
-
         <li><a href="http://www.cargopro.ie/sfpc/download/rpt_daydiary.pdf" target="_blank" rel="noopener">Day Diary</a></li>
 
+        <!-- Use a single @if/@else block for cleaner logic -->
+        <!-- A signal must be called as a function: isAuthenticated() -->
         @if (authService.isAuthenticated()) {
+          @if(authService.isPrivilegedUser()) {
+            <li><a routerLink="/main">Main</a></li>
+          }
           <li><a href="https://shannonpilots-6fedd.firebaseapp.com/" target="_blank" rel="noopener">Current Ships</a></li>
           <li><a routerLink="/charges">Charges</a></li>
           <li><a class="logout-link" (click)="onLogout()">Logout</a></li>
+        } @else {
+          <!-- Corrected the login route and removed the signup link -->
+          <li><a routerLink="/auth/login">Login</a></li>
         }
       </ul>
     </nav>

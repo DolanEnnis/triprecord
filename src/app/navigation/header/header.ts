@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Output, inject } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
@@ -23,12 +23,16 @@ export class HeaderComponent {
 
   // Inject our signal-based auth service
   readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
 
   onToggleSidenav(): void {
     this.sidenavToggle.emit();
   }
 
   onLogout(): void {
-    this.authService.logout();
+    // Subscribe to the logout observable to handle navigation after completion.
+    this.authService.logout().subscribe(() => {
+      this.router.navigate(['/auth/login']);
+    });
   }
 }
