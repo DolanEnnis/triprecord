@@ -1,32 +1,29 @@
 <mat-nav-list>
-  @if (!authService.isAuthenticated()) {
-    <a mat-list-item routerLink="/signup" (click)="onClose()">
-      <mat-icon>face</mat-icon>
-      <span class="nav-caption">Signup</span>
-    </a>
-    <a mat-list-item routerLink="/login" (click)="onClose()">
-      <mat-icon>input</mat-icon>
-      <span class="nav-caption">Login</span>
-    </a>
-  }
-
-  <a mat-list-item href="http://www.cargopro.ie/sfpc/download/rpt_daydiary.pdf" target="_blank" rel="noopener" (click)="onClose()">
-    <mat-icon>description</mat-icon>
-    <span class="nav-caption">Day Diary</span>
-  </a>
-
+  <!-- Use a single @if/@else block for cleaner logic -->
   @if (authService.isAuthenticated()) {
-    <a mat-list-item href="https://shannonpilots-6fedd.firebaseapp.com/" target="_blank" rel="noopener" (click)="onClose()">
-      <mat-icon>directions_boat</mat-icon>
-      <span class="nav-caption">Current Ships</span>
-    </a>
+    <!-- Authenticated Links -->
+    @if(authService.isPrivilegedUser()) {
+      <a mat-list-item routerLink="/main" (click)="onClose()">
+        <mat-icon>home</mat-icon> Main
+      </a>
+    }
     <a mat-list-item routerLink="/charges" (click)="onClose()">
-      <mat-icon>attach_money</mat-icon>
-      <span class="nav-caption">Charges</span>
+      <mat-icon>receipt_long</mat-icon> Charges
     </a>
-    <a mat-list-item class="logout-link" (click)="onLogout()">
-      <mat-icon>eject</mat-icon>
-      <span class="nav-caption">Logout</span>
+    <a mat-list-item href="https://shannonpilots-6fedd.firebaseapp.com/" target="_blank" rel="noopener" (click)="onClose()">
+      <mat-icon>directions_boat</mat-icon> Current Ships
+    </a>
+    <a mat-list-item href="http://www.cargopro.ie/sfpc/download/rpt_daydiary.pdf" target="_blank" rel="noopener" (click)="onClose()">
+      <mat-icon>description</mat-icon> Day Diary
+    </a>
+    <mat-divider></mat-divider>
+    <a mat-list-item (click)="onLogout()">
+      <mat-icon>logout</mat-icon> Logout
+    </a>
+  } @else {
+    <!-- Unauthenticated Links -->
+    <a mat-list-item routerLink="/auth/login" (click)="onClose()">
+      <mat-icon>login</mat-icon> Login
     </a>
   }
 </mat-nav-list>

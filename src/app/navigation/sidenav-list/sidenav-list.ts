@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Output, inject } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../../auth/auth';
@@ -21,6 +21,7 @@ export class SidenavListComponent {
 
   // Inject our auth service to get user status
   readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
 
   onClose(): void {
     this.sidenavClose.emit();
@@ -28,6 +29,9 @@ export class SidenavListComponent {
 
   onLogout(): void {
     this.onClose(); // Close the drawer
-    this.authService.logout(); // Then log out
+    // Subscribe to the logout observable to navigate after it completes.
+    this.authService.logout().subscribe(() => {
+      this.router.navigate(['/auth/login']);
+    });
   }
 }

@@ -1,0 +1,86 @@
+<<div class="main-container">
+  <div class="header">
+    <h1>Recent Trips</h1>
+  </div>
+
+  <div class="controls-container">
+    <mat-form-field appearance="outline">
+      <mat-label>Filter Trips</mat-label>
+      <input matInput (keyup)="applyFilter($event)" placeholder="Search by ship, port, pilot..." #input>
+    </mat-form-field>
+
+    <mat-button-toggle-group [value]="directionFilter()" (valueChange)="onDirectionChange($event)" aria-label="Filter by direction">
+      <mat-button-toggle value="All">All</mat-button-toggle>
+      <mat-button-toggle value="In">In</mat-button-toggle>
+      <mat-button-toggle value="Out">Out</mat-button-toggle>
+    </mat-button-toggle-group>
+
+    <mat-button-toggle-group [value]="pilotFilter()" (valueChange)="onPilotFilterChange($event)" aria-label="Filter by pilot">
+      <mat-button-toggle value="All">All Trips</mat-button-toggle>
+      <mat-button-toggle value="My">My Trips</mat-button-toggle>
+    </mat-button-toggle-group>
+  </div>
+
+  <!-- Show a spinner while the initial data is loading -->
+  @if (allTrips().length === 0) {
+    <div class="spinner-container"><mat-progress-spinner mode="indeterminate"></mat-progress-spinner></div>
+  } @else {
+    <div class="table-container mat-elevation-z8">
+      <table mat-table [dataSource]="dataSource" matSort class="mat-table">
+
+        <!-- Date Column -->
+        <ng-container matColumnDef="boarding">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Date</th>
+          <td mat-cell *matCellDef="let element">{{ element.boarding | date : "dd-MM-yy" }}</td>
+        </ng-container>
+
+        <!-- Ship Column -->
+        <ng-container matColumnDef="ship">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Ship</th>
+          <td mat-cell *matCellDef="let element">{{ element.ship }}</td>
+        </ng-container>
+
+        <!-- GT Column -->
+        <ng-container matColumnDef="gt">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>GT</th>
+          <td mat-cell *matCellDef="let element">{{ element.gt | number }}</td>
+        </ng-container>
+
+        <!-- Port Column -->
+        <ng-container matColumnDef="port">
+          <th mat-header-cell *matHeaderCellDef>To/From</th>
+          <td mat-cell *matCellDef="let element">{{ element.port }}</td>
+        </ng-container>
+
+        <!-- Pilot Column -->
+        <ng-container matColumnDef="pilot">
+          <th mat-header-cell *matHeaderCellDef>Pilot</th>
+          <td mat-cell *matCellDef="let element">{{ element.pilot }}</td>
+        </ng-container>
+
+        <!-- Type Column -->
+        <ng-container matColumnDef="typeTrip">
+          <th mat-header-cell *matHeaderCellDef>Type</th>
+          <td mat-cell *matCellDef="let element">{{ element.typeTrip }}</td>
+        </ng-container>
+
+        <!-- Note Column -->
+        <ng-container matColumnDef="note">
+          <th mat-header-cell *matHeaderCellDef>Note</th>
+          <td mat-cell *matCellDef="let element">{{ element.note }}</td>
+        </ng-container>
+
+        <!-- Extra Column -->
+        <ng-container matColumnDef="extra">
+          <th mat-header-cell *matHeaderCellDef>Extras</th>
+          <td mat-cell *matCellDef="let element">{{ element.extra }}</td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns" (click)="onRowClicked(row)" [ngClass]="{'confirmed-row': row.isConfirmed}" class="data-row"></tr>
+
+        <tr class="mat-row" *matNoDataRow><td class="mat-cell" [attr.colspan]="displayedColumns.length">No trips match your filter criteria.</td></tr>
+      </table>
+    </div>
+  }
+</div>

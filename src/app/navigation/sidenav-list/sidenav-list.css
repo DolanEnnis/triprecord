@@ -1,7 +1,15 @@
-.nav-caption {
-  padding-left: 14px;
+a {
+  text-decoration: none;
+  color: inherit;
 }
 
-.logout-link {
+/* Ensure icons are vertically aligned with the text */
+.mat-icon {
+  vertical-align: middle;
+  margin-right: 1rem;
+}
+
+/* Add a pointer cursor to clickable list items that aren't router links */
+a[mat-list-item]:not([href]) {
   cursor: pointer;
 }

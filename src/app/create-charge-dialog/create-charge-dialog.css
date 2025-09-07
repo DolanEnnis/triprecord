@@ -1,0 +1,16 @@
+.form-grid {
+  display: grid;
+  /* Create two columns, but let them shrink if space is tight */
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0 1rem;
+}
+
+.full-width {
+  grid-column: 1 / -1; /* Make this field span all columns */
+}
+
+/* Make the spinner centered in the button */
+button mat-progress-spinner {
+  display: inline-block;
+  margin: 0 18px; /* Centers spinner when text is hidden */
+}

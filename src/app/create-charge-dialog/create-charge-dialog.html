@@ -1,0 +1,58 @@
+<h1 mat-dialog-title>Create Charge for {{ data.ship }}</h1>
+
+<div mat-dialog-content [formGroup]="form">
+  <div class="form-grid">
+    <mat-form-field>
+      <mat-label>Ship</mat-label>
+      <input matInput formControlName="ship">
+    </mat-form-field>
+
+    <mat-form-field>
+      <mat-label>GT</mat-label>
+      <input matInput type="number" formControlName="gt">
+    </mat-form-field>
+
+    <mat-form-field>
+      <mat-label>Boarding Date</mat-label>
+      <input matInput [matDatepicker]="picker" formControlName="boarding">
+      <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+      <mat-datepicker #picker></mat-datepicker>
+    </mat-form-field>
+
+    <mat-form-field>
+      <mat-label>To/From</mat-label>
+      <input matInput formControlName="port">
+    </mat-form-field>
+
+    <mat-form-field>
+      <mat-label>Pilot</mat-label>
+      <input matInput formControlName="pilot">
+    </mat-form-field>
+
+    <mat-form-field>
+      <mat-label>Type</mat-label>
+      <input matInput formControlName="typeTrip">
+    </mat-form-field>
+
+    <mat-form-field class="full-width">
+      <mat-label>Extras (Late Order / Detention etc)</mat-label>
+      <textarea matInput formControlName="extra"></textarea>
+    </mat-form-field>
+
+    <mat-form-field class="full-width">
+      <mat-label>Note</mat-label>
+      <textarea matInput formControlName="note"></textarea>
+    </mat-form-field>
+  </div>
+</div>
+
+<div mat-dialog-actions align="end">
+  <button mat-button (click)="onCancel()" [disabled]="isSaving">Cancel</button>
+  <button mat-flat-button color="primary" (click)="onSave()" [disabled]="form.invalid || isSaving">
+    @if (isSaving) {
+      <mat-progress-spinner mode="indeterminate" diameter="20"></mat-progress-spinner>
+    } @else {
+      <span>Save Charge</span>
+    }
+  </button>
+</div>

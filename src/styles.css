@@ -1,5 +1,16 @@
 /* You can add global styles to this file, and also import other style files */
-@import '@angular/material/prebuilt-themes/indigo-pink.css';
+/* Import a pre-built Angular Material theme. This provides the color palette for components. */
+@import "@angular/material/prebuilt-themes/indigo-pink.css";
 
 html, body { height: 100%; }
 body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+
+/*
+  Global styles for specific Material table columns.
+  This is the recommended alternative to using `::ng-deep`.
+*/
+.extra-column,
+.note-column {
+  width: 15%; /* Adjust this percentage as needed */
+  word-wrap: break-word;
+}
