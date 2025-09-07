@@ -1,0 +1,14 @@
+<div class="main-page-container">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>Welcome to TripRecord</mat-card-title>
+      @if(authService.currentUserSig(); as user) {
+        <mat-card-subtitle>You are logged in as {{ user.displayName }} ({{ user.userType }})</mat-card-subtitle>
+      }
+    </mat-card-header>
+    <mat-card-content>
+      <p>This is the main application area, accessible only to users with 'Pilot' or 'Admin' roles.</p>
+      <p>From here, you can access the primary features of the TripRecord application.</p>
+    </mat-card-content>
+  </mat-card>
+</div>
