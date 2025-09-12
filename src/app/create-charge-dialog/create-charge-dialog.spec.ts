@@ -2,6 +2,8 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { DataService } from '../services/data.service';
+import { AuthService } from '../auth/auth';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { CreateChargeDialogComponent } from './create-charge-dialog';
 
@@ -13,6 +15,11 @@ describe('CreateChargeDialogComponent', () => {
     // Mock for the DataService to avoid making real database calls
     const dataServiceMock = {
       createChargeAndUpdateVisit: () => Promise.resolve(),
+      doesChargeExist: () => Promise.resolve(false),
+      createStandaloneCharge: () => Promise.resolve(),
+    };
+    const authServiceMock = {
+      currentUserSig: () => null,
     };
 
     await TestBed.configureTestingModule({
@@ -21,8 +28,10 @@ describe('CreateChargeDialogComponent', () => {
       providers: [
         // Provide mock versions of all the services the component injects
         { provide: MatDialogRef, useValue: {} },
-        { provide: MAT_DIALOG_DATA, useValue: {} },
+        { provide: MAT_DIALOG_DATA, useValue: null },
         { provide: DataService, useValue: dataServiceMock },
+        { provide: AuthService, useValue: authServiceMock },
+        { provide: MatSnackBar, useValue: {} },
       ],
     }).compileComponents();
 

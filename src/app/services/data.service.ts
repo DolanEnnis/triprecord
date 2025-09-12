@@ -6,6 +6,7 @@ import {
   doc,
   Firestore,
   query,
+  getDocs,
   serverTimestamp,
   updateDoc,
   where,
@@ -80,6 +81,47 @@ export class DataService {
     const visitDocRef = doc(this.firestore, `visits/${visitDocId}`);
     const updateData = tripDirection === 'inward' ? { inwardConfirmed: true } : { outwardConfirmed: true };
     await updateDoc(visitDocRef, updateData);
+  }
+
+  /**
+   * Creates a new document in the 'charges' collection without an associated visit.
+   * @param chargeData - The data for the new charge, from the form.
+   */
+  async createStandaloneCharge(chargeData: Omit<Charge, 'updateTime'>): Promise<void> {
+    const chargesCollection = collection(this.firestore, 'charges');
+    const newCharge = {
+      ...chargeData,
+      updateTime: serverTimestamp(),
+    };
+    await addDoc(chargesCollection, newCharge);
+  }
+
+  /**
+   * Checks if a charge that matches the given criteria already exists to prevent duplicates.
+   * @param chargeData The core fields of the charge to check for.
+   */
+  async doesChargeExist(chargeData: { ship: string; boarding: Date; typeTrip: string }): Promise<boolean> {
+    const chargesCollection = collection(this.firestore, 'charges');
+
+    // To check for duplicates on the same day, we create a date range for the query.
+    const startOfDay = new Date(chargeData.boarding);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(chargeData.boarding);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // NOTE: This query requires a composite index in Firestore.
+    // The browser console will log an error with a link to create it automatically.
+    const q = query(
+      chargesCollection,
+      where('ship', '==', chargeData.ship),
+      where('typeTrip', '==', chargeData.typeTrip),
+      where('boarding', '>=', startOfDay),
+      where('boarding', '<=', endOfDay)
+    );
+
+    const querySnapshot = await getDocs(q);
+    return !querySnapshot.empty;
   }
 
   /**

@@ -1,14 +1,15 @@
-import { Component, effect, inject } from '@angular/core';
+import { AfterViewInit, Component, effect, inject, ViewChild } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSort, MatSortModule } from '@angular/material/sort';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import * as Papa from 'papaparse';
-import { Timestamp } from '@angular/fire/firestore';
+//import { Timestamp } from '@angular/fire/firestore';
 
 import { ChargesService } from '../services/charges.service';
 import { Charge } from '../models/trip.model';
@@ -25,12 +26,13 @@ import { Charge } from '../models/trip.model';
     MatProgressSpinnerModule,
     MatButtonModule,
     MatIconModule,
+    MatSortModule,
   ],
   templateUrl: './charges.component.html',
   styleUrls: ['./charges.component.css'],
   providers: [DatePipe], // Add DatePipe to make it injectable
 })
-export class ChargesComponent {
+export class ChargesComponent implements AfterViewInit {
   private chargesService = inject(ChargesService);
   private datePipe = inject(DatePipe);
 
@@ -39,6 +41,8 @@ export class ChargesComponent {
 
   // Use MatTableDataSource for advanced features like sorting and filtering.
   readonly dataSource = new MatTableDataSource<Charge>();
+
+  @ViewChild(MatSort) sort!: MatSort;
 
   // Define the columns to display in the table. This order determines the column order.
   readonly displayedColumns: string[] = [
@@ -66,17 +70,16 @@ export class ChargesComponent {
     // Provide custom logic for how to filter the table.
     this.dataSource.filterPredicate = (data: Charge, filter: string): boolean => {
       // Create a single, searchable string from the row's data.
-      const boardingDate = data.boarding instanceof Timestamp ? data.boarding.toDate() : data.boarding;
       const dataStr = [
         data.ship,
         data.gt,
-        this.datePipe.transform(boardingDate, 'dd-MM-yy'),
+        this.datePipe.transform(data.boarding, 'dd-MM-yy'),
         data.typeTrip,
         data.port,
         data.extra,
         data.note,
         data.pilot,
-        this.datePipe.transform(data.updateTime.toDate(), 'dd-MM-yy'),
+        this.datePipe.transform(data.updateTime, 'dd-MM-yy'),
       ]
         .filter(Boolean) // Remove any null/undefined values
         .join(' ')
@@ -92,6 +95,10 @@ export class ChargesComponent {
     this.dataSource.filter = filterValue.trim().toLowerCase();
   }
 
+  ngAfterViewInit(): void {
+    this.dataSource.sort = this.sort;
+  }
+
   downloadCsv(): void {
     // Export the currently displayed (and potentially filtered and sorted) data.
     const data = this.dataSource.filteredData;
@@ -99,19 +106,17 @@ export class ChargesComponent {
       return;
     }
 
-    const toDate = (d: Date | Timestamp): Date => (d instanceof Timestamp ? d.toDate() : d);
-
     // Map the data to a new structure with the desired headers and formatted values.
     const dataForCsv = data.map((charge) => ({
       'Ship': charge.ship,
       'GT': charge.gt,
-      'Date': this.datePipe.transform(toDate(charge.boarding), 'dd/MM/yy'),
+      'Date': this.datePipe.transform(charge.boarding, 'dd/MM/yy'),
       'In / Out': charge.typeTrip,
       'To/From': charge.port,
       'Late Order / Detention /Anchoring etc': charge.extra,
       'Note': charge.note,
       'Pilot': charge.pilot,
-      'Timestamp': this.datePipe.transform(charge.updateTime.toDate(), 'dd-MM-yy HH:mm:ss'),
+      'Timestamp': this.datePipe.transform(charge.updateTime, 'dd-MM-yy HH:mm:ss'),
     }));
 
     // Papa.unparse will use the keys from our new objects as the CSV headers.

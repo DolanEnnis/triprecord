@@ -55,6 +55,8 @@
 
 .table-container {
   overflow: auto;
+  /* Add rounded corners to the table container for a softer look */
+  border-radius: 8px;
 }
 
 .data-row {
@@ -71,4 +73,14 @@
   color: #757575;
   font-style: italic;
   cursor: not-allowed;
+}
+
+.fab-add-charge {
+  position: fixed;
+  bottom: 4rem; /* Increased to lift it above the 40px footer */
+  right: 2rem; 
+  z-index: 100; /* Ensure it's above other content */
+  /* Override theme's accent color for higher visibility */
+  background-color: #4CAF50; /* A standard Material Design green */
+  border-radius: 28px; /* Explicitly set for a fully rounded pill shape */
 }

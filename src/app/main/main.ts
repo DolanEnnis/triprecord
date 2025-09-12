@@ -1,6 +1,7 @@
 import { AfterViewInit, Component, computed, effect, inject, OnInit, signal, ViewChild, WritableSignal } from '@angular/core';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { DataService } from '../services/data.service';
+import { Router } from '@angular/router';
 import { AuthService } from '../auth/auth';
 import { ChargeableEvent } from '../models/trip.model';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -10,9 +11,11 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSort, MatSortModule } from '@angular/material/sort';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 @Component({
   selector: 'app-main',
@@ -25,9 +28,11 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
     MatInputModule,
     MatSortModule,
     MatProgressSpinnerModule,
+    MatButtonModule,
     MatIconModule,
     MatNativeDateModule,
     MatButtonToggleModule,
+    MatTooltipModule,
   ],
   templateUrl: './main.html',
   styleUrl: './main.css',
@@ -35,6 +40,7 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 export class MainComponent implements OnInit, AfterViewInit {
   private readonly dataService = inject(DataService);
   private readonly dialog = inject(MatDialog);
+  private readonly router = inject(Router);
   private readonly authService = inject(AuthService);
 
   displayedColumns: string[] = ['boarding', 'ship', 'gt', 'port', 'pilot', 'typeTrip', 'note', 'extra'];
@@ -120,6 +126,21 @@ export class MainComponent implements OnInit, AfterViewInit {
       // If the dialog returns 'success', it means a charge was created, so we refresh the table
       if (result === 'success') {
         this.loadTrips();
+      }
+    });
+  }
+
+  openNewChargeDialog(): void {
+    // Opening the dialog without data tells it to be in "create" mode.
+    const dialogRef = this.dialog.open(CreateChargeDialogComponent, {
+      width: 'clamp(300px, 80vw, 600px)',
+      data: null,
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      // If the dialog returns 'success', it means a standalone charge was created.
+      if (result === 'success') {
+        this.router.navigate(['/charges']);
       }
     });
   }

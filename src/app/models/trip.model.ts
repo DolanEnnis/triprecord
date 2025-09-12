@@ -1,12 +1,14 @@
 import { Timestamp } from '@angular/fire/firestore';
 
+export type Port = 'Anchorage' | 'Cappa' | 'Moneypoint' | 'Tarbert' | 'Foynes' | 'Aughinish' | 'Shannon' | 'Limerick';
+
 /**
  * Represents a single leg of a journey (inward or outward).
  * This is a nested map within a Visit document.
  */
 export interface Trip {
   boarding: Timestamp;
-  port: string;
+  port?: Port | null;
   pilot: string;
   typeTrip: 'In' | 'Out' | 'Anchorage' | 'Shift'  | 'Other';
   note?: string;
@@ -37,7 +39,7 @@ export interface ChargeableEvent {
   ship: string;
   gt: number;
   boarding: Date;
-  port: string;
+  port?: Port | null;
   pilot: string;
   typeTrip: 'In' | 'Out' | 'Anchorage' | 'Shift'  | 'Other';
   note: string;
@@ -47,4 +49,4 @@ export interface ChargeableEvent {
 }
 
 /** Represents a charge document in your 'charges' collection. */
-export type Charge = Omit<ChargeableEvent, 'visitDocId' | 'tripDirection' | 'boarding' | 'isConfirmed'> & { id?: string, boarding: Date | Timestamp, updateTime: Timestamp };
+export type Charge = Omit<ChargeableEvent, 'visitDocId' | 'tripDirection' | 'boarding' | 'isConfirmed'> & { id?: string, boarding: Date, updateTime: Date };

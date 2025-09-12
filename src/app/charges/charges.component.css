@@ -1,45 +1,28 @@
 .charges-container {
-  padding: 2rem;
+  padding: 1.5rem;
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
   margin-bottom: 1.5rem;
 }
 
-.controls-container {
-  padding-bottom: 1rem;
+.actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
 }
 
-.controls-container mat-form-field {
-  width: 100%;
-  font-size: 14px;
+.spinner-container {
+  display: flex;
+  justify-content: center;
+  padding: 2rem;
 }
 
 .table-container {
   overflow: auto;
-}
-
-table {
-  width: 100%;
-}
-
-.spinner-container,
-.no-data-message {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 3rem;
-  color: rgba(0, 0, 0, 0.54);
-  font-style: italic;
-}
-
-/* Style the table header to make it stand out */
-th.mat-header-cell {
-  background-color: #f5f5f5;
-  font-weight: bold;
-  font-size: 14px;
-  color: rgba(0, 0, 0, 0.87);
 }
