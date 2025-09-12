@@ -75,6 +75,15 @@
   cursor: not-allowed;
 }
 
+.confirmed-row.editable-row {
+  cursor: pointer;
+}
+
+.confirmed-row.editable-row:hover {
+  /* Provide a specific hover effect for editable confirmed rows since the base background is solid */
+  background-color: #e0e0e0;
+}
+
 .fab-add-charge {
   position: fixed;
   bottom: 4rem; /* Increased to lift it above the 40px footer */
@@ -91,4 +100,10 @@
   line-height: 1.3;
   text-align: right;
   white-space: nowrap;
+}
+
+.footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 1rem;
 }

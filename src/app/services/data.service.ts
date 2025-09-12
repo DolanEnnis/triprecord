@@ -1,4 +1,4 @@
-import { inject, Injectable } from '@angular/core';
+import { inject, Injectable, Injector, runInInjectionContext } from '@angular/core';
 import {
   addDoc,
   collection,
@@ -23,6 +23,7 @@ export class DataService {
   private readonly firestore: Firestore = inject(Firestore);
   private readonly authService: AuthService = inject(AuthService);
   private readonly chargesService: ChargesService = inject(ChargesService);
+  private readonly injector = inject(Injector);
 
   /**
    * Fetches recent visits and maps their inward/outward legs to ChargeableEvent objects,
@@ -53,51 +54,54 @@ export class DataService {
   }
 
   getUnifiedTripLog(): Observable<UnifiedTrip[]> {
-    const recentCharges$ = this.chargesService.getRecentCharges();
+    return runInInjectionContext(this.injector, () => {
+      const recentCharges$ = this.chargesService.getRecentCharges();
 
-    const visitsCollection = collection(this.firestore, 'visits');
-    const threeMonthsAgo = new Date();
-    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-    const recentVisitsQuery = query(visitsCollection, where('eta', '>=', threeMonthsAgo));
-    const recentVisits$ = collectionData(recentVisitsQuery, { idField: 'docid' }) as Observable<Visit[]>;
+      const visitsCollection = collection(this.firestore, 'visits');
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+      const recentVisitsQuery = query(visitsCollection, where('eta', '>=', threeMonthsAgo));
+      const recentVisits$ = collectionData(recentVisitsQuery, { idField: 'docid' }) as Observable<Visit[]>;
 
-    return combineLatest([recentCharges$, recentVisits$]).pipe(
-      map(([charges, visits]) => {
-        const chargesAsUnified: UnifiedTrip[] = charges.map(charge => ({
-          ship: charge.ship,
-          gt: charge.gt,
-          boarding: charge.boarding,
-          port: charge.port,
-          pilot: charge.pilot,
-          typeTrip: charge.typeTrip,
-          note: charge.note || '',
-          extra: charge.extra || '',
-          source: 'Charge' as const,
-          updatedBy: charge.createdBy || 'N/A',
-          updateTime: charge.updateTime,
-          isActionable: false,
-        }));
+      return combineLatest([recentCharges$, recentVisits$]).pipe(
+        map(([charges, visits]) => {
+          const chargesAsUnified: UnifiedTrip[] = charges.map(charge => ({
+            id: charge.id,
+            ship: charge.ship,
+            gt: charge.gt,
+            boarding: charge.boarding,
+            port: charge.port,
+            pilot: charge.pilot,
+            typeTrip: charge.typeTrip,
+            note: charge.note || '',
+            extra: charge.extra || '',
+            source: 'Charge' as const,
+            updatedBy: charge.createdBy || 'N/A',
+            updateTime: charge.updateTime,
+            isActionable: false,
+          }));
 
-        const visitsAsUnified: UnifiedTrip[] = [];
-        for (const visit of visits) {
-          const processVisitLeg = (direction: 'inward' | 'outward') => {
-            const trip = visit[direction];
-            const today = new Date();
-            const isConfirmed = direction === 'inward' ? visit.inwardConfirmed : visit.outwardConfirmed;
-            // We only care about trips that have happened.
-            if (trip && trip.boarding && !isConfirmed && trip.boarding.toDate() <= today) {
-              const event = this.createChargeableEvent(visit, direction);
-              visitsAsUnified.push({ ...event, source: 'Visit', updatedBy: visit['updatedBy'] || 'N/A', updateTime: new Date(visit['updateTime']), isActionable: true, chargeableEvent: event });
-            }
-          };
-          processVisitLeg('inward');
-          processVisitLeg('outward');
-        }
+          const visitsAsUnified: UnifiedTrip[] = [];
+          for (const visit of visits) {
+            const processVisitLeg = (direction: 'inward' | 'outward') => {
+              const trip = visit[direction];
+              const today = new Date();
+              const isConfirmed = direction === 'inward' ? visit.inwardConfirmed : visit.outwardConfirmed;
+              // We only care about trips that have happened.
+              if (trip && trip.boarding && !isConfirmed && trip.boarding.toDate() <= today) {
+                const event = this.createChargeableEvent(visit, direction);
+                visitsAsUnified.push({ ...event, source: 'Visit', updatedBy: visit['updatedBy'] || 'N/A', updateTime: new Date(visit['updateTime']), isActionable: true, chargeableEvent: event });
+              }
+            };
+            processVisitLeg('inward');
+            processVisitLeg('outward');
+          }
 
-        const combined = [...chargesAsUnified, ...visitsAsUnified];
-        return combined.sort((a, b) => b.boarding.getTime() - a.boarding.getTime());
-      })
-    );
+          const combined = [...chargesAsUnified, ...visitsAsUnified];
+          return combined.sort((a, b) => b.boarding.getTime() - a.boarding.getTime());
+        })
+      );
+    });
   }
 
   /**

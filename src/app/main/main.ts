@@ -1,12 +1,12 @@
 import { AfterViewInit, Component, computed, effect, inject, OnInit, signal, ViewChild, WritableSignal } from '@angular/core';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { DataService } from '../services/data.service';
-import { Router } from '@angular/router';
+import { CommonModule, DatePipe } from '@angular/common';
 import { AuthService } from '../auth/auth';
 import { UnifiedTrip } from '../models/trip.model';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { ConfirmationDialogComponent } from '../shared/confirmation-dialog/confirmation-dialog.component';
 import { CreateChargeDialogComponent } from '../create-charge-dialog/create-charge-dialog.component';
-import { CommonModule } from '@angular/common';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSort, MatSortModule } from '@angular/material/sort';
@@ -17,6 +17,7 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatPaginatorModule } from '@angular/material/paginator';
+import * as Papa from 'papaparse';
 
 @Component({
   selector: 'app-main',
@@ -38,14 +39,15 @@ import { MatPaginatorModule } from '@angular/material/paginator';
   ],
   templateUrl: './main.html',
   styleUrl: './main.css',
+  providers: [DatePipe],
 })
 export class MainComponent implements OnInit, AfterViewInit {
   private readonly dataService = inject(DataService);
   private readonly dialog = inject(MatDialog);
-  private readonly router = inject(Router);
   private readonly authService = inject(AuthService);
+  private readonly datePipe = inject(DatePipe);
 
-  displayedColumns: string[] = ['boarding', 'ship', 'pilot', 'typeTrip', 'port', 'metadata'];
+  displayedColumns: string[] = ['ship', 'gt', 'boarding', 'typeTrip', 'port', 'extra', 'pilot', 'note', 'metadata'];
   dataSource = new MatTableDataSource<UnifiedTrip>();
 
   // Source signal for all trips from the service
@@ -113,22 +115,65 @@ export class MainComponent implements OnInit, AfterViewInit {
     this.textFilter.set(filterValue.trim());
   }
 
-  onRowClicked(row: UnifiedTrip) {
-    // Do nothing if the trip is not actionable (i.e., it's a charge or already confirmed)
-    if (!row.isActionable || !row.chargeableEvent) {
+  onRowClicked(trip: UnifiedTrip) {
+    // If the trip is actionable, open the dialog to create a charge from the visit.
+    if (trip.isActionable && trip.chargeableEvent) {
+      this.openCreateFromVisitDialog(trip);
       return;
     }
 
+    // If the trip is NOT actionable (it's a confirmed charge), check if the user can edit it.
+    if (!trip.isActionable && this.isOwnTrip(trip)) {
+      this.handleEditConfirmedTrip(trip);
+    }
+  }
+
+  isOwnTrip(trip: UnifiedTrip): boolean {
+    const currentUser = this.authService.currentUserSig();
+    return !!currentUser && currentUser.displayName === trip.pilot;
+  }
+
+  private openCreateFromVisitDialog(trip: UnifiedTrip): void {
     const dialogRef = this.dialog.open(CreateChargeDialogComponent, {
       width: 'clamp(300px, 80vw, 600px)',
       data: {
         mode: 'fromVisit',
-        event: row.chargeableEvent
+        event: trip.chargeableEvent
       },
     });
 
     dialogRef.afterClosed().subscribe((result) => {
-      // If the dialog returns 'success', it means a charge was created, so we refresh the table
+      if (result === 'success') {
+        this.loadTrips();
+      }
+    });
+  }
+
+  private handleEditConfirmedTrip(trip: UnifiedTrip): void {
+    const confirmDialogRef = this.dialog.open(ConfirmationDialogComponent, {
+      data: {
+        title: 'Confirm Edit',
+        message: 'Are you sure you want to edit this confirmed trip? This will overwrite the existing record.'
+      }
+    });
+
+    confirmDialogRef.afterClosed().subscribe(confirmed => {
+      if (confirmed) {
+        this.openEditTripDialog(trip);
+      }
+    });
+  }
+
+  private openEditTripDialog(trip: UnifiedTrip): void {
+    const editDialogRef = this.dialog.open(CreateChargeDialogComponent, {
+      width: 'clamp(300px, 80vw, 600px)',
+      data: {
+        mode: 'editCharge',
+        charge: trip // The dialog is configured to accept this structure for editing
+      }
+    });
+
+    editDialogRef.afterClosed().subscribe(result => {
       if (result === 'success') {
         this.loadTrips();
       }
@@ -145,7 +190,7 @@ export class MainComponent implements OnInit, AfterViewInit {
     dialogRef.afterClosed().subscribe(result => {
       // If the dialog returns 'success', it means a standalone charge was created.
       if (result === 'success') {
-        this.router.navigate(['/charges']);
+        this.loadTrips();
       }
     });
   }
@@ -156,5 +201,44 @@ export class MainComponent implements OnInit, AfterViewInit {
 
   onPilotFilterChange(newFilter: 'All' | 'My') {
     this.pilotFilter.set(newFilter);
+  }
+
+  exportConfirmedTripsToCsv(): void {
+    // Get trips from the computed signal (respects all active filters)
+    const currentTrips = this.filteredTrips();
+
+    // Filter this list further to get only confirmed trips (!isActionable)
+    const confirmedTrips = currentTrips.filter(trip => !trip.isActionable);
+
+    if (confirmedTrips.length === 0) {
+      alert('There are no confirmed trips to export with the current filters.');
+      return;
+    }
+
+    // Map the data to a new structure with the desired headers and formatted values.
+    const dataForCsv = confirmedTrips.map(trip => ({
+      'Timestamp': this.datePipe.transform(trip.updateTime, 'dd-MM-yy HH:mm:ss'),
+      'Ship': trip.ship,
+      'GT': trip.gt,
+      'Date': this.datePipe.transform(trip.boarding, 'dd/MM/yy'),
+      'In / Out': trip.typeTrip,
+      'To/From': trip.port,
+      'Late Order / Detention /Anchoring etc': trip.extra,
+      'Pilot': trip.pilot,
+      'Note': trip.note,
+    }));
+
+    // Use PapaParse to convert JSON to CSV
+    const csv = Papa.unparse(dataForCsv);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    const filename = `confirmed_trips_${this.datePipe.transform(new Date(), 'yyyy-MM-dd')}.csv`;
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 }

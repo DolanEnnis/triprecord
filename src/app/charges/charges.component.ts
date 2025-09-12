@@ -15,7 +15,7 @@ import { Charge } from '../models/trip.model';
 import { AuthService } from '../auth/auth';
 import { ConfirmationDialogComponent } from '../shared/confirmation-dialog/confirmation-dialog.component';
 import { CreateChargeDialogComponent } from '../create-charge-dialog/create-charge-dialog.component';
-
+//TODO delete this component
 @Component({
   selector: 'app-charges',
   standalone: true,

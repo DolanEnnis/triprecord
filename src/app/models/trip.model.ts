@@ -59,6 +59,7 @@ export type Charge = Omit<ChargeableEvent, 'visitDocId' | 'tripDirection' | 'boa
 
 /** A unified model representing an entry from either visits or charges. */
 export interface UnifiedTrip {
+  id?: string; // Firestore document ID, only for trips from 'charges'
   // Common fields
   ship: string;
   gt: number;
