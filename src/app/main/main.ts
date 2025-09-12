@@ -3,9 +3,9 @@ import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { DataService } from '../services/data.service';
 import { Router } from '@angular/router';
 import { AuthService } from '../auth/auth';
-import { ChargeableEvent } from '../models/trip.model';
+import { UnifiedTrip } from '../models/trip.model';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { CreateChargeDialogComponent } from '../create-charge-dialog/create-charge-dialog';
+import { CreateChargeDialogComponent } from '../create-charge-dialog/create-charge-dialog.component';
 import { CommonModule } from '@angular/common';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -16,6 +16,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatPaginatorModule } from '@angular/material/paginator';
 
 @Component({
   selector: 'app-main',
@@ -33,6 +34,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     MatNativeDateModule,
     MatButtonToggleModule,
     MatTooltipModule,
+    MatPaginatorModule,
   ],
   templateUrl: './main.html',
   styleUrl: './main.css',
@@ -43,11 +45,11 @@ export class MainComponent implements OnInit, AfterViewInit {
   private readonly router = inject(Router);
   private readonly authService = inject(AuthService);
 
-  displayedColumns: string[] = ['boarding', 'ship', 'gt', 'port', 'pilot', 'typeTrip', 'note', 'extra'];
-  dataSource = new MatTableDataSource<ChargeableEvent>();
+  displayedColumns: string[] = ['boarding', 'ship', 'pilot', 'typeTrip', 'port', 'metadata'];
+  dataSource = new MatTableDataSource<UnifiedTrip>();
 
   // Source signal for all trips from the service
-  allTrips: WritableSignal<ChargeableEvent[]> = signal([]);
+  allTrips: WritableSignal<UnifiedTrip[]> = signal([]);
 
   // Signals for filtering criteria
   directionFilter = signal<'All' | 'In' | 'Out'>('All');
@@ -78,7 +80,7 @@ export class MainComponent implements OnInit, AfterViewInit {
       return filtered;
     }
     return filtered.filter(trip => {
-      const searchStr = `${trip.ship} ${trip.gt} ${trip.port} ${trip.pilot} ${trip.note} ${trip.extra}`.toLowerCase();
+      const searchStr = `${trip.ship} ${trip.gt} ${trip.port} ${trip.pilot} ${trip.note} ${trip.extra} ${trip.updatedBy}`.toLowerCase();
       return searchStr.includes(text);
     });
   });
@@ -101,7 +103,7 @@ export class MainComponent implements OnInit, AfterViewInit {
   }
 
   loadTrips(): void {
-    this.dataService.getRecentTrips().subscribe((trips) => {
+    this.dataService.getUnifiedTripLog().subscribe((trips) => {
       this.allTrips.set(trips);
     });
   }
@@ -111,15 +113,18 @@ export class MainComponent implements OnInit, AfterViewInit {
     this.textFilter.set(filterValue.trim());
   }
 
-  onRowClicked(row: ChargeableEvent) {
-    // Do nothing if the trip is already confirmed
-    if (row.isConfirmed) {
+  onRowClicked(row: UnifiedTrip) {
+    // Do nothing if the trip is not actionable (i.e., it's a charge or already confirmed)
+    if (!row.isActionable || !row.chargeableEvent) {
       return;
     }
 
     const dialogRef = this.dialog.open(CreateChargeDialogComponent, {
       width: 'clamp(300px, 80vw, 600px)',
-      data: row, // Pass the clicked trip's data to the dialog
+      data: {
+        mode: 'fromVisit',
+        event: row.chargeableEvent
+      },
     });
 
     dialogRef.afterClosed().subscribe((result) => {

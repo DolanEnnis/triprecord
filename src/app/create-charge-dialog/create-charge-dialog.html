@@ -4,7 +4,12 @@
   <div class="form-grid">
     <mat-form-field>
       <mat-label>Ship</mat-label>
-      <input matInput formControlName="ship">
+      <input matInput formControlName="ship" [matAutocomplete]="autoShip">
+      <mat-autocomplete #autoShip="matAutocomplete" (optionSelected)="onShipSelected($event)">
+        @for (ship of filteredShips$ | async; track ship.ship) {
+          <mat-option [value]="ship">{{ ship.ship }}</mat-option>
+        }
+      </mat-autocomplete>
     </mat-form-field>
 
     <mat-form-field>
@@ -14,7 +19,7 @@
 
     <mat-form-field>
       <mat-label>Boarding Date</mat-label>
-      <input matInput [matDatepicker]="picker" formControlName="boarding">
+      <input matInput [matDatepicker]="picker" formControlName="boarding" [max]="maxDate">
       <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
       <mat-datepicker #picker></mat-datepicker>
     </mat-form-field>

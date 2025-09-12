@@ -26,3 +26,16 @@
 .table-container {
   overflow: auto;
 }
+
+.small-font-cell {
+  font-size: 0.8em;
+  color: #616161; /* A slightly lighter gray for metadata */
+}
+
+.editable-row {
+  cursor: pointer;
+}
+
+.editable-row:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}

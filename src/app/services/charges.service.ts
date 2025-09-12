@@ -24,6 +24,7 @@ export class ChargesService {
     const q = query(
       chargesRef,
       where('boarding', '>=', sixtyDaysAgoTimestamp),
+      where('boarding', '<=', Timestamp.now()), // Exclude future-dated charges
       orderBy('boarding', 'desc')
     );
 
@@ -48,6 +49,8 @@ export class ChargesService {
             extra: data['extra'],
             boarding: boardingDate,
             updateTime: updateDate,
+            createdBy: data['createdBy'] || '',
+            createdById: data['createdById'] || '',
           };
         })
       )

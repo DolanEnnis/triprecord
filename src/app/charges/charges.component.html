@@ -71,12 +71,12 @@
 
         <!-- Update Time Column -->
         <ng-container matColumnDef="updateTime">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header>Updated</th>
-          <td mat-cell *matCellDef="let element">{{ element.updateTime | date:'dd-MM-yy HH:mm' }}</td>
+          <th mat-header-cell *matHeaderCellDef mat-sort-header class="small-font-cell">Updated</th>
+          <td mat-cell *matCellDef="let element" class="small-font-cell">{{ element.updateTime | date:'dd-MM-yy HH:mm' }}</td>
         </ng-container>
 
         <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;" (click)="onRowClicked(row)" [ngClass]="{'editable-row': isOwnCharge(row)}"></tr>
 
         <tr class="mat-row" *matNoDataRow>
           <td class="mat-cell" [attr.colspan]="displayedColumns.length">

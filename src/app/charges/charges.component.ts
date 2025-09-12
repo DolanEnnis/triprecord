@@ -1,6 +1,5 @@
-import { AfterViewInit, Component, effect, inject, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, effect, inject, OnInit, signal, ViewChild } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatButtonModule } from '@angular/material/button';
@@ -9,10 +8,13 @@ import { MatSort, MatSortModule } from '@angular/material/sort';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import * as Papa from 'papaparse';
-//import { Timestamp } from '@angular/fire/firestore';
+import { MatDialog } from '@angular/material/dialog';
 
 import { ChargesService } from '../services/charges.service';
 import { Charge } from '../models/trip.model';
+import { AuthService } from '../auth/auth';
+import { ConfirmationDialogComponent } from '../shared/confirmation-dialog/confirmation-dialog.component';
+import { CreateChargeDialogComponent } from '../create-charge-dialog/create-charge-dialog.component';
 
 @Component({
   selector: 'app-charges',
@@ -32,12 +34,13 @@ import { Charge } from '../models/trip.model';
   styleUrls: ['./charges.component.css'],
   providers: [DatePipe], // Add DatePipe to make it injectable
 })
-export class ChargesComponent implements AfterViewInit {
+export class ChargesComponent implements OnInit, AfterViewInit {
   private chargesService = inject(ChargesService);
   private datePipe = inject(DatePipe);
+  readonly authService = inject(AuthService);
+  private readonly dialog = inject(MatDialog);
 
-  // Fetch the raw data from the service as a signal.
-  readonly charges = toSignal(this.chargesService.getRecentCharges());
+  readonly charges = signal<Charge[] | undefined>(undefined);
 
   // Use MatTableDataSource for advanced features like sorting and filtering.
   readonly dataSource = new MatTableDataSource<Charge>();
@@ -52,8 +55,8 @@ export class ChargesComponent implements AfterViewInit {
     'typeTrip',
     'port',
     'extra',
-    'note',
     'pilot',
+    'note',
     'updateTime',
   ];
 
@@ -95,8 +98,58 @@ export class ChargesComponent implements AfterViewInit {
     this.dataSource.filter = filterValue.trim().toLowerCase();
   }
 
+  ngOnInit(): void {
+    this.loadCharges();
+  }
+
   ngAfterViewInit(): void {
     this.dataSource.sort = this.sort;
+  }
+
+  loadCharges(): void {
+    this.chargesService.getRecentCharges().subscribe(data => {
+      this.charges.set(data);
+    });
+  }
+
+  isOwnCharge(charge: Charge): boolean {
+    const currentUser = this.authService.currentUserSig();
+    return !!currentUser && currentUser.displayName === charge.pilot;
+  }
+
+  onRowClicked(charge: Charge): void {
+    if (!this.isOwnCharge(charge)) {
+      return;
+    }
+
+    const confirmDialogRef = this.dialog.open(ConfirmationDialogComponent, {
+      data: {
+        title: 'Confirm Edit',
+        message: 'Are you sure you want to edit this confirmed charge? This will overwrite the existing record.'
+      }
+    });
+
+    confirmDialogRef.afterClosed().subscribe(confirmed => {
+      if (confirmed) {
+        this.openEditChargeDialog(charge);
+      }
+    });
+  }
+
+  private openEditChargeDialog(charge: Charge): void {
+    const editDialogRef = this.dialog.open(CreateChargeDialogComponent, {
+      width: 'clamp(300px, 80vw, 600px)',
+      data: {
+        mode: 'editCharge',
+        charge: charge
+      }
+    });
+
+    editDialogRef.afterClosed().subscribe(result => {
+      if (result === 'success') {
+        this.loadCharges();
+      }
+    });
   }
 
   downloadCsv(): void {

@@ -3,6 +3,7 @@ import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { MatDialog } from '@angular/material/dialog';
 import { of } from 'rxjs';
 import { DataService } from '../services/data.service';
+import { Router } from '@angular/router';
 import { AuthService } from '../auth/auth';
 
 import { MainComponent } from './main';
@@ -13,7 +14,7 @@ describe('MainComponent', () => {
 
   beforeEach(async () => {
     const dataServiceMock = {
-      getRecentTrips: () => of([]),
+      getUnifiedTripLog: () => of([]),
     };
     const authServiceMock = {
       currentUserSig: () => null,
@@ -24,6 +25,7 @@ describe('MainComponent', () => {
       providers: [
         { provide: DataService, useValue: dataServiceMock },
         { provide: AuthService, useValue: authServiceMock },
+        { provide: Router, useValue: { navigate: () => {} } },
         { provide: MatDialog, useValue: {} },
       ],
     }).compileComponents();

@@ -2,10 +2,11 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { DataService } from '../services/data.service';
+import { of } from 'rxjs';
 import { AuthService } from '../auth/auth';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { CreateChargeDialogComponent } from './create-charge-dialog';
+import { CreateChargeDialogComponent } from './create-charge-dialog.component';
 
 describe('CreateChargeDialogComponent', () => {
   let component: CreateChargeDialogComponent;
@@ -17,6 +18,8 @@ describe('CreateChargeDialogComponent', () => {
       createChargeAndUpdateVisit: () => Promise.resolve(),
       doesChargeExist: () => Promise.resolve(false),
       createStandaloneCharge: () => Promise.resolve(),
+      updateCharge: () => Promise.resolve(),
+      getShipSuggestions: () => of([]),
     };
     const authServiceMock = {
       currentUserSig: () => null,

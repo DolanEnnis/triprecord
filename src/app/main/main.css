@@ -84,3 +84,11 @@
   background-color: #4CAF50; /* A standard Material Design green */
   border-radius: 28px; /* Explicitly set for a fully rounded pill shape */
 }
+
+.metadata-cell {
+  font-size: 0.8em;
+  color: #616161;
+  line-height: 1.3;
+  text-align: right;
+  white-space: nowrap;
+}
