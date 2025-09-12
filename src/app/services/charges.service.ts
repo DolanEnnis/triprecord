@@ -9,7 +9,7 @@ import {
   orderBy,
 } from '@angular/fire/firestore';
 import { from, map, Observable } from 'rxjs';
-import { Charge } from '../charges/charges.types';
+import { Charge } from '../models/trip.model';
 
 @Injectable({ providedIn: 'root' })
 export class ChargesService {

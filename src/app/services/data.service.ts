@@ -89,13 +89,21 @@ export class DataService {
     const trip = visit[direction]!; // Non-null assertion is safe due to prior check
     const isConfirmed = direction === 'inward' ? visit.inwardConfirmed === true : visit.outwardConfirmed === true;
 
+    // A map to handle pilot name replacements. This is a good place for data cleaning.
+    const pilotNameMap: { [key: string]: string } = {
+      'Fergal': 'WMcN',
+      'Fintan': 'Matt',
+    };
+    const originalPilot = trip.pilot || '';
+    const pilotName = pilotNameMap[originalPilot] || originalPilot;
+
     return {
       visitDocId: visit.docid,
       ship: visit.ship,
       gt: visit.gt,
       boarding: trip.boarding.toDate(), // Convert Firestore Timestamp to JS Date
       port: trip.port,
-      pilot: trip.pilot,
+      pilot: pilotName,
       typeTrip: trip.typeTrip,
       note: trip.note || '',
       extra: trip.extra || '',

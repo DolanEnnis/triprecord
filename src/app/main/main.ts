@@ -45,7 +45,7 @@ export class MainComponent implements OnInit, AfterViewInit {
 
   // Signals for filtering criteria
   directionFilter = signal<'All' | 'In' | 'Out'>('All');
-  pilotFilter = signal<'All' | 'My'>('All');
+  pilotFilter = signal<'All' | 'My'>('My');
   textFilter = signal<string>('');
 
   // A computed signal that automatically filters the trips whenever a dependency changes

@@ -9,6 +9,8 @@
       <input matInput (keyup)="applyFilter($event)" placeholder="Search by ship, port, pilot..." #input>
     </mat-form-field>
 
+    <div class="spacer"></div>
+
     <mat-button-toggle-group [value]="directionFilter()" (valueChange)="onDirectionChange($event)" aria-label="Filter by direction">
       <mat-button-toggle value="All">All</mat-button-toggle>
       <mat-button-toggle value="In">In</mat-button-toggle>

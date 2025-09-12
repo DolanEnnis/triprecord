@@ -47,4 +47,4 @@ export interface ChargeableEvent {
 }
 
 /** Represents a charge document in your 'charges' collection. */
-export type Charge = Omit<ChargeableEvent, 'visitDocId' | 'tripDirection' | 'boarding' | 'isConfirmed'> & { boarding: Date | Timestamp, updateTime: Timestamp };
+export type Charge = Omit<ChargeableEvent, 'visitDocId' | 'tripDirection' | 'boarding' | 'isConfirmed'> & { id?: string, boarding: Date | Timestamp, updateTime: Timestamp };
