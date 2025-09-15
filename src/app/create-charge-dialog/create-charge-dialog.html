@@ -7,7 +7,7 @@
       <input matInput formControlName="ship" [matAutocomplete]="autoShip">
       <mat-autocomplete #autoShip="matAutocomplete" (optionSelected)="onShipSelected($event)">
         @for (ship of filteredShips$ | async; track ship.ship) {
-          <mat-option [value]="ship">{{ ship.ship }}</mat-option>
+          <mat-option [value]="ship.ship">{{ ship.ship }}</mat-option>
         }
       </mat-autocomplete>
     </mat-form-field>
@@ -54,12 +54,17 @@
 
     <mat-form-field class="full-width">
       <mat-label>Note</mat-label>
-      <textarea matInput formControlName="note"></textarea>
+      <textarea matInput formControlName="sailingNote"></textarea>
     </mat-form-field>
   </div>
 </div>
 
 <div mat-dialog-actions align="end">
+  @if (mode === 'editCharge') {
+    <button mat-stroked-button color="warn" (click)="onDelete()" [disabled]="isSaving" style="margin-right: auto;">
+      Delete
+    </button>
+  }
   <button mat-button (click)="onCancel()" [disabled]="isSaving">Cancel</button>
   <button mat-flat-button color="primary" (click)="onSave()" [disabled]="form.invalid || isSaving">
     @if (isSaving) {

@@ -3,17 +3,19 @@ import {
   addDoc,
   collection,
   collectionData,
+  deleteDoc,
   doc,
   Firestore,
   query,
   getDocs,
+  orderBy,
   serverTimestamp,
+  Timestamp,
   updateDoc,
   where,
 } from '@angular/fire/firestore';
 import { combineLatest, from, map, Observable, of } from 'rxjs';
 import { Charge, ChargeableEvent, UnifiedTrip, Visit } from '../models/trip.model';
-import { ChargesService } from './charges.service';
 import { AuthService } from '../auth/auth';
 
 @Injectable({
@@ -22,7 +24,6 @@ import { AuthService } from '../auth/auth';
 export class DataService {
   private readonly firestore: Firestore = inject(Firestore);
   private readonly authService: AuthService = inject(AuthService);
-  private readonly chargesService: ChargesService = inject(ChargesService);
   private readonly injector = inject(Injector);
 
   /**
@@ -55,7 +56,7 @@ export class DataService {
 
   getUnifiedTripLog(): Observable<UnifiedTrip[]> {
     return runInInjectionContext(this.injector, () => {
-      const recentCharges$ = this.chargesService.getRecentCharges();
+      const recentCharges$ = this.getRecentCharges();
 
       const visitsCollection = collection(this.firestore, 'visits');
       const threeMonthsAgo = new Date();
@@ -73,7 +74,8 @@ export class DataService {
             port: charge.port,
             pilot: charge.pilot,
             typeTrip: charge.typeTrip,
-            note: charge.note || '',
+            // Handle legacy `note` field and new `sailingNote` field from charges.
+            sailingNote: (charge as any).sailingNote || (charge as any).note || '',
             extra: charge.extra || '',
             source: 'Charge' as const,
             updatedBy: charge.createdBy || 'N/A',
@@ -90,7 +92,14 @@ export class DataService {
               // We only care about trips that have happened.
               if (trip && trip.boarding && !isConfirmed && trip.boarding.toDate() <= today) {
                 const event = this.createChargeableEvent(visit, direction);
-                visitsAsUnified.push({ ...event, source: 'Visit', updatedBy: visit['updatedBy'] || 'N/A', updateTime: new Date(visit['updateTime']), isActionable: true, chargeableEvent: event });
+                visitsAsUnified.push({
+                  ...event,
+                  source: 'Visit',
+                  updatedBy: visit['updatedBy'] || 'N/A',
+                  // The updateTime from a visit might not exist, provide a fallback.
+                  updateTime: visit['updateTime'] ? new Date(visit['updateTime']) : new Date(),
+                  isActionable: true,
+                  chargeableEvent: event });
               }
             };
             processVisitLeg('inward');
@@ -105,6 +114,53 @@ export class DataService {
   }
 
   /**
+   * Fetches charge documents from the last 60 days.
+   * This logic was merged from the former ChargesService.
+   */
+  private getRecentCharges(): Observable<Charge[]> {
+    const sixtyDaysAgo = new Date();
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+    const sixtyDaysAgoTimestamp = Timestamp.fromDate(sixtyDaysAgo);
+
+    const chargesRef = collection(this.firestore, 'charges');
+    const q = query(
+      chargesRef,
+      where('boarding', '>=', sixtyDaysAgoTimestamp),
+      where('boarding', '<=', Timestamp.now()), // Exclude future-dated charges
+      orderBy('boarding', 'desc')
+    );
+
+    return from(getDocs(q)).pipe(
+      map((snapshot) =>
+        snapshot.docs.map((doc): Charge => {
+          const data = doc.data();
+          // Manually construct the Charge object, converting Timestamps to Dates. We include a
+          // check for the existence of the .toDate method to handle potential data
+          // inconsistencies where a field might not be a Firestore Timestamp.
+          const boardingDate = data['boarding'] && typeof data['boarding'].toDate === 'function' ? data['boarding'].toDate() : new Date();
+          const updateDate = data['updateTime'] && typeof data['updateTime'].toDate === 'function' ? data['updateTime'].toDate() : new Date();
+
+          return {
+            id: doc.id,
+            ship: data['ship'],
+            gt: data['gt'],
+            port: data['port'],
+            pilot: data['pilot'],
+            typeTrip: data['typeTrip'],
+            // Handle legacy `note` field and new `sailingNote` field for backward compatibility.
+            sailingNote: data['sailingNote'] || data['note'] || '',
+            extra: data['extra'],
+            boarding: boardingDate,
+            updateTime: updateDate,
+            createdBy: data['createdBy'] || '',
+            createdById: data['createdById'] || '',
+          };
+        })
+      )
+    );
+  }
+
+  /**
    * Creates a new document in the 'charges' collection and updates the
    * corresponding 'visits' document to mark the trip as confirmed.
    * @param chargeData - The data for the new charge, from the form.
@@ -116,19 +172,21 @@ export class DataService {
     visitDocId: string,
     tripDirection: 'inward' | 'outward'
   ) {
-    // 1. Add a new document to 'charges' collection with a server-generated timestamp.
-    const chargesCollection = collection(this.firestore, 'charges');
-    await addDoc(chargesCollection, {
-      ...chargeData,
-      updateTime: serverTimestamp(),
-      createdBy: this.authService.currentUserSig()?.displayName || 'Unknown',
-      createdById: this.authService.currentUserSig()?.uid || 'Unknown',
-    });
+    return runInInjectionContext(this.injector, async () => {
+      // 1. Add a new document to 'charges' collection with a server-generated timestamp.
+      const chargesCollection = collection(this.firestore, 'charges');
+      await addDoc(chargesCollection, {
+        ...chargeData,
+        updateTime: serverTimestamp(),
+        createdBy: this.authService.currentUserSig()?.displayName || 'Unknown',
+        createdById: this.authService.currentUserSig()?.uid || 'Unknown',
+      });
 
-    // 2. Update the original visit document to confirm the trip.
-    const visitDocRef = doc(this.firestore, `visits/${visitDocId}`);
-    const updateData = tripDirection === 'inward' ? { inwardConfirmed: true } : { outwardConfirmed: true };
-    await updateDoc(visitDocRef, updateData);
+      // 2. Update the original visit document to confirm the trip.
+      const visitDocRef = doc(this.firestore, `visits/${visitDocId}`);
+      const updateData = tripDirection === 'inward' ? { inwardConfirmed: true } : { outwardConfirmed: true };
+      await updateDoc(visitDocRef, updateData);
+    });
   }
 
   /**
@@ -136,14 +194,16 @@ export class DataService {
    * @param chargeData - The data for the new charge, from the form.
    */
   async createStandaloneCharge(chargeData: Omit<Charge, 'updateTime' | 'createdBy' | 'createdById'>): Promise<void> {
-    const chargesCollection = collection(this.firestore, 'charges');
-    const newCharge = {
-      ...chargeData,
-      updateTime: serverTimestamp(),
-      createdBy: this.authService.currentUserSig()?.displayName || 'Unknown',
-      createdById: this.authService.currentUserSig()?.uid || 'Unknown',
-    };
-    await addDoc(chargesCollection, newCharge);
+    return runInInjectionContext(this.injector, async () => {
+      const chargesCollection = collection(this.firestore, 'charges');
+      const newCharge = {
+        ...chargeData,
+        updateTime: serverTimestamp(),
+        createdBy: this.authService.currentUserSig()?.displayName || 'Unknown',
+        createdById: this.authService.currentUserSig()?.uid || 'Unknown',
+      };
+      await addDoc(chargesCollection, newCharge);
+    });
   }
 
   /**
@@ -152,13 +212,26 @@ export class DataService {
    * @param chargeData The new data for the charge.
    */
   async updateCharge(chargeId: string, chargeData: Partial<Charge>): Promise<void> {
-    const chargeDocRef = doc(this.firestore, `charges/${chargeId}`);
-    await updateDoc(chargeDocRef, {
-      ...chargeData,
-      // Overwrite updateTime and the 'by' fields on every edit.
-      updateTime: serverTimestamp(),
-      createdBy: this.authService.currentUserSig()?.displayName || 'Unknown',
-      createdById: this.authService.currentUserSig()?.uid || 'Unknown',
+    return runInInjectionContext(this.injector, async () => {
+      const chargeDocRef = doc(this.firestore, `charges/${chargeId}`);
+      await updateDoc(chargeDocRef, {
+        ...chargeData,
+        // Overwrite updateTime and the 'by' fields on every edit.
+        updateTime: serverTimestamp(),
+        createdBy: this.authService.currentUserSig()?.displayName || 'Unknown',
+        createdById: this.authService.currentUserSig()?.uid || 'Unknown',
+      });
+    });
+  }
+
+  /**
+   * Deletes a charge document from Firestore.
+   * @param chargeId The ID of the charge document to delete.
+   */
+  async deleteCharge(chargeId: string): Promise<void> {
+    return runInInjectionContext(this.injector, async () => {
+      const chargeDocRef = doc(this.firestore, `charges/${chargeId}`);
+      await deleteDoc(chargeDocRef);
     });
   }
 
@@ -167,27 +240,29 @@ export class DataService {
    * @param chargeData The core fields of the charge to check for.
    */
   async doesChargeExist(chargeData: { ship: string; boarding: Date; typeTrip: string }): Promise<boolean> {
-    const chargesCollection = collection(this.firestore, 'charges');
+    return runInInjectionContext(this.injector, async () => {
+      const chargesCollection = collection(this.firestore, 'charges');
 
-    // To check for duplicates on the same day, we create a date range for the query.
-    const startOfDay = new Date(chargeData.boarding);
-    startOfDay.setHours(0, 0, 0, 0);
+      // To check for duplicates on the same day, we create a date range for the query.
+      const startOfDay = new Date(chargeData.boarding);
+      startOfDay.setHours(0, 0, 0, 0);
 
-    const endOfDay = new Date(chargeData.boarding);
-    endOfDay.setHours(23, 59, 59, 999);
+      const endOfDay = new Date(chargeData.boarding);
+      endOfDay.setHours(23, 59, 59, 999);
 
-    // NOTE: This query requires a composite index in Firestore.
-    // The browser console will log an error with a link to create it automatically.
-    const q = query(
-      chargesCollection,
-      where('ship', '==', chargeData.ship),
-      where('typeTrip', '==', chargeData.typeTrip),
-      where('boarding', '>=', startOfDay),
-      where('boarding', '<=', endOfDay)
-    );
+      // NOTE: This query requires a composite index in Firestore.
+      // The browser console will log an error with a link to create it automatically.
+      const q = query(
+        chargesCollection,
+        where('ship', '==', chargeData.ship),
+        where('typeTrip', '==', chargeData.typeTrip),
+        where('boarding', '>=', startOfDay),
+        where('boarding', '<=', endOfDay)
+      );
 
-    const querySnapshot = await getDocs(q);
-    return !querySnapshot.empty;
+      const querySnapshot = await getDocs(q);
+      return !querySnapshot.empty;
+    });
   }
 
   /**
@@ -250,7 +325,7 @@ export class DataService {
       port: trip.port,
       pilot: pilotName,
       typeTrip: trip.typeTrip,
-      note: trip.note || '',
+      sailingNote: '', // This is for user input about the sailing, starts empty.
       extra: trip.extra || '',
       tripDirection: direction,
       isConfirmed: isConfirmed,

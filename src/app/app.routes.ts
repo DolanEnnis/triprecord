@@ -12,11 +12,7 @@ export const routes: Routes = [
     canActivate: [roleGuard]
   },
 
-  {
-    path: 'charges',
-    loadComponent: () => import("./charges/charges.component").then(c => c.ChargesComponent),
-    canActivate: [roleGuard]
-  },
+
   // Group authentication-related routes under the 'auth' path.
   {
     path: 'auth',

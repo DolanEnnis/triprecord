@@ -47,7 +47,7 @@ export class MainComponent implements OnInit, AfterViewInit {
   private readonly authService = inject(AuthService);
   private readonly datePipe = inject(DatePipe);
 
-  displayedColumns: string[] = ['ship', 'gt', 'boarding', 'typeTrip', 'port', 'extra', 'pilot', 'note', 'metadata'];
+  displayedColumns: string[] = ['ship', 'gt', 'boarding', 'typeTrip', 'port', 'extra', 'pilot', 'sailingNote', 'metadata'];
   dataSource = new MatTableDataSource<UnifiedTrip>();
 
   // Source signal for all trips from the service
@@ -82,7 +82,7 @@ export class MainComponent implements OnInit, AfterViewInit {
       return filtered;
     }
     return filtered.filter(trip => {
-      const searchStr = `${trip.ship} ${trip.gt} ${trip.port} ${trip.pilot} ${trip.note} ${trip.extra} ${trip.updatedBy}`.toLowerCase();
+      const searchStr = `${trip.ship} ${trip.gt} ${trip.port} ${trip.pilot} ${trip.sailingNote} ${trip.extra} ${trip.updatedBy}`.toLowerCase();
       return searchStr.includes(text);
     });
   });
@@ -174,7 +174,7 @@ export class MainComponent implements OnInit, AfterViewInit {
     });
 
     editDialogRef.afterClosed().subscribe(result => {
-      if (result === 'success') {
+      if (result === 'success' || result === 'deleted') {
         this.loadTrips();
       }
     });
@@ -225,7 +225,7 @@ export class MainComponent implements OnInit, AfterViewInit {
       'To/From': trip.port,
       'Late Order / Detention /Anchoring etc': trip.extra,
       'Pilot': trip.pilot,
-      'Note': trip.note,
+      'Note': trip.sailingNote,
     }));
 
     // Use PapaParse to convert JSON to CSV

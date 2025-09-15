@@ -72,9 +72,9 @@
         </ng-container>
 
         <!-- Note Column -->
-        <ng-container matColumnDef="note">
+        <ng-container matColumnDef="sailingNote">
           <th mat-header-cell *matHeaderCellDef>Note</th>
-          <td mat-cell *matCellDef="let element">{{ element.note }}</td>
+          <td mat-cell *matCellDef="let element">{{ element.sailingNote }}</td>
         </ng-container>
 
         <!-- Update Time Column -->
@@ -108,5 +108,5 @@
 
 <button mat-extended-fab color="accent" class="fab-add-charge" (click)="openNewChargeDialog()" matTooltip="Create a new Trip from scratch">
   <mat-icon>add</mat-icon>
-  New Trip
+  <span>New Trip</span>
 </button>

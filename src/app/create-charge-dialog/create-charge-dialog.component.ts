@@ -1,6 +1,6 @@
 import { Component, inject, Inject, OnInit, Optional } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { DataService } from '../services/data.service';
 import { AuthService } from '../auth/auth';
 import { Charge, ChargeableEvent, Port } from '../models/trip.model';
@@ -15,7 +15,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { DateAdapter, MatNativeDateModule } from '@angular/material/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Observable, of } from 'rxjs';
-import { debounceTime, distinctUntilChanged, startWith, switchMap } from 'rxjs/operators';
+import { debounceTime, distinctUntilChanged, startWith, switchMap, tap } from 'rxjs/operators';
+import { ConfirmationDialogComponent } from '../shared/confirmation-dialog/confirmation-dialog.component';
 
 export type ChargeDialogData = { mode: 'fromVisit', event: ChargeableEvent } | { mode: 'editCharge', charge: Charge } | null;
 
@@ -45,6 +46,7 @@ export class CreateChargeDialogComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialogRef = inject(MatDialogRef<CreateChargeDialogComponent>);
+  private readonly dialog = inject(MatDialog);
 
   readonly mode: 'fromVisit' | 'editCharge' | 'new';
   private readonly eventToProcess: ChargeableEvent | null = null;
@@ -54,6 +56,7 @@ export class CreateChargeDialogComponent implements OnInit {
   form!: FormGroup;
   isSaving = false;
   filteredShips$!: Observable<{ ship: string, gt: number }[]>;
+  private shipSuggestions: { ship: string, gt: number }[] = [];
 
   readonly maxDate = new Date();
   readonly tripTypes = ['In', 'Out', 'Anchorage', 'Shift', 'Other'];
@@ -91,7 +94,7 @@ export class CreateChargeDialogComponent implements OnInit {
       port: [initialData?.port || null, Validators.required],
       pilot: [initialData?.pilot || currentUser?.displayName || '', Validators.required],
       typeTrip: [initialData?.typeTrip || '', Validators.required],
-      note: [initialData?.note || ''],
+      sailingNote: [initialData?.sailingNote || ''],
       extra: [initialData?.extra || ''],
     });
 
@@ -102,9 +105,12 @@ export class CreateChargeDialogComponent implements OnInit {
       switchMap(value => {
         // We only want to search if the user has typed a string of 2+ characters.
         if (typeof value === 'string' && value.length > 1) {
-          return this.dataService.getShipSuggestions(value);
+          return this.dataService.getShipSuggestions(value).pipe(
+            tap(suggestions => this.shipSuggestions = suggestions) // Store suggestions
+          );
         } else {
           // Otherwise, return an empty array of suggestions.
+          this.shipSuggestions = [];
           return of([]);
         }
       })
@@ -155,8 +161,9 @@ export class CreateChargeDialogComponent implements OnInit {
     try {
       await this.dataService.createStandaloneCharge(this.form.value);
       this.dialogRef.close('success');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating standalone charge:', error);
+      this.snackBar.open(`Error: ${error.message || 'Could not create trip.'}`, 'Close', { duration: 7000 });
       this.isSaving = false;
     }
   }
@@ -165,8 +172,9 @@ export class CreateChargeDialogComponent implements OnInit {
     try {
       await this.dataService.createChargeAndUpdateVisit(this.form.value, this.eventToProcess!.visitDocId, this.eventToProcess!.tripDirection);
       this.dialogRef.close('success');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating charge from visit:', error);
+      this.snackBar.open(`Error: ${error.message || 'Could not create trip from visit.'}`, 'Close', { duration: 7000 });
       this.isSaving = false;
     }
   }
@@ -175,8 +183,9 @@ export class CreateChargeDialogComponent implements OnInit {
     try {
       await this.dataService.updateCharge(this.chargeToEdit!.id!, this.form.value);
       this.dialogRef.close('success');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating charge:', error);
+      this.snackBar.open(`Error: ${error.message || 'Could not update trip.'}`, 'Close', { duration: 7000 });
       this.isSaving = false;
     }
   }
@@ -186,8 +195,38 @@ export class CreateChargeDialogComponent implements OnInit {
   }
 
   onShipSelected(event: MatAutocompleteSelectedEvent): void {
-    const selectedShip: { ship: string, gt: number } = event.option.value;
-    this.form.get('ship')?.setValue(selectedShip.ship);
-    this.form.get('gt')?.setValue(selectedShip.gt);
+    const selectedShipName: string = event.option.value;
+    const selectedShipObject = this.shipSuggestions.find(s => s.ship === selectedShipName);
+    if (selectedShipObject) {
+      // The ship name is already set by the autocomplete, we just need to set the GT.
+      this.form.get('gt')?.setValue(selectedShipObject.gt);
+    }
+  }
+
+  async onDelete(): Promise<void> {
+    if (!this.chargeToEdit?.id) {
+      return;
+    }
+
+    const confirmDialogRef = this.dialog.open(ConfirmationDialogComponent, {
+      data: {
+        title: 'Confirm Deletion',
+        message: 'Are you sure you want to permanently delete this charge? This action cannot be undone.'
+      }
+    });
+
+    confirmDialogRef.afterClosed().subscribe(async (confirmed) => {
+      if (confirmed) {
+        this.isSaving = true;
+        try {
+          await this.dataService.deleteCharge(this.chargeToEdit!.id!);
+          this.dialogRef.close('deleted');
+        } catch (error: any) {
+          console.error('Error deleting charge:', error);
+          this.snackBar.open(`Error: ${error.message || 'Could not delete trip.'}`, 'Close', { duration: 7000 });
+          this.isSaving = false;
+        }
+      }
+    });
   }
 }

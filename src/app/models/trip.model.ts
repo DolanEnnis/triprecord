@@ -11,7 +11,7 @@ export interface Trip {
   port?: Port | null;
   pilot: string;
   typeTrip: 'In' | 'Out' | 'Anchorage' | 'Shift'  | 'Other';
-  note?: string;
+  preTripNote?: string;
   extra?: string;
   [key: string]: any; // Allow other properties
 }
@@ -23,6 +23,7 @@ export interface Visit {
   docid: string;
   ship: string;
   gt: number;
+  shipnote?: string;
   inward?: Trip;
   outward?: Trip;
   inwardConfirmed?: boolean;
@@ -42,7 +43,7 @@ export interface ChargeableEvent {
   port?: Port | null;
   pilot: string;
   typeTrip: 'In' | 'Out' | 'Anchorage' | 'Shift'  | 'Other';
-  note: string;
+  sailingNote: string; // For comments on the sailing, entered by user.
   extra: string;
   tripDirection: 'inward' | 'outward';
   isConfirmed: boolean;
@@ -67,8 +68,8 @@ export interface UnifiedTrip {
   port?: Port | null;
   pilot: string;
   typeTrip: 'In' | 'Out' | 'Anchorage' | 'Shift' | 'Other';
-  note: string;
   extra: string;
+  sailingNote: string; // For comments on the sailing.
   // Metadata
   source: 'Visit' | 'Charge';
   updatedBy: string;
