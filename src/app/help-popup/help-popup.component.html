@@ -1,0 +1,30 @@
+<div class="help-backdrop" (click)="onClose()"></div>
+<div class="help-popup">
+  <div class="help-header">
+    <h2>How to use this page</h2>
+    <button mat-icon-button (click)="onClose()" matTooltip="Close help">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+  <div class="help-content">
+    <p>This page shows a list of recent trips.</p>
+
+    <p>Click on a row to see more details or perform actions.</p>
+    <ul>
+      <li>Rows in <span class="highlight-gray">gray</span> are confirmed trips.</li>
+      <li>Confirmed trips you have created can be edited by clicking on them.</li>
+      <li>Rows in <span class="highlight-white">white</span> are trips that have not been confirmed yet.</li>
+    </ul>
+    <p>The <button mat-flat-button disabled><mat-icon>add</mat-icon> New Trip</button> button allows you to create a new trip record from scratch.</p>
+    <p>The warnings in the note column are only advisory!</p>
+    <p>However check your trips for duplicates, spelling mistakes, or missing trips. </p>
+
+    <p>You can filter them using the controls at the top.</p>
+    <ul>
+      <li><b>Filter Trips:</b> Search for trips by ship, port, pilot, etc.</li>
+      <li><b>All/In/Out:</b> Filter trips by direction.</li>
+      <li><b>All Trips/My Trips:</b> Show all trips or only your own (and unassigned trips).</li>
+    </ul>
+    <p>The <button mat-stroked-button disabled><mat-icon>download</mat-icon> Export Confirmed</button> button allows you to export the currently visible confirmed trips to a CSV file.</p>
+  </div>
+</div>

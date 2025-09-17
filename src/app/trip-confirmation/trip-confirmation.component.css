@@ -1,8 +1,10 @@
-.main-container {
+.trip-confirmation-container {
   padding: 1.5rem;
 }
 
 .header {
+  display: flex;
+  align-items: center;
   margin-bottom: 1rem;
 }
 
@@ -87,7 +89,7 @@
 .fab-add-charge {
   position: fixed;
   bottom: 4rem; /* Increased to lift it above the 40px footer */
-  right: 2rem; 
+  right: 2rem;
   z-index: 100; /* Ensure it's above other content */
   /* Override theme's accent color for higher visibility */
   background-color: #4CAF50; /* A standard Material Design green */
@@ -106,4 +108,94 @@
   display: flex;
   justify-content: flex-end;
   padding: 1rem;
+}
+
+.data-warnings {
+  margin-bottom: 5px;
+}
+
+.warning-text {
+  color: red;
+  font-size: 0.85em;
+  font-style: italic;
+}
+
+.help-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+
+.help-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: white;
+  padding: 2rem;
+  border-radius: 8px;
+  z-index: 1001;
+  width: clamp(300px, 90vw, 800px);
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.help-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.help-header h2 {
+  margin: 0;
+}
+
+.help-content ul {
+  padding-left: 20px;
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.help-content li {
+  margin-bottom: 0.5rem;
+}
+
+.help-content .highlight-green {
+  background-color: #eeeeee;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.help-content .highlight-white {
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.help-content button {
+  vertical-align: middle;
+  margin: 0 4px;
+}
+
+/* Style the 'New Trip' button example to look like the FAB */
+.help-content p button[mat-flat-button] {
+  /* Use FAB color and shape */
+  background-color: #4CAF50;
+  border-radius: 28px;
+
+  /* Override disabled styles to make it look like the real button */
+  color: white;
+  opacity: 1;
+}
+
+/* The icon color should inherit, but we can be explicit */
+.help-content p button[mat-flat-button] mat-icon {
+  color: white;
 }

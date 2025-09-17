@@ -26,8 +26,8 @@ import { finalize } from 'rxjs';
     MatIconModule,
     MatSnackBarModule
   ],
-  templateUrl: './login.html',
-  styleUrl: './login.css'
+  templateUrl: './login.component.html',
+  styleUrl: './login.component.css'
 })
 export class LoginComponent {
   private readonly authService = inject(AuthService);
@@ -67,7 +67,7 @@ export class LoginComponent {
         // resolved the user's profile, preventing the race condition.
         next: (profile) => {
           if (profile) {
-            this.router.navigate(['/main']);
+            this.router.navigate(['/trip-confirmation']);
           } else {
             // This case is a fallback for unexpected errors during profile resolution.
             this.snackBar.open('Login succeeded, but failed to retrieve user profile.', 'Close', {

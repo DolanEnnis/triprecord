@@ -20,7 +20,7 @@
         <!-- A signal must be called as a function: isAuthenticated() -->
         @if (authService.isAuthenticated()) {
           @if(authService.isPrivilegedUser()) {
-            <li><a routerLink="/main">Main</a></li>
+            <li><a routerLink="/trip-confirmation">Trip Confirmation</a></li>
           }
           <li><a href="https://shannonpilots-6fedd.firebaseapp.com/" target="_blank" rel="noopener">Current Ships</a></li>
           <li><a class="logout-link" (click)="onLogout()">Logout</a></li>

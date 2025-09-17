@@ -45,3 +45,7 @@ Thumbs.db
 .firebase
 *-debug.log
 .runtimeconfig.json
+
+# Environment files containing secrets. Never commit these.
+/src/environments/environment.ts
+/src/environments/environment.prod.ts

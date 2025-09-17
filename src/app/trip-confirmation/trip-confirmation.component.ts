@@ -1,9 +1,9 @@
 import { AfterViewInit, Component, computed, effect, inject, OnInit, signal, ViewChild, WritableSignal } from '@angular/core';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { DataService } from '../services/data.service';
-import { CommonModule, DatePipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { AuthService } from '../auth/auth';
-import { UnifiedTrip } from '../models/trip.model';
+import {  UnifiedTrip } from '../models/trip.model';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ConfirmationDialogComponent } from '../shared/confirmation-dialog/confirmation-dialog.component';
 import { CreateChargeDialogComponent } from '../create-charge-dialog/create-charge-dialog.component';
@@ -17,10 +17,14 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatPaginatorModule } from '@angular/material/paginator';
-import * as Papa from 'papaparse';
+import { DataQualityService, TripWithWarnings } from '../services/data-quality';
+import { CsvExportService } from '../services/csv-export';
+import { HelpPopupComponent } from '../help-popup/help-popup.component';
+
+
 
 @Component({
-  selector: 'app-main',
+  selector: 'app-trip-confirmation',
   standalone: true,
   imports: [
     CommonModule,
@@ -36,31 +40,38 @@ import * as Papa from 'papaparse';
     MatButtonToggleModule,
     MatTooltipModule,
     MatPaginatorModule,
+    HelpPopupComponent,
   ],
-  templateUrl: './main.html',
-  styleUrl: './main.css',
-  providers: [DatePipe],
+  templateUrl: './trip-confirmation.component.html',
+  styleUrl: './trip-confirmation.component.css',
 })
-export class MainComponent implements OnInit, AfterViewInit {
+export class TripConfirmationComponent implements OnInit, AfterViewInit {
   private readonly dataService = inject(DataService);
   private readonly dialog = inject(MatDialog);
   private readonly authService = inject(AuthService);
-  private readonly datePipe = inject(DatePipe);
+  private readonly dataQualityService = inject(DataQualityService);
+  private readonly csvExportService = inject(CsvExportService);
 
   displayedColumns: string[] = ['ship', 'gt', 'boarding', 'typeTrip', 'port', 'extra', 'pilot', 'sailingNote', 'metadata'];
-  dataSource = new MatTableDataSource<UnifiedTrip>();
+  dataSource = new MatTableDataSource<TripWithWarnings>();
 
   // Source signal for all trips from the service
   allTrips: WritableSignal<UnifiedTrip[]> = signal([]);
+
+  // A computed signal that applies data quality checks to the raw trip data
+  tripsWithWarnings = computed(() => {
+    return this.dataQualityService.applyDataQualityChecks(this.allTrips());
+  });
 
   // Signals for filtering criteria
   directionFilter = signal<'All' | 'In' | 'Out'>('All');
   pilotFilter = signal<'All' | 'My'>('My');
   textFilter = signal<string>('');
+  showHelpPopup = signal(false);
 
   // A computed signal that automatically filters the trips whenever a dependency changes
   filteredTrips = computed(() => {
-    const trips = this.allTrips();
+    const trips = this.tripsWithWarnings();
     const direction = this.directionFilter();
     const pilotSelection = this.pilotFilter();
     const currentUser = this.authService.currentUserSig();
@@ -74,7 +85,9 @@ export class MainComponent implements OnInit, AfterViewInit {
 
     // 2. Filter by pilot
     if (pilotSelection === 'My' && currentUser) {
-      filtered = filtered.filter(trip => trip.pilot === currentUser.displayName);
+      // A trip is considered "My" if it's assigned to the current user OR if it has no pilot assigned yet.
+      // The `!trip.pilot` check handles cases where the pilot is null, undefined, or an empty string.
+      filtered = filtered.filter(trip => trip.pilot === currentUser.displayName || !trip.pilot);
     }
 
     // 3. Filter by text
@@ -87,7 +100,10 @@ export class MainComponent implements OnInit, AfterViewInit {
     });
   });
 
-  @ViewChild(MatSort) sort!: MatSort;
+  @ViewChild(MatSort) set sort(sort: MatSort) {
+    // This setter is called when the matSort directive is available.
+    this.dataSource.sort = sort;
+  }
 
   constructor() {
     // When the filteredTrips signal changes, update the table's data source
@@ -98,10 +114,36 @@ export class MainComponent implements OnInit, AfterViewInit {
 
   ngOnInit(): void {
     this.loadTrips();
+    if (typeof localStorage !== 'undefined' && !localStorage.getItem('hasSeenHelpPopup')) {
+      this.showHelp();
+      localStorage.setItem('hasSeenHelpPopup', 'true');
+    }
   }
 
   ngAfterViewInit(): void {
-    this.dataSource.sort = this.sort;
+    // Custom sorting for the 'Note' column which is a composite of warnings and the note itself.
+    this.dataSource.sortingDataAccessor = (item: TripWithWarnings, property: string) => {
+      switch (property) {
+        case 'sailingNote': {
+          let noteWithWarnings = item.sailingNote || '';
+          if (item.dataWarnings && item.dataWarnings.length > 0) {
+            const warningsText = `[${item.dataWarnings.join('; ')}] `;
+            noteWithWarnings = `${warningsText}${noteWithWarnings}`.trim();
+          }
+          return noteWithWarnings;
+        }
+        default:
+          return (item as any)[property];
+      }
+    };
+  }
+
+  showHelp(): void {
+    this.showHelpPopup.set(true);
+  }
+
+  closeHelp(): void {
+    this.showHelpPopup.set(false);
   }
 
   loadTrips(): void {
@@ -115,7 +157,7 @@ export class MainComponent implements OnInit, AfterViewInit {
     this.textFilter.set(filterValue.trim());
   }
 
-  onRowClicked(trip: UnifiedTrip) {
+  onRowClicked(trip: TripWithWarnings) {
     // If the trip is actionable, open the dialog to create a charge from the visit.
     if (trip.isActionable && trip.chargeableEvent) {
       this.openCreateFromVisitDialog(trip);
@@ -128,12 +170,12 @@ export class MainComponent implements OnInit, AfterViewInit {
     }
   }
 
-  isOwnTrip(trip: UnifiedTrip): boolean {
+  isOwnTrip(trip: TripWithWarnings): boolean {
     const currentUser = this.authService.currentUserSig();
     return !!currentUser && currentUser.displayName === trip.pilot;
   }
 
-  private openCreateFromVisitDialog(trip: UnifiedTrip): void {
+  private openCreateFromVisitDialog(trip: TripWithWarnings): void {
     const dialogRef = this.dialog.open(CreateChargeDialogComponent, {
       width: 'clamp(300px, 80vw, 600px)',
       data: {
@@ -149,7 +191,7 @@ export class MainComponent implements OnInit, AfterViewInit {
     });
   }
 
-  private handleEditConfirmedTrip(trip: UnifiedTrip): void {
+  private handleEditConfirmedTrip(trip: TripWithWarnings): void {
     const confirmDialogRef = this.dialog.open(ConfirmationDialogComponent, {
       data: {
         title: 'Confirm Edit',
@@ -164,7 +206,7 @@ export class MainComponent implements OnInit, AfterViewInit {
     });
   }
 
-  private openEditTripDialog(trip: UnifiedTrip): void {
+  private openEditTripDialog(trip: TripWithWarnings): void {
     const editDialogRef = this.dialog.open(CreateChargeDialogComponent, {
       width: 'clamp(300px, 80vw, 600px)',
       data: {
@@ -215,30 +257,6 @@ export class MainComponent implements OnInit, AfterViewInit {
       return;
     }
 
-    // Map the data to a new structure with the desired headers and formatted values.
-    const dataForCsv = confirmedTrips.map(trip => ({
-      'Timestamp': this.datePipe.transform(trip.updateTime, 'dd-MM-yy HH:mm:ss'),
-      'Ship': trip.ship,
-      'GT': trip.gt,
-      'Date': this.datePipe.transform(trip.boarding, 'dd/MM/yy'),
-      'In / Out': trip.typeTrip,
-      'To/From': trip.port,
-      'Late Order / Detention /Anchoring etc': trip.extra,
-      'Pilot': trip.pilot,
-      'Note': trip.sailingNote,
-    }));
-
-    // Use PapaParse to convert JSON to CSV
-    const csv = Papa.unparse(dataForCsv);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    const filename = `confirmed_trips_${this.datePipe.transform(new Date(), 'yyyy-MM-dd')}.csv`;
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    this.csvExportService.exportConfirmedTrips(confirmedTrips);
   }
 }

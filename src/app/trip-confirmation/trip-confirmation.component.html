@@ -1,6 +1,10 @@
-<<div class="main-container">
+<div class="trip-confirmation-container">
   <div class="header">
-    <h1>Recent Trips</h1>
+    <h1>Trip Confirmation</h1>
+    <div class="spacer"></div>
+    <button mat-icon-button (click)="showHelp()" matTooltip="Show help">
+      <mat-icon>help_outline</mat-icon>
+    </button>
   </div>
 
   <div class="controls-container">
@@ -73,8 +77,17 @@
 
         <!-- Note Column -->
         <ng-container matColumnDef="sailingNote">
-          <th mat-header-cell *matHeaderCellDef>Note</th>
-          <td mat-cell *matCellDef="let element">{{ element.sailingNote }}</td>
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Note</th>
+          <td mat-cell *matCellDef="let element">
+            @if (element.dataWarnings && element.dataWarnings.length > 0) {
+              <div class="data-warnings">
+                @for (warning of element.dataWarnings; track warning) {
+                  <div class="warning-text">{{ warning }}</div>
+                }
+              </div>
+            }
+            {{ element.sailingNote }}
+          </td>
         </ng-container>
 
         <!-- Update Time Column -->
@@ -110,3 +123,7 @@
   <mat-icon>add</mat-icon>
   <span>New Trip</span>
 </button>
+
+@if (showHelpPopup()) {
+  <app-help-popup (close)="closeHelp()"></app-help-popup>
+}
