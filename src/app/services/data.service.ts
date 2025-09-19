@@ -15,7 +15,7 @@ import {
   where,
 } from '@angular/fire/firestore';
 import { combineLatest, from, map, Observable, of } from 'rxjs';
-import { Charge, ChargeableEvent, UnifiedTrip, Visit } from '../models/trip.model';
+import { Charge, ChargeableEvent, Trip, UnifiedTrip, Visit } from '../models/trip.model';
 import { AuthService } from '../auth/auth';
 
 @Injectable({
@@ -27,8 +27,8 @@ export class DataService {
   private readonly injector = inject(Injector);
 
   /**
-   * Fetches recent visits and maps their inward/outward legs to ChargeableEvent objects,
-   * noting which ones are already confirmed.
+   * Fetches recent visits and maps their individual trips to ChargeableEvent objects.
+   * This method now processes a 'trips' array for flexibility.
    */
   getRecentTrips(): Observable<ChargeableEvent[]> {
     const visitsCollection = collection(this.firestore, 'visits');
@@ -42,11 +42,22 @@ export class DataService {
       map((visits) => {
         const chargeableEvents: ChargeableEvent[] = [];
         for (const visit of visits) {
-          if (visit.inward && visit.inward.boarding) {
-            chargeableEvents.push(this.createChargeableEvent(visit, 'inward'));
-          }
-          if (visit.outward && visit.outward.boarding) {
-            chargeableEvents.push(this.createChargeableEvent(visit, 'outward'));
+          // Check for the new 'trips' array first
+          if (visit.trips && visit.trips.length > 0) {
+            for (const trip of visit.trips) {
+              // The direction is now the `typeTrip` field
+              if (trip.boarding) {
+                chargeableEvents.push(this.createChargeableEvent(visit, trip));
+              }
+            }
+          } else {
+            // Fallback for old documents (backward compatibility)
+            if (visit.inward && visit.inward.boarding) {
+              chargeableEvents.push(this.createChargeableEvent(visit, visit.inward));
+            }
+            if (visit.outward && visit.outward.boarding) {
+              chargeableEvents.push(this.createChargeableEvent(visit, visit.outward));
+            }
           }
         }
         return chargeableEvents.sort((a, b) => b.boarding.getTime() - a.boarding.getTime());
@@ -57,7 +68,6 @@ export class DataService {
   getUnifiedTripLog(): Observable<UnifiedTrip[]> {
     return runInInjectionContext(this.injector, () => {
       const recentCharges$ = this.getRecentCharges();
-
       const visitsCollection = collection(this.firestore, 'visits');
       const threeMonthsAgo = new Date();
       threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
@@ -66,6 +76,7 @@ export class DataService {
 
       return combineLatest([recentCharges$, recentVisits$]).pipe(
         map(([charges, visits]) => {
+          // Step 1: Process charges. These are always the source of truth for confirmed trips.
           const chargesAsUnified: UnifiedTrip[] = charges.map(charge => ({
             id: charge.id,
             ship: charge.ship,
@@ -74,7 +85,6 @@ export class DataService {
             port: charge.port,
             pilot: charge.pilot,
             typeTrip: charge.typeTrip,
-            // Handle legacy `note` field and new `sailingNote` field from charges.
             sailingNote: (charge as any).sailingNote || (charge as any).note || '',
             extra: charge.extra || '',
             source: 'Charge' as const,
@@ -83,29 +93,51 @@ export class DataService {
             isActionable: false,
           }));
 
+          // Step 2: Process visits, but ONLY if they are not confirmed yet.
           const visitsAsUnified: UnifiedTrip[] = [];
           for (const visit of visits) {
-            const processVisitLeg = (direction: 'inward' | 'outward') => {
-              const trip = visit[direction];
-              const today = new Date();
-              const isConfirmed = direction === 'inward' ? visit.inwardConfirmed : visit.outwardConfirmed;
-              // We only care about trips that have happened.
-              if (trip && trip.boarding && !isConfirmed && trip.boarding.toDate() <= today) {
-                const event = this.createChargeableEvent(visit, direction);
-                visitsAsUnified.push({
-                  ...event,
-                  source: 'Visit',
-                  updatedBy: visit['updatedBy'] || 'N/A',
-                  // The updateTime from a visit might not exist, provide a fallback.
-                  updateTime: visit['updateTime'] ? new Date(visit['updateTime']) : new Date(),
-                  isActionable: true,
-                  chargeableEvent: event });
-              }
-            };
-            processVisitLeg('inward');
-            processVisitLeg('outward');
+            // First, process the new 'trips' array if it exists
+            if (visit.trips && visit.trips.length > 0) {
+              visit.trips.forEach(trip => {
+                const today = new Date();
+                // We only process trips that are not confirmed and have a past boarding date.
+                if (trip.boarding && !trip.confirmed && trip.boarding.toDate() <= today) {
+                  const event = this.createChargeableEvent(visit, trip);
+                  visitsAsUnified.push({
+                    ...event,
+                    source: 'Visit',
+                    updatedBy: visit['updatedBy'] || 'N/A',
+                    updateTime: visit['updateTime'] ? new Date(visit['updateTime']) : new Date(),
+                    isActionable: true,
+                    chargeableEvent: event
+                  });
+                }
+              });
+            } else {
+              // Fallback for old documents (backward compatibility)
+              const processOldVisitLeg = (direction: 'inward' | 'outward') => {
+                const trip = visit[direction];
+                const today = new Date();
+                const isConfirmed = direction === 'inward' ? visit.inwardConfirmed : visit.outwardConfirmed;
+
+                if (trip && trip.boarding && !isConfirmed && trip.boarding.toDate() <= today) {
+                  const event = this.createChargeableEvent(visit, trip);
+                  visitsAsUnified.push({
+                    ...event,
+                    source: 'Visit',
+                    updatedBy: visit['updatedBy'] || 'N/A',
+                    updateTime: visit['updateTime'] ? new Date(visit['updateTime']) : new Date(),
+                    isActionable: true,
+                    chargeableEvent: event
+                  });
+                }
+              };
+              processOldVisitLeg('inward');
+              processOldVisitLeg('outward');
+            }
           }
 
+          // Step 3: Combine and sort. No need for de-duplication logic here, as we have handled it above.
           const combined = [...chargesAsUnified, ...visitsAsUnified];
           return combined.sort((a, b) => b.boarding.getTime() - a.boarding.getTime());
         })
@@ -303,12 +335,9 @@ export class DataService {
   }
 
   /**
-   * Helper to transform a Visit and a trip direction into a ChargeableEvent.
+   * the createChargeableEvent helper function to handle the new Trip model.
    */
-  private createChargeableEvent(visit: Visit, direction: 'inward' | 'outward'): ChargeableEvent {
-    const trip = visit[direction]!; // Non-null assertion is safe due to prior check
-    const isConfirmed = direction === 'inward' ? visit.inwardConfirmed === true : visit.outwardConfirmed === true;
-
+  private createChargeableEvent(visit: Visit, trip: Trip, tripDirection?: 'inward' | 'outward'): ChargeableEvent {
     // A map to handle pilot name replacements. This is a good place for data cleaning.
     const pilotNameMap: { [key: string]: string } = {
       'Fergal': 'WMcN',
@@ -317,17 +346,21 @@ export class DataService {
     const originalPilot = trip.pilot || '';
     const pilotName = pilotNameMap[originalPilot] || originalPilot;
 
+    const isConfirmed = tripDirection
+      ? (tripDirection === 'inward' ? visit.inwardConfirmed === true : visit.outwardConfirmed === true)
+      : trip.confirmed === true;
+
     return {
       visitDocId: visit.docid,
       ship: visit.ship,
       gt: visit.gt,
-      boarding: trip.boarding.toDate(), // Convert Firestore Timestamp to JS Date
+      boarding: trip.boarding.toDate(),
       port: trip.port,
       pilot: pilotName,
       typeTrip: trip.typeTrip,
       sailingNote: '', // This is for user input about the sailing, starts empty.
       extra: trip.extra || '',
-      tripDirection: direction,
+      tripDirection: tripDirection || (trip.typeTrip === 'In' ? 'inward' : 'outward'),
       isConfirmed: isConfirmed,
     };
   }

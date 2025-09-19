@@ -3,8 +3,7 @@ import { Timestamp } from '@angular/fire/firestore';
 export type Port = 'Anchorage' | 'Cappa' | 'Moneypoint' | 'Tarbert' | 'Foynes' | 'Aughinish' | 'Shannon' | 'Limerick';
 
 /**
- * Represents a single leg of a journey (inward or outward).
- * This is a nested map within a Visit document.
+ * Represents a single leg of a journey.
  */
 export interface Trip {
   boarding: Timestamp;
@@ -13,22 +12,27 @@ export interface Trip {
   typeTrip: 'In' | 'Out' | 'Anchorage' | 'Shift'  | 'Other';
   preTripNote?: string;
   extra?: string;
-  [key: string]: any; // Allow other properties
+  confirmed?: boolean;
+  [key: string]: any;
 }
 
 /**
  * Represents a visit document from your Firestore 'visits' collection.
+ * This model has been updated to use a 'trips' array for scalability.
  */
 export interface Visit {
   docid: string;
   ship: string;
   gt: number;
   shipnote?: string;
+  // New property for the updated model
+  trips?: Trip[];
+  // Keep old properties optional for backward compatibility
   inward?: Trip;
   outward?: Trip;
   inwardConfirmed?: boolean;
   outwardConfirmed?: boolean;
-  [key: string]: any; // Allow other properties
+  [key: string]: any;
 }
 
 /**
