@@ -2,60 +2,87 @@
   <div class="register-card">
     <h2>Create an Account</h2>
 
-    <ng-container *ngIf="!successMessage; else registrationComplete">
+    @if (!successMessage) {
       <form [formGroup]="registerForm" (ngSubmit)="onRegister()" novalidate>
         <div class="form-field">
-          <label for="displayName">Display Name</label>
+          <label for="displayName">Display Name <span class="required">*</span></label>
           <input id="displayName" type="text" formControlName="displayName" placeholder="e.g. John Doe">
-          <div *ngIf="displayName?.invalid && (displayName?.dirty || displayName?.touched)" class="error-message">
-            <div *ngIf="displayName?.errors?.['required']">Display name is required.</div>
-            <div *ngIf="displayName?.errors?.['minlength']">Display name must be at least 3 characters long.</div>
-          </div>
+          @if (displayName?.invalid && (displayName?.dirty || displayName?.touched)) {
+            <div class="error-message">
+              @if (displayName?.errors?.['required']) {
+                <div>Display name is required.</div>
+              }
+              @if (displayName?.errors?.['minlength']) {
+                <div>Display name must be at least 3 characters long.</div>
+              }
+            </div>
+          }
         </div>
 
         <div class="form-field">
-          <label for="email">Email</label>
+          <label for="email">Email <span class="required">*</span></label>
           <input id="email" type="email" formControlName="email" placeholder="your@email.com">
-          <div *ngIf="email?.invalid && (email?.dirty || email?.touched)" class="error-message">
-            <div *ngIf="email?.errors?.['required']">Email is required.</div>
-            <div *ngIf="email?.errors?.['email']">Please enter a valid email address.</div>
-          </div>
+          @if (email?.invalid && (email?.dirty || email?.touched)) {
+            <div class="error-message">
+              @if (email?.errors?.['required']) {
+                <div>Email is required.</div>
+              }
+              @if (email?.errors?.['email']) {
+                <div>Please enter a valid email address.</div>
+              }
+            </div>
+          }
         </div>
 
         <div class="form-field">
-          <label for="password">Password</label>
+          <label for="password">Password <span class="required">*</span></label>
           <input id="password" type="password" formControlName="password" placeholder="Min. 6 characters">
-          <div *ngIf="password?.invalid && (password?.dirty || password?.touched)" class="error-message">
-            <div *ngIf="password?.errors?.['required']">Password is required.</div>
-            <div *ngIf="password?.errors?.['minlength']">Password must be at least 6 characters long.</div>
-          </div>
+          @if (password?.invalid && (password?.dirty || password?.touched)) {
+            <div class="error-message">
+              @if (password?.errors?.['required']) {
+                <div>Password is required.</div>
+              }
+              @if (password?.errors?.['minlength']) {
+                <div>Password must be at least 6 characters long.</div>
+              }
+            </div>
+          }
         </div>
 
         <div class="form-field">
-          <label for="confirmPassword">Confirm Password</label>
+          <label for="confirmPassword">Confirm Password <span class="required">*</span></label>
           <input id="confirmPassword" type="password" formControlName="confirmPassword" placeholder="Repeat password">
-          <div *ngIf="confirmPassword?.invalid && (confirmPassword?.dirty || confirmPassword?.touched)" class="error-message">
-            <div *ngIf="confirmPassword?.errors?.['required']">Please confirm your password.</div>
-          </div>
-          <div *ngIf="registerForm.errors?.['mismatch'] && (confirmPassword?.dirty || confirmPassword?.touched)" class="error-message">
-            Passwords do not match.
-          </div>
+          @if ((confirmPassword?.invalid || registerForm.hasError('mismatch')) && (confirmPassword?.dirty || confirmPassword?.touched)) {
+            <div class="error-message">
+              @if (confirmPassword?.errors?.['required']) {
+                <div>Please confirm your password.</div>
+              }
+              @if (registerForm.hasError('mismatch')) {
+                <div>Passwords do not match.</div>
+              }
+            </div>
+          }
         </div>
 
-        <div *ngIf="errorMessage" class="server-error-message">
-          {{ errorMessage }}
-        </div>
+        @if (errorMessage) {
+          <div class="server-error-message">
+            {{ errorMessage }}
+          </div>
+        }
 
         <button type="submit" [disabled]="registerForm.invalid || isLoading">
-          <span *ngIf="!isLoading">Register</span>
-          <span *ngIf="isLoading">Registering...</span>
+          <span>
+            @if (!isLoading) {
+              Register
+            } @else {
+              Registering...
+            }
+          </span>
         </button>
       </form>
-    </ng-container>
-
-    <ng-template #registrationComplete>
+    } @else {
       <div class="success-message">{{ successMessage }}</div>
-    </ng-template>
+    }
 
     <div class="login-link">
       <span>Already have an account? </span>

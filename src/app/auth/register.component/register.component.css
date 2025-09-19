@@ -33,6 +33,11 @@
   color: #555;
 }
 
+.required {
+  color: #dc3545; /* Red to indicate requirement */
+  margin-left: 2px;
+}
+
 .form-field input {
   width: 100%;
   padding: 0.75rem;
