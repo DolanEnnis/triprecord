@@ -3,11 +3,15 @@ import {
   Auth,
   user,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
   signOut,
   User,
+  UserCredential,
 } from '@angular/fire/auth';
 import {
   Firestore,
+  addDoc,
   doc,
   updateDoc,
   serverTimestamp,
@@ -132,6 +136,31 @@ export class AuthService implements OnDestroy {
       };
       return from(updateDoc(userDocRef, dataToUpdate));
     });
+  }
+
+  register(email: string, password: string, displayName: string): Observable<void> {
+    return runInInjectionContext(this.injector, () =>
+      from(createUserWithEmailAndPassword(this.firebaseAuth, email, password)).pipe(
+        switchMap(async (credentials: UserCredential) => {
+          if (credentials.user) {
+            // 1. Update the Firebase Auth user profile with the display name.
+            await updateProfile(credentials.user, { displayName });
+
+            // 2. Create a corresponding user profile document in Firestore.
+            // This follows the pattern of finding users by email on login.
+            const usersCollection = collection(this.firestore, 'users');
+            const newUserProfile = {
+              uid: credentials.user.uid,
+              email: credentials.user.email,
+              displayName: displayName,
+              // Assign a default, non-privileged role.
+              userType: 'viewer',
+            };
+            await addDoc(usersCollection, newUserProfile);
+          }
+        })
+      )
+    );
   }
 
   login(email: string, password: string): Observable<UserInterface | null> {
