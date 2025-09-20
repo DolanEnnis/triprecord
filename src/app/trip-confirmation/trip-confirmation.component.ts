@@ -68,6 +68,18 @@ export class TripConfirmationComponent implements OnInit, AfterViewInit {
   pilotFilter = signal<'All' | 'My'>('My');
   textFilter = signal<string>('');
   showHelpPopup = signal(false);
+  isLoading = signal(true); // To track loading state, used by the template
+
+  // A computed signal for the user's name. Defaults to 'My' if not available.
+  // This reactively updates if the logged-in user changes.
+  userName = computed(() => {
+    const name = this.authService.currentUserSig()?.displayName;
+    if (name) {
+      // If a name exists, make it possessive.
+      return `${name}'s`;
+    }
+    return 'My'; // Otherwise, fall back to 'My' for the button text.
+  });
 
   // A computed signal that automatically filters the trips whenever a dependency changes
   filteredTrips = computed(() => {
@@ -147,8 +159,16 @@ export class TripConfirmationComponent implements OnInit, AfterViewInit {
   }
 
   loadTrips(): void {
-    this.dataService.getUnifiedTripLog().subscribe((trips) => {
-      this.allTrips.set(trips);
+    this.isLoading.set(true);
+    this.dataService.getUnifiedTripLog().subscribe({
+      next: (trips) => {
+        this.allTrips.set(trips);
+        this.isLoading.set(false);
+      },
+      error: (err) => {
+        console.error('Failed to load trips', err);
+        this.isLoading.set(false); // Ensure spinner is turned off on error
+      }
     });
   }
 

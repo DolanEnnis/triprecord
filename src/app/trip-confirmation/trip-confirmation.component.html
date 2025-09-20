@@ -23,12 +23,12 @@
 
     <mat-button-toggle-group [value]="pilotFilter()" (valueChange)="onPilotFilterChange($event)" aria-label="Filter by pilot">
       <mat-button-toggle value="All">All Trips</mat-button-toggle>
-      <mat-button-toggle value="My">My Trips</mat-button-toggle>
+      <mat-button-toggle value="My">{{ userName() }} Trips</mat-button-toggle>
     </mat-button-toggle-group>
   </div>
 
   <!-- Show a spinner while the initial data is loading -->
-  @if (allTrips().length === 0) {
+  @if (isLoading()) {
     <div class="spinner-container"><mat-progress-spinner mode="indeterminate"></mat-progress-spinner></div>
   } @else {
     <div class="table-container mat-elevation-z8">
