@@ -1,5 +1,16 @@
 import { Timestamp } from '@angular/fire/firestore';
 
+/**
+ * Represents the core information about a ship.
+ */
+export interface ShipInfo {
+  ship: string;
+  gt: number;
+  imo?: number;
+  marineTrafficLink?: string;
+  shipnote?: string;
+}
+
 export type Port = 'Anchorage' | 'Cappa' | 'Moneypoint' | 'Tarbert' | 'Foynes' | 'Aughinish' | 'Shannon' | 'Limerick';
 
 /**
@@ -13,6 +24,13 @@ export interface Trip {
   preTripNote?: string;
   extra?: string;
   confirmed?: boolean;
+  // New optional fields for backward compatibility
+  ownNote?: string;
+  pilotNo?: number;
+  monthNo?: number;
+  car?: string;
+  timeOff?: Timestamp;
+  good?: number;
   [key: string]: any;
 }
 
@@ -22,9 +40,7 @@ export interface Trip {
  */
 export interface Visit {
   docid: string;
-  ship: string;
-  gt: number;
-  shipnote?: string;
+  shipInfo: ShipInfo;
   // New property for the updated model
   trips?: Trip[];
   // Keep old properties optional for backward compatibility
@@ -54,7 +70,10 @@ export interface ChargeableEvent {
 }
 
 /** Represents a charge document in your 'charges' collection. */
-export type Charge = Omit<ChargeableEvent, 'visitDocId' | 'tripDirection' | 'boarding' | 'isConfirmed'> & {
+export type Charge = Omit<
+  ChargeableEvent,
+  'visitDocId' | 'tripDirection' | 'boarding' | 'isConfirmed'
+> & {
   id?: string,
   boarding: Date,
   updateTime: Date,

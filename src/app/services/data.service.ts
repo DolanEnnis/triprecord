@@ -8,14 +8,23 @@ import {
   Firestore,
   query,
   getDocs,
+  limit,
   orderBy,
   serverTimestamp,
   Timestamp,
   updateDoc,
   where,
+  getDoc,
 } from '@angular/fire/firestore';
-import { combineLatest, from, map, Observable, of } from 'rxjs';
+import { combineLatest, from, map, Observable, of, switchMap, forkJoin } from 'rxjs';
 import { Charge, ChargeableEvent, Trip, UnifiedTrip, Visit } from '../models/trip.model';
+// Import new models with aliases to prevent naming conflicts during transition
+import {
+  Trip as NewTrip,
+  Visit as NewVisit,
+  Ship as NewShip,
+  TripType
+} from '../models/data.model';
 import { AuthService } from '../auth/auth';
 
 @Injectable({
@@ -316,8 +325,8 @@ export class DataService {
     const q = query(
       visitsCollection,
       where('eta', '>=', sixtyDaysAgo),
-      where('ship', '>=', search),
-      where('ship', '<=', search + '\uf8ff') // Standard prefix search trick
+      where('shipInfo.ship', '>=', search),
+      where('shipInfo.ship', '<=', search + '\uf8ff') // Standard prefix search trick
     );
 
     return from(getDocs(q)).pipe(
@@ -326,7 +335,9 @@ export class DataService {
         const ships = new Map<string, number>();
         snapshot.docs.forEach(doc => {
           const data = doc.data();
-          ships.set(data['ship'], data['gt']);
+          if (data['shipInfo']) { // Defensive check for old data
+            ships.set(data['shipInfo']['ship'], data['shipInfo']['gt']);
+          }
         });
         // Return an array of objects, limiting to the top 10 results.
         return Array.from(ships, ([ship, gt]) => ({ ship, gt })).slice(0, 10);
@@ -352,8 +363,8 @@ export class DataService {
 
     return {
       visitDocId: visit.docid,
-      ship: visit.ship,
-      gt: visit.gt,
+      ship: visit.shipInfo.ship,
+      gt: visit.shipInfo.gt,
       boarding: trip.boarding.toDate(),
       port: trip.port,
       pilot: pilotName,
@@ -363,5 +374,113 @@ export class DataService {
       tripDirection: tripDirection || (trip.typeTrip === 'In' ? 'inward' : 'outward'),
       isConfirmed: isConfirmed,
     };
+  }
+
+  // ==================================================================================
+  // V2 METHODS - Using the new normalized data model (data.model.ts)
+  // ==================================================================================
+
+  /**
+   * V2: Fetches trips and their associated visit data based on the new normalized schema.
+   * This will replace getUnifiedTripLog once the data migration is complete.
+   */
+  v2GetUnifiedTripLog(): Observable<UnifiedTrip[]> {
+    return runInInjectionContext(this.injector, () => {
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+      const threeMonthsAgoTimestamp = Timestamp.fromDate(threeMonthsAgo);
+
+      // 1. Query the top-level 'trips' collection for recent trips.
+      const tripsCollection = collection(this.firestore, 'trips');
+      const recentTripsQuery = query(
+        tripsCollection,
+        where('boarding', '>=', threeMonthsAgoTimestamp),
+        orderBy('boarding', 'desc')
+      );
+
+      return (collectionData(recentTripsQuery, { idField: 'id' }) as Observable<NewTrip[]>).pipe(
+        // 2. For each batch of trips, fetch their parent visit documents.
+        switchMap(trips => {
+          if (trips.length === 0) {
+            return of([]); // No trips, no need to fetch visits.
+          }
+
+          // Create a unique set of visit IDs to fetch.
+          const visitIds = [...new Set(trips.map(trip => trip.visitId))];
+
+          // Create an observable for each visit document lookup.
+          const visitDocObservables = visitIds.map(id => {
+            const visitDocRef = doc(this.firestore, `visits/${id}`);
+            return from(getDoc(visitDocRef)).pipe(
+              map(docSnap => ({ id, data: docSnap.data() as NewVisit | undefined }))
+            );
+          });
+
+          // 3. Execute all visit lookups and combine results.
+          return forkJoin(visitDocObservables).pipe(
+            map(visitDocs => {
+              // Create a Map for quick lookup of visit data by ID.
+              const visitsMap = new Map<string, NewVisit>();
+              visitDocs.forEach(v => {
+                if (v.data) {
+                  visitsMap.set(v.id, v.data);
+                }
+              });
+
+              // 4. Map the trips to the UnifiedTrip view model.
+              return trips.map(trip => {
+                const visit = visitsMap.get(trip.visitId);
+                const today = new Date();
+
+                // An unconfirmed trip from the new model is "actionable" if its boarding time is in the past.
+                const isActionable = !trip.isConfirmed && trip.boarding.toDate() <= today;
+
+                return {
+                  id: trip.id,
+                  ship: visit?.shipName || 'Unknown Ship',
+                  gt: visit?.grossTonnage || 0,
+                  boarding: trip.boarding.toDate(),
+                  port: trip.toPort, // Using 'toPort' from the new model
+                  pilot: trip.pilot,
+                  typeTrip: trip.typeTrip,
+                  extra: trip.extraChargesNotes || '',
+                  sailingNote: trip.pilotNotes || '',
+                  source: isActionable ? 'Visit' : 'Charge', // Conceptual mapping
+                  updatedBy: trip.recordedBy,
+                  updateTime: trip.recordedAt.toDate(),
+                  isActionable: isActionable,
+                  // chargeableEvent would be built here if needed for the dialog
+                } as UnifiedTrip;
+              });
+            })
+          );
+        })
+      );
+    });
+  }
+
+  /**
+   * V2: Gets ship name and GT suggestions from the master '/ships' collection.
+   * This is more efficient and accurate than querying historical visits.
+   * @param search The string to search for.
+   */
+  v2GetShipSuggestions(search: string): Observable<{ ship: string, gt: number }[]> {
+    if (!search || search.length < 2) {
+      return of([]);
+    }
+
+    const shipsCollection = collection(this.firestore, 'ships');
+    // NOTE: This query requires an index on 'shipName'.
+    const q = query(
+      shipsCollection,
+      where('shipName', '>=', search),
+      where('shipName', '<=', search + '\uf8ff'),
+      orderBy('shipName'),
+      limit(10)
+    );
+
+    return (collectionData(q) as Observable<NewShip[]>).pipe(
+      map(ships => ships.map(ship => ({ ship: ship.shipName, gt: ship.grossTonnage })))
+    );
   }
 }
