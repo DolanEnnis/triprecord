@@ -56,6 +56,7 @@ export interface Visit {
  * This will be used to populate the table in the MainComponent.
  */
 export interface ChargeableEvent {
+  tripId?: string; // ID of the trip from the new /trips collection
   visitDocId: string;
   ship: string;
   gt: number;

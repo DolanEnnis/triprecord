@@ -170,7 +170,13 @@ export class CreateChargeDialogComponent implements OnInit {
 
   private async saveChargeFromVisit(): Promise<void> {
     try {
-      await this.dataService.createChargeAndUpdateVisit(this.form.value, this.eventToProcess!.visitDocId, this.eventToProcess!.tripDirection);
+      // The eventToProcess.tripId is the ID of the document in the /trips collection.
+      // This is the correct ID to pass to the new V2 method.
+      if (!this.eventToProcess?.tripId) {
+        throw new Error('Cannot save charge: Trip ID is missing. This might be an old record.');
+      }
+      // Call the correct, existing V2 method.
+      await this.dataService.v2ConfirmTripAndCreateCharge(this.form.value, this.eventToProcess.tripId);
       this.dialogRef.close('success');
     } catch (error: any) {
       console.error('Error creating charge from visit:', error);

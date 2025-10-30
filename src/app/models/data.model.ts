@@ -104,3 +104,26 @@ export interface Trip {
   recordedBy: string;
   recordedAt: Timestamp;
 }
+/**
+ * ----------------------------------------------------------------
+ * DATA TRANSFER OBJECT: NewVisitData (Input DTO for creation form)
+ * ----------------------------------------------------------------
+ * Represents the combined data required from the form to create a
+ * new Ship (if necessary), a new Visit, and the initial 'In' Trip.
+ */
+export interface NewVisitData {
+  // Ship Details (to create/update /ships document)
+  shipName: string;
+  grossTonnage: number;
+  imoNumber: number | null;
+  marineTrafficLink: string | null;
+  shipNotes: string | null;
+
+  // Visit Details (to create /visits document)
+  initialEta: Date; // Form uses Date, service will convert to Timestamp
+  berthPort: Port | null;
+  visitNotes: string | null;
+
+  // Trip Details (for the initial 'In' trip in /trips document)
+  pilot: string;
+}
