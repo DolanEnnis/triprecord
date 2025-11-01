@@ -27,7 +27,7 @@ export class VisitRepository {
 
   async addVisit(visit: Omit<Visit, 'id'>): Promise<string> {
     return runInInjectionContext(this.injector, async () => {
-      const visitsCollection = collection(this.firestore, 'visits');
+      const visitsCollection = collection(this.firestore, 'visits_new');
       const docRef = await addDoc(visitsCollection, visit);
       return docRef.id;
     });
@@ -35,7 +35,7 @@ export class VisitRepository {
 
   getVisitById(visitId: string): Observable<Visit | undefined> {
     return runInInjectionContext(this.injector, () => {
-      const visitDocRef = doc(this.firestore, `visits/${visitId}`);
+      const visitDocRef = doc(this.firestore, `visits_new/${visitId}`);
       return from(getDoc(visitDocRef)).pipe(
         // Cast to NewVisit or undefined, as data() can return undefined if doc doesn't exist
         // and we don't want to rely on docData which returns Observable<T | undefined>
@@ -49,7 +49,7 @@ export class VisitRepository {
 
   getRecentVisits(threeMonthsAgoTimestamp: Timestamp): Observable<Visit[]> {
     return runInInjectionContext(this.injector, () => {
-      const visitsCollection = collection(this.firestore, 'visits');
+      const visitsCollection = collection(this.firestore, 'visits_new');
       const recentVisitsQuery = query(
         visitsCollection,
         where('initialEta', '>=', threeMonthsAgoTimestamp)

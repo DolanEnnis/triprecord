@@ -3,7 +3,8 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { DataService } from '../services/data.service';
 import { AuthService } from '../auth/auth';
-import { Charge, ChargeableEvent, Port } from '../models/trip.model';
+import { Charge, ChargeableEvent } from '../models/trip.model';
+import { Port, TripType } from '../models/data.model';
 import { CommonModule } from '@angular/common';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -53,14 +54,26 @@ export class CreateChargeDialogComponent implements OnInit {
   private readonly chargeToEdit: Charge | null = null;
   readonly title: string;
 
-  form!: FormGroup;
   isSaving = false;
   filteredShips$!: Observable<{ ship: string, gt: number }[]>;
-  private shipSuggestions: { ship: string, gt: number }[] = [];
 
   readonly maxDate = new Date();
-  readonly tripTypes = ['In', 'Out', 'Anchorage', 'Shift', 'Other'];
+
+  // 🚀 FIX 3: Define the constant arrays using the imported types for the template
+  readonly tripTypes: TripType[] = ['In', 'Out', 'Anchorage', 'Shift', 'BerthToBerth', 'Other'];
   readonly ports: Port[] = ['Anchorage', 'Cappa', 'Moneypoint', 'Tarbert', 'Foynes', 'Aughinish', 'Shannon', 'Limerick'];
+
+  // Form is initialized in the constructor to ensure all properties are available.
+  readonly form: FormGroup = this.fb.group({
+    ship: ['', Validators.required],
+    gt: [null as number | null, Validators.required],
+    boarding: [new Date(), Validators.required],
+    port: [null as Port | null, Validators.required],
+    pilot: ['', Validators.required],
+    typeTrip: ['', Validators.required],
+    sailingNote: [''],
+    extra: [''],
+  });
 
   constructor(
     @Optional() @Inject(MAT_DIALOG_DATA) readonly dialogData: ChargeDialogData,
@@ -84,33 +97,23 @@ export class CreateChargeDialogComponent implements OnInit {
 
   ngOnInit(): void {
     const currentUser = this.authService.currentUserSig();
-    const initialData = this.eventToProcess || this.chargeToEdit;
+    const initialData = this.chargeToEdit || this.eventToProcess;
 
-    // Initialize the form with the data passed into the dialog
-    this.form = this.fb.group({
-      ship: [initialData?.ship || '', Validators.required],
-      gt: [initialData?.gt || null, Validators.required],
-      boarding: [initialData?.boarding || new Date(), Validators.required],
-      port: [initialData?.port || null, Validators.required],
-      pilot: [initialData?.pilot || currentUser?.displayName || '', Validators.required],
-      typeTrip: [initialData?.typeTrip || '', Validators.required],
-      sailingNote: [initialData?.sailingNote || ''],
-      extra: [initialData?.extra || ''],
+    // Set form values based on dialog data
+    this.form.patchValue({
+      ...initialData,
+      pilot: initialData?.pilot || currentUser?.displayName || '',
     });
 
     this.filteredShips$ = this.form.get('ship')!.valueChanges.pipe(
       startWith(''),
       debounceTime(300), // Wait for 300 ms of silence before querying
       distinctUntilChanged(), // Only query if the value has changed
-      switchMap(value => {
-        // We only want to search if the user has typed a string of 2+ characters.
-        if (typeof value === 'string' && value.length > 1) {
-          return this.dataService.getShipSuggestions(value).pipe(
-            tap(suggestions => this.shipSuggestions = suggestions) // Store suggestions
-          );
+      switchMap(value => { // `value` can be a string or a ship object
+        const searchTerm = typeof value === 'string' ? value : value?.ship;
+        if (typeof searchTerm === 'string' && searchTerm.length > 1) {
+          return this.dataService.getShipSuggestions(searchTerm);
         } else {
-          // Otherwise, return an empty array of suggestions.
-          this.shipSuggestions = [];
           return of([]);
         }
       })
@@ -128,6 +131,7 @@ export class CreateChargeDialogComponent implements OnInit {
     } else if (this.mode === 'fromVisit') {
       await this.saveChargeFromVisit();
     } else {
+      // 🛑 FIXED: Uses the cleaned facade method: doesChargeExist
       const exists = await this.dataService.doesChargeExist(this.form.value);
       if (exists) {
         this.warnAndSave();
@@ -148,8 +152,6 @@ export class CreateChargeDialogComponent implements OnInit {
       this.saveStandaloneCharge();
     });
 
-    // If the snackbar is dismissed without the user clicking the action,
-    // we should reset the saving state.
     snackBarRef.afterDismissed().subscribe(({ dismissedByAction }) => {
       if (!dismissedByAction) {
         this.isSaving = false;
@@ -159,6 +161,7 @@ export class CreateChargeDialogComponent implements OnInit {
 
   private async saveStandaloneCharge(): Promise<void> {
     try {
+      // 🛑 FIXED: Uses the cleaned facade method: createStandaloneCharge
       await this.dataService.createStandaloneCharge(this.form.value);
       this.dialogRef.close('success');
     } catch (error: any) {
@@ -171,12 +174,12 @@ export class CreateChargeDialogComponent implements OnInit {
   private async saveChargeFromVisit(): Promise<void> {
     try {
       // The eventToProcess.tripId is the ID of the document in the /trips collection.
-      // This is the correct ID to pass to the new V2 method.
       if (!this.eventToProcess?.tripId) {
         throw new Error('Cannot save charge: Trip ID is missing. This might be an old record.');
       }
-      // Call the correct, existing V2 method.
-      await this.dataService.v2ConfirmTripAndCreateCharge(this.form.value, this.eventToProcess.tripId);
+
+      // 🚀 CRITICAL FIX: The method is now confirmTripAndCreateCharge (was v2ConfirmTripAndCreateCharge)
+      await this.dataService.confirmTripAndCreateCharge(this.form.value, this.eventToProcess.tripId);
       this.dialogRef.close('success');
     } catch (error: any) {
       console.error('Error creating charge from visit:', error);
@@ -187,6 +190,7 @@ export class CreateChargeDialogComponent implements OnInit {
 
   private async updateExistingCharge(): Promise<void> {
     try {
+      // 🛑 FIXED: Uses the cleaned facade method: updateCharge
       await this.dataService.updateCharge(this.chargeToEdit!.id!, this.form.value);
       this.dialogRef.close('success');
     } catch (error: any) {
@@ -200,13 +204,22 @@ export class CreateChargeDialogComponent implements OnInit {
     this.dialogRef.close();
   }
 
+  // This function is required by MatAutocomplete to display the correct value in the input field.
+  displayShip(ship: { ship: string, gt: number }): string {
+    return ship?.ship || '';
+  }
+
   onShipSelected(event: MatAutocompleteSelectedEvent): void {
-    const selectedShipName: string = event.option.value;
-    const selectedShipObject = this.shipSuggestions.find(s => s.ship === selectedShipName);
-    if (selectedShipObject) {
-      // The ship name is already set by the autocomplete, we just need to set the GT.
-      this.form.get('gt')?.setValue(selectedShipObject.gt);
-    }
+    // The `event.option.value` is now the complete ship object.
+    const selectedShip: { ship: string, gt: number } = event.option.value;
+
+    // When using [displayWith], the form control's value is the full object.
+    // We need to explicitly patch the form to use the string for the 'ship' control
+    // and the number for the 'gt' control to ensure the form values are correct for submission.
+    this.form.patchValue({
+      ship: selectedShip.ship,
+      gt: selectedShip.gt
+    });
   }
 
   async onDelete(): Promise<void> {
@@ -225,6 +238,7 @@ export class CreateChargeDialogComponent implements OnInit {
       if (confirmed) {
         this.isSaving = true;
         try {
+          // 🛑 FIXED: Uses the cleaned facade method: deleteCharge
           await this.dataService.deleteCharge(this.chargeToEdit!.id!);
           this.dialogRef.close('deleted');
         } catch (error: any) {

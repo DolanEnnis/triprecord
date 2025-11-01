@@ -1,79 +1,37 @@
 import { Timestamp } from '@angular/fire/firestore';
+// Import necessary types from the normalized database schema
+import { TripType, Port } from './data.model';
 
 /**
- * Represents the core information about a ship.
+ * 🛑 REMOVED: interface ShipInfo - Use Ship from data.model.ts
+ * 🛑 REMOVED: interface Trip (old model) - Use Trip from data.model.ts
+ * 🛑 REMOVED: interface Visit (old model) - Use Visit from data.model.ts
  */
-export interface ShipInfo {
-  ship: string;
-  gt: number;
-  imo?: number;
-  marineTrafficLink?: string;
-  shipnote?: string;
-}
-
-export type Port = 'Anchorage' | 'Cappa' | 'Moneypoint' | 'Tarbert' | 'Foynes' | 'Aughinish' | 'Shannon' | 'Limerick';
-
-/**
- * Represents a single leg of a journey.
- */
-export interface Trip {
-  boarding: Timestamp;
-  port?: Port | null;
-  pilot: string;
-  typeTrip: 'In' | 'Out' | 'Anchorage' | 'Shift'  | 'Other';
-  preTripNote?: string;
-  extra?: string;
-  confirmed?: boolean;
-  // New optional fields for backward compatibility
-  ownNote?: string;
-  pilotNo?: number;
-  monthNo?: number;
-  car?: string;
-  timeOff?: Timestamp;
-  good?: number;
-  [key: string]: any;
-}
-
-/**
- * Represents a visit document from your Firestore 'visits' collection.
- * This model has been updated to use a 'trips' array for scalability.
- */
-export interface Visit {
-  docid: string;
-  shipInfo: ShipInfo;
-  // New property for the updated model
-  trips?: Trip[];
-  // Keep old properties optional for backward compatibility
-  inward?: Trip;
-  outward?: Trip;
-  inwardConfirmed?: boolean;
-  outwardConfirmed?: boolean;
-  [key: string]: any;
-}
 
 /**
  * A flattened, view-friendly object representing a single chargeable trip.
- * This will be used to populate the table in the MainComponent.
+ * This DTO is now based purely on the new /trips and /visits data.
  */
 export interface ChargeableEvent {
   tripId?: string; // ID of the trip from the new /trips collection
-  visitDocId: string;
+  visitId: string; // The parent visit's ID (renamed from old visitDocId)
   ship: string;
   gt: number;
   boarding: Date;
   port?: Port | null;
   pilot: string;
-  typeTrip: 'In' | 'Out' | 'Anchorage' | 'Shift'  | 'Other';
-  sailingNote: string; // For comments on the sailing, entered by user.
-  extra: string;
-  tripDirection: 'inward' | 'outward';
+  typeTrip: TripType;
+  sailingNote: string; // Mapped from Trip.pilotNotes
+  extra: string; // Mapped from Trip.extraChargesNotes
+  // Updated to allow 'other' as tripDirection is now derived from typeTrip
+  tripDirection: 'inward' | 'outward' | 'other';
   isConfirmed: boolean;
 }
 
 /** Represents a charge document in your 'charges' collection. */
 export type Charge = Omit<
   ChargeableEvent,
-  'visitDocId' | 'tripDirection' | 'boarding' | 'isConfirmed'
+  'visitId' | 'tripDirection' | 'boarding' | 'isConfirmed'
 > & {
   id?: string,
   boarding: Date,
@@ -82,23 +40,23 @@ export type Charge = Omit<
   createdById?: string, // User UID
 };
 
-/** A unified model representing an entry from either visits or charges. */
+/** A unified model representing an entry from either trips or charges. */
 export interface UnifiedTrip {
-  id?: string; // Firestore document ID, only for trips from 'charges'
+  id?: string;
   // Common fields
   ship: string;
   gt: number;
   boarding: Date;
   port?: Port | null;
   pilot: string;
-  typeTrip: 'In' | 'Out' | 'Anchorage' | 'Shift' | 'Other';
+  typeTrip: TripType;
   extra: string;
-  sailingNote: string; // For comments on the sailing.
+  sailingNote: string;
   // Metadata
   source: 'Visit' | 'Charge';
   updatedBy: string;
   updateTime: Date;
   // Actionability
   isActionable: boolean;
-  chargeableEvent?: ChargeableEvent; // Original event to pass to the dialog
+  chargeableEvent?: ChargeableEvent;
 }

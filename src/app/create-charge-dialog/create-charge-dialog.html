@@ -4,10 +4,10 @@
   <div class="form-grid">
     <mat-form-field>
       <mat-label>Ship</mat-label>
-      <input matInput formControlName="ship" [matAutocomplete]="autoShip">
-      <mat-autocomplete #autoShip="matAutocomplete" (optionSelected)="onShipSelected($event)">
+      <input matInput formControlName="ship" [matAutocomplete]="autoShip" required>
+      <mat-autocomplete #autoShip="matAutocomplete" [displayWith]="displayShip" (optionSelected)="onShipSelected($event)">
         @for (ship of filteredShips$ | async; track ship.ship) {
-          <mat-option [value]="ship.ship">{{ ship.ship }}</mat-option>
+          <mat-option [value]="ship">{{ ship.ship }}</mat-option>
         }
       </mat-autocomplete>
     </mat-form-field>
