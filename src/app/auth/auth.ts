@@ -24,7 +24,7 @@ import {
 } from '@angular/fire/firestore';
 import {from, Observable, map, switchMap, Subscription, of, catchError, shareReplay, filter, take} from 'rxjs';
 import {UserInterface} from './types/userInterface';
-
+//TODO: Security Rule Fix see line 125
 @Injectable({
   providedIn: 'root',
 })
@@ -122,7 +122,7 @@ export class AuthService implements OnDestroy {
       );
     });
   }
-
+//todo remove the uid: authUid update from AuthService.updateLastLogin
   private updateLastLogin(docId: string, authUid: string): Observable<void> {
     // Wrap in injection context to prevent warnings from `serverTimestamp()`
     return runInInjectionContext(this.injector, () => {

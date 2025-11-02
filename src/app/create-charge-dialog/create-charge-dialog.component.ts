@@ -131,13 +131,8 @@ export class CreateChargeDialogComponent implements OnInit {
     } else if (this.mode === 'fromVisit') {
       await this.saveChargeFromVisit();
     } else {
-      // 🛑 FIXED: Uses the cleaned facade method: doesChargeExist
-      const exists = await this.dataService.doesChargeExist(this.form.value);
-      if (exists) {
-        this.warnAndSave();
-      } else {
-        await this.saveStandaloneCharge();
-      }
+      // For a new standalone charge, we now directly create the underlying visit/trip.
+      await this.saveStandaloneCharge();
     }
   }
 
@@ -161,8 +156,7 @@ export class CreateChargeDialogComponent implements OnInit {
 
   private async saveStandaloneCharge(): Promise<void> {
     try {
-      // 🛑 FIXED: Uses the cleaned facade method: createStandaloneCharge
-      await this.dataService.createStandaloneCharge(this.form.value);
+      await this.dataService.createStandaloneCharge(this.form.value); // This now creates a Visit and Trip
       this.dialogRef.close('success');
     } catch (error: any) {
       console.error('Error creating standalone charge:', error);
@@ -178,7 +172,6 @@ export class CreateChargeDialogComponent implements OnInit {
         throw new Error('Cannot save charge: Trip ID is missing. This might be an old record.');
       }
 
-      // 🚀 CRITICAL FIX: The method is now confirmTripAndCreateCharge (was v2ConfirmTripAndCreateCharge)
       await this.dataService.confirmTripAndCreateCharge(this.form.value, this.eventToProcess.tripId);
       this.dialogRef.close('success');
     } catch (error: any) {
@@ -190,7 +183,13 @@ export class CreateChargeDialogComponent implements OnInit {
 
   private async updateExistingCharge(): Promise<void> {
     try {
-      // 🛑 FIXED: Uses the cleaned facade method: updateCharge
+      // Ensure ship details are up-to-date when editing an existing charge.
+      // This is now only needed here, as the create flow handles it.
+      const { ship, gt } = this.form.value;
+      if (ship && gt) {
+        this.dataService.ensureShipDetails(ship, gt); // Fire-and-forget is fine here.
+      }
+
       await this.dataService.updateCharge(this.chargeToEdit!.id!, this.form.value);
       this.dialogRef.close('success');
     } catch (error: any) {

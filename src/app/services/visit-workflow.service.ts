@@ -1,7 +1,8 @@
 import { inject, Injectable, Injector, runInInjectionContext } from '@angular/core';
 import { serverTimestamp, Timestamp } from '@angular/fire/firestore';
 import { AuthService } from '../auth/auth';
-import { Trip, Visit, NewVisitData, TripType, VisitStatus } from '../models/data.model';
+import { NewVisitData, Trip, TripType, Visit, VisitStatus } from '../models/data.model';
+import { Charge } from '../models/trip.model';
 import { ShipRepository } from './ship.repository';
 import { VisitRepository } from './visit.repository';
 import { TripRepository } from './trip.repository';
@@ -72,17 +73,65 @@ export class VisitWorkflowService {
         // Audit Fields
         recordedBy: recordedBy,
         recordedAt: now as Timestamp,
-
-        ownNote: undefined,
-        pilotNo: undefined,
-        monthNo: undefined,
-        car: undefined,
-        timeOff: undefined,
-        good: undefined,
       };
       await this.tripRepository.addTrip(initialTrip);
 
       return visitId; // Return the new visit ID
+    });
+  }
+
+  /**
+   * Creates a minimal Visit and a single, confirmed Trip for scenarios where a pilot
+   * is creating a charge directly without a preceding visit/trip record.
+   * This ensures all new charges follow the normalized data structure.
+   * @param chargeData The confirmed trip details from the charge form.
+   * @param shipId The ID of the existing/new master ship document.
+   * @returns The newly created Trip ID.
+   */
+  async createVisitAndTripFromCharge(
+    chargeData: Omit<Charge, 'updateTime' | 'createdBy' | 'createdById'>,
+    shipId: string
+  ): Promise<string> {
+    return runInInjectionContext(this.injector, async () => {
+      const user = this.authService.currentUserSig();
+      const now = serverTimestamp();
+      const recordedBy = user?.displayName || 'Unknown';
+      const boardingTimestamp = Timestamp.fromDate(chargeData.boarding);
+
+      // --- 1. Create the new Visit Document in /visits ---
+      const newVisit: Omit<Visit, 'id'> = {
+        shipId: shipId,
+        shipName: chargeData.ship,
+        grossTonnage: chargeData.gt,
+
+        // Status determination based on trip type
+        currentStatus: chargeData.typeTrip === 'Out' ? 'Sailed' : 'Alongside',
+        initialEta: boardingTimestamp, // Use boarding time as the best estimate
+        berthPort: chargeData.port,
+        visitNotes: `Trip confirmed directly by pilot: ${chargeData.pilot}`,
+
+        // Audit Fields
+        statusLastUpdated: now as Timestamp,
+        updatedBy: recordedBy,
+      };
+      const visitId = await this.visitRepository.addVisit(newVisit);
+
+      // --- 2. Create the Confirmed Trip in /trips ---
+      const newTrip: Omit<Trip, 'id'> = {
+        visitId: visitId,
+        shipId: shipId,
+        typeTrip: chargeData.typeTrip as TripType,
+        boarding: boardingTimestamp,
+        pilot: chargeData.pilot,
+        fromPort: chargeData.typeTrip === 'In' ? undefined : chargeData.port,
+        toPort: chargeData.typeTrip === 'Out' ? undefined : chargeData.port,
+        pilotNotes: chargeData.sailingNote || '',
+        extraChargesNotes: chargeData.extra || '',
+        isConfirmed: true, // It is confirmed immediately
+        recordedBy: recordedBy,
+        recordedAt: now as Timestamp,
+      };
+      return this.tripRepository.addTrip(newTrip);
     });
   }
 }

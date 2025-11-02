@@ -104,4 +104,57 @@ export class ShipRepository {
       map((ships) => ships.map((ship) => ({ ship: ship.shipName, gt: ship.grossTonnage })))
     );
   }
+
+  /**
+   * Finds an existing Ship document by name and updates its grossTonnage if different,
+   * or creates a new Ship document if it doesn't exist.
+   * This is used by the charge creation/editing flow to keep the master ship list up-to-date
+   * and returns the ID of the found or created document.
+   * @param shipName The name of the ship.
+   * @param grossTonnage The Gross Tonnage.
+   * @returns The Firestore ID of the Ship document.
+   */
+  async ensureShipDetails(shipName: string, grossTonnage: number): Promise<string> {
+    if (!shipName || !grossTonnage) {
+      throw new Error('Ship name and GT are required to find or create a ship.');
+    }
+
+    return runInInjectionContext(this.injector, async () => {
+      const shipsCollection = collection(this.firestore, 'ships');
+      const now = serverTimestamp();
+
+      // 1. Check for existing ship by name
+      const existingShipQuery = query(
+        shipsCollection,
+        where('shipName', '==', shipName),
+        limit(1)
+      );
+      const existingShipSnapshot = await getDocs(existingShipQuery);
+
+      if (!existingShipSnapshot.empty) {
+        // 2. Found existing ship: Check if GT needs update
+        const shipDoc = existingShipSnapshot.docs[0];
+        const shipDocRef = doc(this.firestore, `ships/${shipDoc.id}`);
+
+        if (shipDoc.data()['grossTonnage'] !== grossTonnage) {
+          await updateDoc(shipDocRef, {
+            grossTonnage: grossTonnage,
+            updatedAt: now as Timestamp,
+          });
+        }
+        return shipDoc.id; // Return the existing ID
+      } else {
+        // 3. Not found: Create a brand new Ship document
+        const newShip: Omit<Ship, 'id'> = {
+          shipName: shipName,
+          grossTonnage: grossTonnage,
+          createdAt: now as Timestamp,
+          updatedAt: now as Timestamp,
+          // Other optional fields remain undefined
+        };
+        const shipDocRef = await addDoc(shipsCollection, newShip);
+        return shipDocRef.id; // Return the new ID
+      }
+    });
+  }
 }

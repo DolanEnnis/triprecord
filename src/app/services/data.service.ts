@@ -1,5 +1,6 @@
 import { inject, Injectable} from '@angular/core';
 import { Observable, of } from 'rxjs';
+import { Timestamp } from '@angular/fire/firestore';
 // Only import DTO models
 import { Charge, UnifiedTrip } from '../models/trip.model';
 import { NewVisitData } from '../models/data.model';
@@ -43,15 +44,29 @@ export class DataService {
     chargeData: Omit<Charge, 'updateTime' | 'createdBy' | 'createdById'>,
     tripId: string
   ): Promise<void> {
-    await this.chargeRepository.addCharge(chargeData);
-    await this.tripRepository.updateTrip(tripId, { isConfirmed: true });
+    // The `chargeData` from the form has `boarding` as a JS Date.
+    // We must convert it to a Firestore Timestamp before updating the Trip document.
+    const updatePayload = {
+      ...chargeData,
+      boarding: Timestamp.fromDate(chargeData.boarding), // Convert Date to Timestamp
+      isConfirmed: true,
+    };
+
+    await this.tripRepository.updateTrip(tripId, updatePayload);
   }
 
   /**
    * Creates a new standalone charge. (Retained, no change)
    */
-  async createStandaloneCharge(chargeData: Omit<Charge, 'updateTime' | 'createdBy' | 'createdById'>): Promise<void> {
-    return this.chargeRepository.addCharge(chargeData);
+  async createStandaloneCharge(
+    chargeData: Omit<Charge, 'updateTime' | 'createdBy' | 'createdById'>
+  ): Promise<string> {
+    // 1. Ensure the ship exists in the master /ships collection and get its ID.
+    const shipId = await this.shipRepository.ensureShipDetails(chargeData.ship, chargeData.gt);
+
+    // 2. Use the workflow service to create the underlying Visit and confirmed Trip.
+    // This replaces direct creation of a 'charge' document.
+    return this.visitWorkflowService.createVisitAndTripFromCharge(chargeData, shipId);
   }
 
   /**
@@ -81,6 +96,17 @@ export class DataService {
    */
   getShipSuggestions(search: string): Observable<{ ship: string, gt: number }[]> {
     return this.shipRepository.getShipSuggestions(search);
+  }
+
+  /**
+   * Ensures a ship's details (especially GT) are up-to-date in the master /ships collection.
+   * This is a facade method that delegates the call to the ShipRepository.
+   * @param shipName The name of the ship.
+   * @param grossTonnage The Gross Tonnage of the ship.
+   */
+  async ensureShipDetails(shipName: string, grossTonnage: number): Promise<string> {
+    // This simply calls the repository method.
+    return this.shipRepository.ensureShipDetails(shipName, grossTonnage);
   }
 
   // 🛑 REMOVED: private createChargeableEvent() - Only for old model compatibility
