@@ -3,15 +3,15 @@ import { Observable, of } from 'rxjs';
 import { Timestamp } from '@angular/fire/firestore';
 // Only import DTO models
 import { Charge, UnifiedTrip } from '../models/trip.model';
-import { NewVisitData } from '../models/data.model';
+import { NewVisitData, VisitStatus } from '../models/data.model';
 
-// Removed: Firestore import
-// Removed: Old model imports (ChargeableEvent, Trip, Visit)
+import { AuthService } from '../auth/auth';
 import { ChargeRepository } from './charge.repository';
 import { ShipRepository } from './ship.repository';
 import { UnifiedTripLogService } from './unified-trip-log.service';
 import { VisitWorkflowService } from './visit-workflow.service';
 import { TripRepository } from './trip.repository';
+import { VisitRepository } from './visit.repository';
 
 
 
@@ -24,6 +24,8 @@ export class DataService {
   private readonly tripRepository: TripRepository = inject(TripRepository);
   private readonly unifiedTripLogService: UnifiedTripLogService = inject(UnifiedTripLogService);
   private readonly visitWorkflowService: VisitWorkflowService = inject(VisitWorkflowService);
+  private readonly visitRepository: VisitRepository = inject(VisitRepository);
+  private readonly authService: AuthService = inject(AuthService);
 
   // 🛑 REMOVED: getRecentTrips() - Deprecated old model method
   // 🛑 REMOVED: getUnifiedTripLog() - Deprecated old model method
@@ -37,22 +39,44 @@ export class DataService {
   }
 
   /**
-   * Creates a new charge and marks the corresponding trip as confirmed.
-   * (Renamed from v2ConfirmTripAndCreateCharge)
+   * Confirms an operational trip, creates the corresponding financial charge record,
+   * and updates the parent visit's status.
    */
   async confirmTripAndCreateCharge(
     chargeData: Omit<Charge, 'updateTime' | 'createdBy' | 'createdById'>,
-    tripId: string
+    tripId: string,
+    visitId: string // Visit ID is required to update parent status
   ): Promise<void> {
-    // The `chargeData` from the form has `boarding` as a JS Date.
-    // We must convert it to a Firestore Timestamp before updating the Trip document.
-    const updatePayload = {
+    const updatedBy = this.authService.currentUserSig()?.displayName || 'Unknown';
+
+    // The `chargeData` from the form has `boarding` as a JS Date. It must be
+    // converted to a Firestore Timestamp for the Trip update, but the Charge
+    // repository expects the original Date object.
+
+    // 1. Create the immutable financial record in the /charges collection.
+    // This is the source of truth for billing.
+    // The repository expects the original `chargeData` with `boarding` as a Date.
+    await this.chargeRepository.addCharge(chargeData);
+
+    // 2. Update the operational trip record with the final details and mark as confirmed.
+    // The Trip repository requires a Firestore Timestamp.
+    const tripUpdatePayload = {
       ...chargeData,
-      boarding: Timestamp.fromDate(chargeData.boarding), // Convert Date to Timestamp
+      boarding: Timestamp.fromDate(chargeData.boarding), // Convert Date to Timestamp here
       isConfirmed: true,
     };
+    await this.tripRepository.updateTrip(tripId, tripUpdatePayload);
 
-    await this.tripRepository.updateTrip(tripId, updatePayload);
+    // 3. CRITICAL: Only update the visit status if the trip is an 'Out' trip.
+    // This sets the final state of the visit and avoids incorrectly downgrading
+    // the status from 'Sailed' if an 'In' trip is confirmed out of order.
+    if (chargeData.typeTrip === 'Out') {
+      await this.visitRepository.updateVisitStatus(
+        visitId,
+        'Sailed' as VisitStatus,
+        updatedBy
+      );
+    }
   }
 
   /**

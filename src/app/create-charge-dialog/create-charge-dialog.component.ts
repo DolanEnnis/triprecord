@@ -168,11 +168,15 @@ export class CreateChargeDialogComponent implements OnInit {
   private async saveChargeFromVisit(): Promise<void> {
     try {
       // The eventToProcess.tripId is the ID of the document in the /trips collection.
-      if (!this.eventToProcess?.tripId) {
-        throw new Error('Cannot save charge: Trip ID is missing. This might be an old record.');
+      if (!this.eventToProcess?.tripId || !this.eventToProcess?.visitId) {
+        throw new Error('Cannot save charge: Trip or Visit ID is missing. This might be an old record.');
       }
 
-      await this.dataService.confirmTripAndCreateCharge(this.form.value, this.eventToProcess.tripId);
+      await this.dataService.confirmTripAndCreateCharge(
+        this.form.value,
+        this.eventToProcess.tripId,
+        this.eventToProcess.visitId // Pass the required visitId
+      );
       this.dialogRef.close('success');
     } catch (error: any) {
       console.error('Error creating charge from visit:', error);

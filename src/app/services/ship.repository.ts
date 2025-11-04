@@ -90,19 +90,21 @@ export class ShipRepository {
       return of([]);
     }
 
-    const shipsCollection = collection(this.firestore, 'ships');
-    // NOTE: This query requires an index on 'shipName'.
-    const q = query(
-      shipsCollection,
-      where('shipName', '>=', search),
-      where('shipName', '<=', search + '\uf8ff'),
-      orderBy('shipName'),
-      limit(10)
-    );
+    return runInInjectionContext(this.injector, () => {
+      const shipsCollection = collection(this.firestore, 'ships');
+      // NOTE: This query requires an index on 'shipName'.
+      const q = query(
+        shipsCollection,
+        where('shipName', '>=', search),
+        where('shipName', '<=', search + '\uf8ff'),
+        orderBy('shipName'),
+        limit(10)
+      );
 
-    return (collectionData(q) as Observable<Ship[]>).pipe(
-      map((ships) => ships.map((ship) => ({ ship: ship.shipName, gt: ship.grossTonnage })))
-    );
+      return (collectionData(q) as Observable<Ship[]>).pipe(
+        map((ships) => ships.map((ship) => ({ ship: ship.shipName, gt: ship.grossTonnage })))
+      );
+    });
   }
 
   /**

@@ -7,12 +7,14 @@ import {
   Firestore,
   getDoc,
   query,
+  serverTimestamp,
   Timestamp,
+  updateDoc,
   where,
 } from '@angular/fire/firestore';
 import { from, Observable } from 'rxjs';
-import {map} from 'rxjs/operators';
-import { Visit } from '../models/data.model';
+import { map } from 'rxjs/operators';
+import { Visit, VisitStatus } from '../models/data.model';
 
 /**
  * VisitRepository handles all direct data access operations for the '/visits' Firestore collection.
@@ -24,10 +26,11 @@ import { Visit } from '../models/data.model';
 export class VisitRepository {
   private readonly firestore: Firestore = inject(Firestore);
   private readonly injector = inject(Injector);
+  private readonly COLLECTION_NAME = 'visits_new';
 
   async addVisit(visit: Omit<Visit, 'id'>): Promise<string> {
     return runInInjectionContext(this.injector, async () => {
-      const visitsCollection = collection(this.firestore, 'visits_new');
+      const visitsCollection = collection(this.firestore, this.COLLECTION_NAME);
       const docRef = await addDoc(visitsCollection, visit);
       return docRef.id;
     });
@@ -35,7 +38,7 @@ export class VisitRepository {
 
   getVisitById(visitId: string): Observable<Visit | undefined> {
     return runInInjectionContext(this.injector, () => {
-      const visitDocRef = doc(this.firestore, `visits_new/${visitId}`);
+      const visitDocRef = doc(this.firestore, `${this.COLLECTION_NAME}/${visitId}`);
       return from(getDoc(visitDocRef)).pipe(
         // Cast to NewVisit or undefined, as data() can return undefined if doc doesn't exist
         // and we don't want to rely on docData which returns Observable<T | undefined>
@@ -49,12 +52,26 @@ export class VisitRepository {
 
   getRecentVisits(threeMonthsAgoTimestamp: Timestamp): Observable<Visit[]> {
     return runInInjectionContext(this.injector, () => {
-      const visitsCollection = collection(this.firestore, 'visits_new');
+      const visitsCollection = collection(this.firestore, this.COLLECTION_NAME);
       const recentVisitsQuery = query(
         visitsCollection,
         where('initialEta', '>=', threeMonthsAgoTimestamp)
       );
       return collectionData(recentVisitsQuery, { idField: 'id' }) as Observable<Visit[]>;
+    });
+  }
+
+  /**
+   * Updates the currentStatus, statusLastUpdated, and updatedBy fields of a Visit document.
+   */
+  async updateVisitStatus(visitId: string, newStatus: VisitStatus, updatedBy: string): Promise<void> {
+    return runInInjectionContext(this.injector, async () => {
+      const visitDocRef = doc(this.firestore, `${this.COLLECTION_NAME}/${visitId}`);
+      await updateDoc(visitDocRef, {
+        currentStatus: newStatus,
+        statusLastUpdated: serverTimestamp(),
+        updatedBy: updatedBy,
+      });
     });
   }
 }

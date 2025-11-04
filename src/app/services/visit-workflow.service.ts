@@ -63,7 +63,7 @@ export class VisitWorkflowService {
         boarding: initialEtaTimestamp, // Use ETA as provisional boarding time
         pilot: data.pilot,
 
-        fromPort: undefined, // 'In' implies from sea
+        fromPort: null, // 'In' implies from sea
         toPort: data.berthPort,
 
         pilotNotes: data.visitNotes || '', // Initial notes can come from the visit notes
@@ -123,8 +123,8 @@ export class VisitWorkflowService {
         typeTrip: chargeData.typeTrip as TripType,
         boarding: boardingTimestamp,
         pilot: chargeData.pilot,
-        fromPort: chargeData.typeTrip === 'In' ? undefined : chargeData.port,
-        toPort: chargeData.typeTrip === 'Out' ? undefined : chargeData.port,
+        fromPort: chargeData.typeTrip === 'In' ? null : chargeData.port,
+        toPort: chargeData.typeTrip === 'Out' ? null : chargeData.port,
         pilotNotes: chargeData.sailingNote || '',
         extraChargesNotes: chargeData.extra || '',
         isConfirmed: true, // It is confirmed immediately
