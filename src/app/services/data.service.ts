@@ -55,8 +55,10 @@ export class DataService {
 
     // 1. Create the immutable financial record in the /charges collection.
     // This is the source of truth for billing.
-    // The repository expects the original `chargeData` with `boarding` as a Date.
-    await this.chargeRepository.addCharge(chargeData);
+    // TODO: Re-enable writing to /charges once the old app is decommissioned or the data flow is finalized.
+    // This is the source of truth for billing on the old system.
+    console.log('SKIPPING: Writing to /charges collection for old app compatibility.', chargeData);
+    // await this.chargeRepository.addCharge(chargeData);
 
     // 2. Update the operational trip record with the final details and mark as confirmed.
     // The Trip repository requires a Firestore Timestamp.
@@ -89,8 +91,16 @@ export class DataService {
     const shipId = await this.shipRepository.ensureShipDetails(chargeData.ship, chargeData.gt);
 
     // 2. Use the workflow service to create the underlying Visit and confirmed Trip.
-    // This replaces direct creation of a 'charge' document.
-    return this.visitWorkflowService.createVisitAndTripFromCharge(chargeData, shipId);
+    const tripId = await this.visitWorkflowService.createVisitAndTripFromCharge(chargeData, shipId);
+
+    // 3. Create the financial record in the /charges collection.
+    // TODO: Re-enable writing to /charges once the old app is decommissioned or the data flow is finalized.
+    // This is the source of truth for billing on the old system.
+    // NOTE: When re-enabling, ensure `chargeData.boarding` is converted to a Timestamp if the repository requires it.
+    console.log('SKIPPING: Writing to /charges collection for old app compatibility.', chargeData);
+    // await this.chargeRepository.addCharge(chargeData);
+
+    return tripId;
   }
 
   /**
