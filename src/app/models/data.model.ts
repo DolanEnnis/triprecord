@@ -28,14 +28,15 @@ export type VisitStatus = 'Due' | 'Awaiting Berth' | 'Alongside' | 'Sailed' | 'C
 export interface Ship {
   id?: string;                 // Firestore Document ID
   shipName: string;
+  shipName_lowercase?: string; // For case-insensitive searching
   grossTonnage: number;
   imoNumber?: number | null;
   marineTrafficLink?: string | null;
   shipNotes?: string | null;   // General notes about the vessel
 
   // Audit Fields
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  createdAt: Timestamp | FieldValue;
+  updatedAt: Timestamp | FieldValue;
 }
 
 

@@ -4,9 +4,9 @@
   padding: 2rem;
 }
 
-mat-card {
+.main-card {
   width: 100%;
-  max-width: 800px;
+  max-width: 1200px; /* Increased for better side-by-side layout */
 }
 
 mat-card-title h2 {
@@ -36,6 +36,7 @@ h3 {
   border-bottom: 2px solid #ddd;
   padding-bottom: 0.5rem;
   margin-bottom: 1.5rem;
+  /* The color is applied via the `color="primary"` attribute in the HTML, which is the correct Angular Material way. */
 }
 
 mat-card-actions {
@@ -54,7 +55,88 @@ button mat-progress-spinner {
   }
 }
 
+/* --- New Two-Column Layout Styles --- */
+
+.content-flex-container {
+  display: flex;
+  gap: 2rem;
+}
+
+.form-section {
+  flex: 1 1 60%; /* Give more space to the form */
+  min-width: 300px;
+}
+
+.visits-section {
+  flex: 1 1 40%;
+  min-width: 300px;
+}
+
+.visits-section > a {
+  align-self: flex-start;
+}
+
+.visits-header {
+  margin-top: 1rem;
+}
+
+.visit-list {
+  list-style-type: none;
+  padding: 0;
+  margin-top: 10px;
+}
+
+.visit-list li {
+  padding: 10px 15px;
+  /* Use the theme color via a more stable variable or a hardcoded fallback if needed */
+  border-left: 5px solid var(--mdc-theme-primary, #3f51b5);
+  border-bottom: 1px solid #eee;
+  margin-bottom: 8px;
+  background-color: #fcfcfc;
+  border-radius: 4px;
+}
+
+.visit-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  font-weight: 500;
+  margin-bottom: 5px;
+}
+
+.visit-status {
+  font-style: italic;
+  color: #777;
+  font-size: 0.9em;
+}
+
+.visit-note {
+  font-size: 0.9em;
+  color: #555;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.hint-card {
+  margin-top: 20px;
+  box-shadow: none !important;
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+}
+
 /* Provide a visual cue that autocomplete options are clickable */
 ::ng-deep .mat-mdc-autocomplete-panel .mat-mdc-option {
   cursor: pointer;
+}
+
+/* On smaller screens, stack the columns */
+@media (max-width: 900px) {
+  .content-flex-container {
+    flex-direction: column;
+  }
+
+  /* Use the more specific accessibility selector */
+  mat-divider[aria-orientation="vertical"] {
+    display: none; /* Hide the vertical divider */
+  }
 }

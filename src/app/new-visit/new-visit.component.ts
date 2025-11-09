@@ -5,19 +5,20 @@ import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
-import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
+import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule, DateAdapter } from '@angular/material/core';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatProgressSpinnerModule, ProgressSpinnerMode } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
 import { MatAutocompleteModule, MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
-import { Observable, of } from 'rxjs';
+import { Observable, of, tap } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, startWith } from 'rxjs/operators';
 
 import { VisitWorkflowService } from '../services/visit-workflow.service';
-import { AuthService } from '../auth/auth';
-import { Port, Visit } from '../models/data.model';
+import { AuthService} from '../auth/auth';
+import { Port, Ship, Visit } from '../models/data.model';
 import { ShipRepository } from '../services/ship.repository';
 import { VisitRepository } from '../services/visit.repository';
 import {MatDivider} from '@angular/material/divider';
@@ -26,19 +27,24 @@ import {MatDivider} from '@angular/material/divider';
   selector: 'app-new-visit',
   standalone: true,
   imports: [
+    // Angular Common
     CommonModule,
     ReactiveFormsModule,
+    RouterLink,
+
+    // Angular Material
     MatCardModule,
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
+    MatIconModule,
     MatDatepickerModule,
     MatNativeDateModule,
     MatSelectModule,
     MatProgressSpinnerModule,
     MatAutocompleteModule,
     MatSnackBarModule,
-    MatDivider
+    MatDivider,
   ],
   templateUrl: './new-visit.component.html',
   styleUrl: './new-visit.component.css',
@@ -99,6 +105,18 @@ export class NewVisitComponent implements OnInit {
     // This listens to value changes, debounces input, and fetches suggestions from the repository.
     this.filteredShips$ = this.shipNameControl.valueChanges.pipe(
       startWith(''),
+      // 🛑 FIX: If the user types, the value is a string. This means they have abandoned the autocomplete selection.
+      // We must reset the form fields that were previously auto-populated to prevent submitting stale data.
+      tap(value => {
+        if (typeof value === 'string') {
+          this.visitForm.patchValue({
+            grossTonnage: null,
+            imoNumber: null,
+            marineTrafficLink: '',
+            shipNotes: ''
+          });
+        }
+      }),
       debounceTime(300),
       distinctUntilChanged(),
       switchMap(value => {
@@ -125,8 +143,11 @@ export class NewVisitComponent implements OnInit {
    * @param ship The selected ship object.
    * @returns The ship's name.
    */
-  displayShip(ship: { ship: string, gt: number, id: string }): string {
-    return ship?.ship || '';
+  displayShip(ship: Ship | { ship: string }): string {
+    // This function must handle two types of objects:
+    // 1. A full `Ship` object from the database, which has a `shipName` property.
+    // 2. A suggestion object from the autocomplete, which has a `ship` property.
+    return ship ? (ship as Ship).shipName || (ship as { ship: string }).ship || '' : '';
   }
 
   /**
@@ -136,20 +157,10 @@ export class NewVisitComponent implements OnInit {
    */
   onShipSelected(event: MatAutocompleteSelectedEvent): void {
     const selectedSuggestion: { id: string } = event.option.value;
-
-    // 1. Fetch the full ship details using the ID from the suggestion.
     this.shipRepository.getShipById(selectedSuggestion.id).subscribe({
       next: (fullShip) => {
         if (fullShip) {
-          // 2. Autopopulate the form with all known ship details.
-          // We do NOT patch 'shipName' here because the autocomplete has already set it to the full object.
-          // Patching it with a string would break the displayWith functionality.
-          this.visitForm.patchValue({
-            grossTonnage: fullShip.grossTonnage,
-            imoNumber: fullShip.imoNumber,
-            marineTrafficLink: fullShip.marineTrafficLink,
-            shipNotes: fullShip.shipNotes,
-          });
+          this.populateFormWithShipData(fullShip);
         }
       },
       error: (err) => {
@@ -157,15 +168,72 @@ export class NewVisitComponent implements OnInit {
         this.snackBar.open('Could not load full ship details.', 'Close', { duration: 3000 });
       }
     });
+  }
 
-    // 3. Fetch the ship's visit history.
-    this.visitRepository.getPreviousVisits(selectedSuggestion.id).subscribe({
-      next: (visits) => this.previousVisits.set(visits),
-      error: (err) => {
-        console.error("Failed to load previous visits:", err);
-        this.previousVisits.set([]);
-      }
-    });
+  /**
+   * When the user leaves the ship name input, check if the typed text is an existing ship.
+   * If so, populate the form as if they had selected it from the autocomplete.
+   */
+  onShipNameBlur(): void {
+    const shipNameValue = this.shipNameControl.value;
+    // Only act if the value is a string (i.e., user typed but didn't select from autocomplete).
+    if (typeof shipNameValue === 'string' && shipNameValue.trim()) {
+      this.shipRepository.findShipByName(shipNameValue).subscribe(ship => {
+        if (ship) {
+          this.populateFormWithShipData(ship);
+        }
+      });
+    }
+  }
+
+  /**
+   * Populates the form with data from a full Ship object and fetches its visit history.
+   * This is the central helper for both autocomplete selection and blur events.
+   * @param ship The complete Ship object.
+   */
+  private populateFormWithShipData(ship: Ship): void {
+    // Set the control value to the full object to ensure the displayWith function works correctly.
+    this.shipNameControl.setValue(ship, { emitEvent: false });
+
+    // Patch the rest of the form with the ship's details.
+    this.visitForm.patchValue({
+      grossTonnage: ship.grossTonnage,
+      imoNumber: ship.imoNumber,
+      marineTrafficLink: ship.marineTrafficLink,
+      shipNotes: ship.shipNotes,
+    }, { emitEvent: false }); // Use emitEvent: false to prevent infinite loops with valueChanges.
+
+    // Fetch the ship's visit history.
+    if (ship.id) {
+      this.visitRepository.getPreviousVisits(ship.id).subscribe({
+        next: (visits) => {
+          this.previousVisits.set(visits);
+          this.checkForActiveVisits(visits);
+        },
+        error: (err) => {
+          console.error("Failed to load previous visits:", err);
+          this.previousVisits.set([]);
+        }
+      });
+    }
+  }
+
+  /**
+   * Checks a list of visits for any that are considered "active" and warns the user.
+   * An active visit indicates that creating a new one might be a duplicate entry.
+   * @param visits The list of visits for a selected ship.
+   */
+  private checkForActiveVisits(visits: Visit[]): void {
+    const activeStatuses: Visit['currentStatus'][] = ['Due', 'Awaiting Berth', 'Alongside'];
+    const hasActiveVisit = visits.some(visit => activeStatuses.includes(visit.currentStatus));
+
+    if (hasActiveVisit) {
+      this.snackBar.open('Warning: This ship has an active visit. Creating a new one may be a duplicate.', 'Dismiss', {
+        duration: 10000, // Show for a longer duration
+        panelClass: ['warn-snackbar'], // Optional: for custom styling
+        verticalPosition: 'top',
+      });
+    }
   }
 
   /**
@@ -181,8 +249,19 @@ export class NewVisitComponent implements OnInit {
     this.isLoading = true;
 
     try {
-      // The form's value is structured to match the NewVisitData DTO.
-      const newVisitData = this.visitForm.value;
+     // We must normalize it to a string before sending it to the backend service.
+      const formValue = this.visitForm.getRawValue();
+      const shipNameValue = formValue.shipName;
+
+      const newVisitData = {
+        ...formValue,
+        // Ensure shipName is always a string.
+        // 🛑 FIX: The object can be a suggestion {ship: '...'} or a full Ship {shipName: '...'}.
+        // This logic now correctly handles all possible data shapes.
+        shipName: typeof shipNameValue === 'string'
+          ? shipNameValue
+          : shipNameValue.shipName || shipNameValue.ship,
+      };
 
       await this.visitWorkflowService.createNewVisit(newVisitData);
 

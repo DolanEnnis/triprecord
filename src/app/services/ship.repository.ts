@@ -38,12 +38,12 @@ export class ShipRepository {
   async findOrCreateShip(data: NewVisitData): Promise<string> {
     return runInInjectionContext(this.injector, async () => {
       const shipsCollection = collection(this.firestore, 'ships');
-      const now = serverTimestamp();
+      const shipNameLower = data.shipName.toLowerCase();
 
-      // 1. Check for existing ship by name (case-insensitive query is complex, we use exact for now)
+      // 1. Check for existing ship by name.
       const existingShipQuery = query(
         shipsCollection,
-        where('shipName', '==', data.shipName),
+        where('shipName_lowercase', '==', shipNameLower),
         limit(1)
       );
       const existingShipSnapshot = await getDocs(existingShipQuery);
@@ -53,12 +53,15 @@ export class ShipRepository {
         const shipDoc = existingShipSnapshot.docs[0];
         const shipDocRef = doc(this.firestore, `ships/${shipDoc.id}`);
 
+        // The user may have corrected or added details to an existing ship.
+        // We update the master record with the data from the form.
         const updateData: Partial<Ship> = {
           grossTonnage: data.grossTonnage,
           imoNumber: data.imoNumber,
+          shipName_lowercase: shipNameLower, // Ensure lowercase field is updated
           marineTrafficLink: data.marineTrafficLink,
           shipNotes: data.shipNotes,
-          updatedAt: now as Timestamp,
+          updatedAt: serverTimestamp(),
         };
 
         await updateDoc(shipDocRef, updateData);
@@ -67,12 +70,13 @@ export class ShipRepository {
         // 3. Not found: Create a brand new Ship document
         const newShip: Omit<Ship, 'id'> = {
           shipName: data.shipName,
+          shipName_lowercase: shipNameLower,
           grossTonnage: data.grossTonnage,
           imoNumber: data.imoNumber,
           marineTrafficLink: data.marineTrafficLink,
           shipNotes: data.shipNotes,
-          createdAt: now as Timestamp,
-          updatedAt: now as Timestamp,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
         };
 
         const shipDocRef = await addDoc(shipsCollection, newShip);
@@ -94,6 +98,25 @@ export class ShipRepository {
     });
   }
 
+  /**
+   * Finds a single ship by its exact name (case-insensitive).
+   * @param name The exact name of the ship to find.
+   */
+  findShipByName(name: string): Observable<Ship | undefined> {
+    return runInInjectionContext(this.injector, () => {
+      const shipsCollection = collection(this.firestore, 'ships');
+      const lowerCaseName = name.toLowerCase();
+      const q = query(shipsCollection, where('shipName_lowercase', '==', lowerCaseName), limit(1));
+
+      return from(getDocs(q)).pipe(
+        map(querySnapshot => {
+          if (querySnapshot.empty) return undefined;
+          const doc = querySnapshot.docs[0];
+          return { id: doc.id, ...doc.data() } as Ship;
+        })
+      );
+    });
+  }
 
   /**
    * Gets ship name and GT suggestions from the master '/ships' collection.
@@ -107,12 +130,13 @@ export class ShipRepository {
 
     return runInInjectionContext(this.injector, () => {
       const shipsCollection = collection(this.firestore, 'ships');
-      // NOTE: This query requires an index on 'shipName'.
+      const lowerCaseSearch = search.toLowerCase();
       const q = query(
         shipsCollection,
-        where('shipName', '>=', search),
-        where('shipName', '<=', search + '\uf8ff'),
-        orderBy('shipName'),
+        // 🛑 CRITICAL: Query against the normalized lowercase field.
+        where('shipName_lowercase', '>=', lowerCaseSearch),
+        where('shipName_lowercase', '<=', lowerCaseSearch + '\uf8ff'),
+        orderBy('shipName_lowercase'), // Order by the same field for index efficiency
         limit(10)
       );
 
@@ -142,12 +166,12 @@ export class ShipRepository {
 
     return runInInjectionContext(this.injector, async () => {
       const shipsCollection = collection(this.firestore, 'ships');
-      const now = serverTimestamp();
+      const shipNameLower = shipName.toLowerCase();
 
       // 1. Check for existing ship by name
       const existingShipQuery = query(
         shipsCollection,
-        where('shipName', '==', shipName),
+        where('shipName_lowercase', '==', shipNameLower),
         limit(1)
       );
       const existingShipSnapshot = await getDocs(existingShipQuery);
@@ -156,11 +180,15 @@ export class ShipRepository {
         // 2. Found existing ship: Check if GT needs update
         const shipDoc = existingShipSnapshot.docs[0];
         const shipDocRef = doc(this.firestore, `ships/${shipDoc.id}`);
+        const shipData = shipDoc.data();
 
-        if (shipDoc.data()['grossTonnage'] !== grossTonnage) {
+        // 🛑 FIX: Trigger an update if GT is different OR if the document is missing the lowercase field.
+        // This performs a "lazy migration" to fix old data.
+        if (shipData['grossTonnage'] !== grossTonnage || !shipData['shipName_lowercase']) {
           await updateDoc(shipDocRef, {
             grossTonnage: grossTonnage,
-            updatedAt: now as Timestamp,
+            shipName_lowercase: shipNameLower, // Keep lowercase field consistent
+            updatedAt: serverTimestamp(),
           });
         }
         return shipDoc.id; // Return the existing ID
@@ -168,9 +196,10 @@ export class ShipRepository {
         // 3. Not found: Create a brand new Ship document
         const newShip: Omit<Ship, 'id'> = {
           shipName: shipName,
+          shipName_lowercase: shipNameLower,
           grossTonnage: grossTonnage,
-          createdAt: now as Timestamp,
-          updatedAt: now as Timestamp,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
           // Other optional fields remain undefined
         };
         const shipDocRef = await addDoc(shipsCollection, newShip);

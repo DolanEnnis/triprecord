@@ -1,5 +1,5 @@
 <div class="new-visit-container">
-  <mat-card>
+  <mat-card class="main-card">
     <mat-card-header>
       <mat-card-title>
         <h2>New Vessel Visit</h2>
@@ -7,13 +7,15 @@
       <mat-card-subtitle>Record a vessel arriving into the river.</mat-card-subtitle>
     </mat-card-header>
 
-    <mat-card-content>
-      <form [formGroup]="visitForm" (ngSubmit)="onSubmit()">
-        <h3 color="primary">Vessel Details</h3>
-        <div class="form-grid">
-          <mat-form-field appearance="outline">
+    <mat-card-content class="content-flex-container">
+
+      <div class="form-section">
+        <form [formGroup]="visitForm" (ngSubmit)="onSubmit()">
+          <h3 color="primary">Vessel Details</h3>
+          <div class="form-grid">
+            <mat-form-field appearance="outline">
             <mat-label>Ship Name</mat-label>
-            <input matInput formControlName="shipName" [matAutocomplete]="autoShip" required>
+            <input matInput formControlName="shipName" [matAutocomplete]="autoShip" (blur)="onShipNameBlur()" required>
             <mat-autocomplete #autoShip="matAutocomplete" [displayWith]="displayShip" (optionSelected)="onShipSelected($event)">
               @for (ship of filteredShips$ | async; track ship.id) {
                 <mat-option [value]="ship">{{ ship.ship }} ({{ ship.gt | number }})</mat-option>
@@ -24,7 +26,7 @@
             }
           </mat-form-field>
 
-          <mat-form-field appearance="outline">
+            <mat-form-field appearance="outline">
             <mat-label>Gross Tonnage (GT)</mat-label>
             <input matInput type="number" formControlName="grossTonnage" required>
             @if (grossTonnageControl.hasError('required') && grossTonnageControl.touched) {
@@ -32,26 +34,26 @@
             }
           </mat-form-field>
 
-          <mat-form-field appearance="outline">
+            <mat-form-field appearance="outline">
             <mat-label>IMO Number</mat-label>
             <input matInput type="number" formControlName="imoNumber">
           </mat-form-field>
 
-          <mat-form-field appearance="outline">
-            <mat-label>Marine Traffic Link</mat-label>
+            <mat-form-field appearance="outline">
+              <mat-label>Marine Traffic URL</mat-label>
             <input matInput type="url" formControlName="marineTrafficLink">
           </mat-form-field>
 
-          <mat-form-field appearance="outline" class="full-width">
+            <mat-form-field appearance="outline" class="full-width">
             <mat-label>Vessel Notes / Characteristics</mat-label>
             <textarea matInput formControlName="shipNotes" rows="2"></textarea>
           </mat-form-field>
-        </div>
+          </div>
 
-        <h3 color="primary">Visit & Initial Trip Details</h3>
-        <div class="form-grid">
-          <mat-form-field appearance="outline">
-            <mat-label>Initial ETA (Date/Time)</mat-label>
+          <h3 color="primary">Visit & Initial Trip Details</h3>
+          <div class="form-grid">
+            <mat-form-field appearance="outline" class="datetime-picker-field">
+            <mat-label>ETA</mat-label>
             <input matInput [matDatepicker]="etaPicker" formControlName="initialEta" [min]="minDate" required>
             <mat-datepicker-toggle matIconSuffix [for]="etaPicker"></mat-datepicker-toggle>
             <mat-datepicker #etaPicker></mat-datepicker>
@@ -60,7 +62,7 @@
             }
           </mat-form-field>
 
-          <mat-form-field appearance="outline">
+            <mat-form-field appearance="outline">
             <mat-label>Destination Port</mat-label>
             <mat-select formControlName="berthPort" required>
               @for (port of ports; track port) {
@@ -72,7 +74,7 @@
             }
           </mat-form-field>
 
-          <mat-form-field appearance="outline">
+            <mat-form-field appearance="outline">
             <mat-label>Initial Pilot (Inward Trip)</mat-label>
             <input matInput formControlName="pilot" required>
             @if (visitForm.get('pilot')?.hasError('required') && visitForm.get('pilot')?.touched) {
@@ -80,37 +82,41 @@
             }
           </mat-form-field>
 
-          <mat-form-field appearance="outline" class="full-width">
+            <mat-form-field appearance="outline" class="full-width">
             <mat-label>Visit Notes (Initial reason, issues, etc.)</mat-label>
             <textarea matInput formControlName="visitNotes" rows="2"></textarea>
           </mat-form-field>
-        </div>
-      </form>
-    </mat-card-content>
+          </div>
+        </form>
+      </div>
 
-    @if (previousVisits().length > 0) {
-      <mat-divider></mat-divider>
-      <mat-card-content class="previous-visits-section">
-        <h3 color="primary">Previous Visits ({{ previousVisits().length }} Total)</h3>
-        <ul class="visit-list">
-          @for (visit of previousVisits().slice(0, 5); track visit.id) {
-            <li>
-              <div class="visit-details">
-                <span class="visit-date">Date: {{ visit.initialEta.toDate() | date:'dd-MM-yyyy' }}</span>
-                <span class="visit-port">Port: {{ visit.berthPort || 'N/A' }}</span>
-                <span class="visit-status">Status: {{ visit.currentStatus }}</span>
-              </div>
-              @if (visit.visitNotes) {
-                <p class="visit-note">Note: {{ visit.visitNotes }}</p>
-              }
-            </li>
-          }
-          @if (previousVisits().length > 5) {
-            <li class="more-visits">... and {{ previousVisits().length - 5 }} more.</li>
-          }
-        </ul>
-      </mat-card-content>
-    }
+      @if (previousVisits().length > 0) {
+        <mat-divider [vertical]="true"></mat-divider>
+        <div class="visits-section">
+           <h3 color="primary" class="visits-header">Previous Visits ({{ previousVisits().length }} Total)</h3>
+
+          <ul class="visit-list">
+            @for (visit of previousVisits().slice(0, 5); track visit.id) {
+              <li>
+                <div class="visit-details">
+                  <span class="visit-date">Date: {{ visit.initialEta.toDate() | date:'dd/MM/yy' }}</span>
+                  <span class="visit-port">Port: {{ visit.berthPort || 'N/A' }}</span>
+                  <span class="visit-status">Status: {{ visit.currentStatus }}</span>
+                </div>
+                @if (visit.visitNotes) {
+                  <p class="visit-note">Note: {{ visit.visitNotes }}</p>
+                }
+              </li>
+            }
+            @if (previousVisits().length > 5) {
+              <li class="more-visits">... and {{ previousVisits().length - 5 }} more.</li>
+            }
+          </ul>
+
+
+        </div>
+      }
+    </mat-card-content>
 
     <mat-card-actions align="end">
       <a mat-button color="accent" routerLink="/trip-confirmation">Cancel</a>
