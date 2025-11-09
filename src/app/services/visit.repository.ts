@@ -11,6 +11,7 @@ import {
   Timestamp,
   updateDoc,
   where,
+  orderBy, // 🚀 Added orderBy import
 } from '@angular/fire/firestore';
 import { from, Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
@@ -60,6 +61,23 @@ export class VisitRepository {
       return collectionData(recentVisitsQuery, { idField: 'id' }) as Observable<Visit[]>;
     });
   }
+
+  /**
+   * 🚀 NEW: Fetches previous visits for a given ship ID.
+   * @param shipId The ID of the ship in the /ships collection.
+   */
+  getPreviousVisits(shipId: string): Observable<Visit[]> {
+    return runInInjectionContext(this.injector, () => {
+      const visitsCollection = collection(this.firestore, this.COLLECTION_NAME);
+      const visitsQuery = query(
+        visitsCollection,
+        where('shipId', '==', shipId),
+        orderBy('initialEta', 'desc')
+      );
+      return collectionData(visitsQuery, { idField: 'id' }) as Observable<Visit[]>;
+    });
+  }
+
 
   /**
    * Updates the currentStatus, statusLastUpdated, and updatedBy fields of a Visit document.

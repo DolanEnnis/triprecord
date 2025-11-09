@@ -58,7 +58,7 @@ export class DataService {
     // TODO: Re-enable writing to /charges once the old app is decommissioned or the data flow is finalized.
     // This is the source of truth for billing on the old system.
     console.log('SKIPPING: Writing to /charges collection for old app compatibility.', chargeData);
-    // await this.chargeRepository.addCharge(chargeData);
+    await this.chargeRepository.addCharge(chargeData);
 
     // 2. Update the operational trip record with the final details and mark as confirmed.
     // The Trip repository requires a Firestore Timestamp.

@@ -105,7 +105,9 @@ export class UnifiedTripLogService {
               // This is better than 'Unknown Ship' as it provides a reference to the corrupt data.
               const shipName = visit.shipName || `[VisitID: ${visit.id}]`;
               const grossTonnage = visit.grossTonnage || 0;
-              const recordedAt = trip.recordedAt ? trip.recordedAt.toDate() : new Date();
+              // We must cast here. When reading from Firestore, a serverTimestamp is always returned as a Timestamp.
+              // TypeScript only knows the model's union type (Timestamp | FieldValue), so we assert our knowledge.
+              const recordedAt = trip.recordedAt ? (trip.recordedAt as Timestamp).toDate() : new Date();
 
               tripsAsUnified.push({
                 id: trip.id, // The trip document ID

@@ -5,6 +5,7 @@ import {
   collectionData,
   doc,
   Firestore,
+  getDoc,
   getDocs,
   limit,
   orderBy,
@@ -14,7 +15,7 @@ import {
   updateDoc,
   where,
 } from '@angular/fire/firestore';
-import {  map, Observable, of } from 'rxjs';
+import { from, map, Observable, of } from 'rxjs';
 import { Ship, NewVisitData } from '../models/data.model';
 
 /**
@@ -81,11 +82,25 @@ export class ShipRepository {
   }
 
   /**
+   * Fetches a single Ship document by its Firestore ID.
+   * @param shipId The ID of the ship to fetch.
+   */
+  getShipById(shipId: string): Observable<Ship | undefined> {
+    return runInInjectionContext(this.injector, () => {
+      const shipDocRef = doc(this.firestore, `ships/${shipId}`);
+      return from(getDoc(shipDocRef)).pipe(
+        map(docSnap => docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } as Ship : undefined)
+      );
+    });
+  }
+
+
+  /**
    * Gets ship name and GT suggestions from the master '/ships' collection.
    * This is more efficient and accurate than querying historical visits.
    * @param search The string to search for.
    */
-  getShipSuggestions(search: string): Observable<{ ship: string; gt: number }[]> {
+  getShipSuggestions(search: string): Observable<{ ship: string; gt: number; id: string }[]> {
     if (!search || search.length < 2) {
       return of([]);
     }
@@ -101,8 +116,12 @@ export class ShipRepository {
         limit(10)
       );
 
-      return (collectionData(q) as Observable<Ship[]>).pipe(
-        map((ships) => ships.map((ship) => ({ ship: ship.shipName, gt: ship.grossTonnage })))
+      return (collectionData(q, { idField: 'id' }) as Observable<Ship[]>).pipe( // 🚀 Added idField: 'id' to collectionData
+        map((ships) => ships.map((ship) => ({
+          ship: ship.shipName,
+          gt: ship.grossTonnage,
+          id: ship.id! // 🚀 Exposed the ship ID
+        })))
       );
     });
   }

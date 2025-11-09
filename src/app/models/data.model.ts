@@ -1,6 +1,6 @@
 // src/app/models/data.model.ts (The new, normalized data model)
 
-import { Timestamp } from '@angular/fire/firestore';
+import { FieldValue, Timestamp } from '@angular/fire/firestore';
 
 /**
  * ----------------------------------------------------------------
@@ -60,7 +60,7 @@ export interface Visit {
   berthPort?: Port | null;      // The current/intended location
 
   // State Change & Audit
-  statusLastUpdated: Timestamp;
+  statusLastUpdated: Timestamp | FieldValue;
   updatedBy: string;            // User display name/Pilot recording the status
   visitNotes?: string | null;   // Notes specific to this port call
 }
@@ -93,16 +93,16 @@ export interface Trip {
   isConfirmed: boolean;         // Has this specific trip been confirmed for billing?
 
   // New optional fields
-  ownNote?: string;
-  pilotNo?: number;
-  monthNo?: number;
-  car?: string;
-  timeOff?: Timestamp;
-  good?: number;
+  ownNote?: string | null;
+  pilotNo?: number | null;
+  monthNo?: number | null;
+  car?: string | null;
+  timeOff?: Timestamp | null;
+  good?: number | null;
 
   // Audit Fields
   recordedBy: string;
-  recordedAt: Timestamp;
+  recordedAt: Timestamp | FieldValue;
 }
 /**
  * ----------------------------------------------------------------

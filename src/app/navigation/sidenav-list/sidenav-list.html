@@ -1,10 +1,11 @@
 <mat-nav-list>
-  <!-- Use a single @if/@else block for cleaner logic -->
   @if (authService.isAuthenticated()) {
-    <!-- Authenticated Links -->
     @if(authService.isPrivilegedUser()) {
       <a mat-list-item routerLink="/trip-confirmation" (click)="onClose()">
         <mat-icon>home</mat-icon> Trip Confirmation
+      </a>
+      <a mat-list-item routerLink="/new-visit" (click)="onClose()">
+        <mat-icon>add_box</mat-icon> New Visit
       </a>
     }
     <a mat-list-item routerLink="/charges" (click)="onClose()">
@@ -21,7 +22,6 @@
       <mat-icon>logout</mat-icon> Logout
     </a>
   } @else {
-    <!-- Unauthenticated Links -->
     <a mat-list-item routerLink="/auth/login" (click)="onClose()">
       <mat-icon>login</mat-icon> Login
     </a>

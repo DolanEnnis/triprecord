@@ -13,6 +13,12 @@ export const routes: Routes = [
     canActivate: [roleGuard]
   },
 
+  {
+    path: 'new-visit',
+    loadComponent: () => import('./new-visit/new-visit.component').then(c => c.NewVisitComponent),
+    canActivate: [roleGuard]
+  },
+
 
   // Group authentication-related routes under the 'auth' path.
   {

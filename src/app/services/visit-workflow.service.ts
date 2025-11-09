@@ -1,5 +1,5 @@
 import { inject, Injectable, Injector, runInInjectionContext } from '@angular/core';
-import { serverTimestamp, Timestamp } from '@angular/fire/firestore';
+import { serverTimestamp, Timestamp, FieldValue } from '@angular/fire/firestore';
 import { AuthService } from '../auth/auth';
 import { NewVisitData, Trip, TripType, Visit, VisitStatus } from '../models/data.model';
 import { Charge } from '../models/trip.model';
@@ -49,7 +49,7 @@ export class VisitWorkflowService {
         visitNotes: data.visitNotes,
 
         // Audit Fields
-        statusLastUpdated: now as Timestamp,
+        statusLastUpdated: now,
         updatedBy: recordedBy,
       };
       const visitId = await this.visitRepository.addVisit(newVisit);
@@ -63,7 +63,7 @@ export class VisitWorkflowService {
         boarding: initialEtaTimestamp, // Use ETA as provisional boarding time
         pilot: data.pilot,
 
-        fromPort: null, // 'In' implies from sea
+        fromPort: null, // 'In' implies from sea (null is preferred over undefined for database fields)
         toPort: data.berthPort,
 
         pilotNotes: data.visitNotes || '', // Initial notes can come from the visit notes
@@ -72,7 +72,15 @@ export class VisitWorkflowService {
 
         // Audit Fields
         recordedBy: recordedBy,
-        recordedAt: now as Timestamp,
+        recordedAt: now,
+
+        // 🚀 FIX: Ensure all optional fields from the Trip model are included, using null/undefined as defaults
+        ownNote: null,
+        pilotNo: null,
+        monthNo: null,
+        car: null,
+        timeOff: null,
+        good: null,
       };
       await this.tripRepository.addTrip(initialTrip);
 
@@ -111,7 +119,7 @@ export class VisitWorkflowService {
         visitNotes: `Trip confirmed directly by pilot: ${chargeData.pilot}`,
 
         // Audit Fields
-        statusLastUpdated: now as Timestamp,
+        statusLastUpdated: now,
         updatedBy: recordedBy,
       };
       const visitId = await this.visitRepository.addVisit(newVisit);
@@ -129,7 +137,14 @@ export class VisitWorkflowService {
         extraChargesNotes: chargeData.extra || '',
         isConfirmed: true, // It is confirmed immediately
         recordedBy: recordedBy,
-        recordedAt: now as Timestamp,
+        recordedAt: now,
+        // 🚀 FIX: Ensure all optional fields from the Trip model are included
+        ownNote: null,
+        pilotNo: null,
+        monthNo: null,
+        car: null,
+        timeOff: null,
+        good: null,
       };
       return this.tripRepository.addTrip(newTrip);
     });
