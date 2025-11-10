@@ -7,18 +7,18 @@ import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon'; // 🚀 CRITICAL: Ensure MatIconModule is imported for mat-icon-button
+import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule, DateAdapter, MatDateFormats, MAT_DATE_FORMATS } from '@angular/material/core';
+import { MatNativeDateModule, DateAdapter } from '@angular/material/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatAutocompleteModule, MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
 import { MatDivider } from '@angular/material/divider';
 import { Router, RouterLink } from '@angular/router';
 
-// --- Datetime Picker Imports (Requires external package) ---
-
+// --- Custom Components ---
+import { DateTimePickerComponent } from '../date-time-picker/date-time-picker.component';
 
 import { Observable, of, tap } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, startWith } from 'rxjs/operators';
@@ -29,34 +29,17 @@ import { Port, Ship, Visit, NewVisitData } from '../models/data.model';
 import { ShipRepository } from '../services/ship.repository';
 import { VisitRepository } from '../services/visit.repository';
 
-
-// Define custom date/time formats for the combined picker display
-export const CUSTOM_DATETIME_FORMAT: MatDateFormats = {
-  parse: {
-    dateInput: 'DD-MM-YYYY HH:mm',
-  },
-  display: {
-    dateInput: 'DD-MM-YYYY HH:mm',
-    monthYearLabel: 'MMM YYYY',
-    dateA11yLabel: 'LL',
-    monthYearA11yLabel: 'MMMM YYYY',
-  },
-};
-
 @Component({
   selector: 'app-new-visit',
   standalone: true,
   imports: [
     // Core
     CommonModule, ReactiveFormsModule, RouterLink, DatePipe,
+    // Custom
+    DateTimePickerComponent,
     // Material
     MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule, MatDatepickerModule,
     MatNativeDateModule, MatSelectModule, MatProgressSpinnerModule, MatAutocompleteModule, MatSnackBarModule, MatDivider,
-
-
-  ],
-  providers: [
-    { provide: MAT_DATE_FORMATS, useValue: CUSTOM_DATETIME_FORMAT }
   ],
   templateUrl: './new-visit.component.html',
   styleUrl: './new-visit.component.css',
@@ -95,7 +78,7 @@ export class NewVisitComponent implements OnInit {
       shipNotes: [''],
 
       // Visit details
-      initialEta: [new Date(), Validators.required], // Unified Date/Time control
+      initialEta: [new Date(), Validators.required],
       berthPort: [null as Port | null, Validators.required],
       visitNotes: [''],
 

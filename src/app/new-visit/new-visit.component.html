@@ -53,22 +53,7 @@
           <h3 color="primary">Visit & Initial Trip Details</h3>
           <div class="form-grid">
 
-            <!--<mat-form-field appearance="outline" class="datetime-picker-field">
-              <mat-label>Initial ETA (Date and Time)</mat-label>
-              <input matInput [ngxMatDatetimePicker]="picker" formControlName="initialEta" [min]="minDate" required>
-
-              <mat-icon-button matSuffix [ngxDatetimePickerToggle]="picker">
-                <mat-icon>calendar_today</mat-icon>
-              </mat-icon-button>
-
-              <ngx-mat-datetime-picker #picker [showSpinners]="true" [showSeconds]="false" [stepHour]="1"
-                                       [stepMinute]="5" [touchUi]="false" [color]="'primary'">
-              </ngx-mat-datetime-picker>
-
-              @if (visitForm.get('initialEta')?.hasError('required') && visitForm.get('initialEta')?.touched) {
-                <mat-error>Date and Time are required</mat-error>
-              }
-            </mat-form-field>-->
+            <app-date-time-picker formControlName="initialEta"></app-date-time-picker>
 
             <mat-form-field appearance="outline">
               <mat-label>Destination Port</mat-label>

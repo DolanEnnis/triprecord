@@ -1,5 +1,5 @@
 import { inject, Injectable, Injector, runInInjectionContext } from '@angular/core';
-import { serverTimestamp, Timestamp, FieldValue } from '@angular/fire/firestore';
+import { serverTimestamp, Timestamp } from '@angular/fire/firestore';
 import { AuthService } from '../auth/auth';
 import { NewVisitData, Trip, TripType, Visit, VisitStatus } from '../models/data.model';
 import { Charge } from '../models/trip.model';
@@ -7,11 +7,6 @@ import { ShipRepository } from './ship.repository';
 import { VisitRepository } from './visit.repository';
 import { TripRepository } from './trip.repository';
 
-/**
- * VisitWorkflowService orchestrates the creation of new visits,
- * including ensuring ship records exist and creating initial trips.
- * It uses lower-level repositories to perform specific data operations.
- */
 @Injectable({
   providedIn: 'root',
 })
@@ -22,12 +17,6 @@ export class VisitWorkflowService {
   private readonly tripRepository: TripRepository = inject(TripRepository);
   private readonly injector = inject(Injector);
 
-  /**
-   * Creates a new Visit and its initial 'In' Trip, and ensures the master Ship record is up to date.
-   * This is the function the new ship input form will call.
-   * @param data The validated form data (NewVisitData).
-   * @returns The new Visit ID.
-   */
   async createNewVisit(data: NewVisitData): Promise<string> {
     return runInInjectionContext(this.injector, async () => {
       const user = this.authService.currentUserSig();
@@ -35,46 +24,34 @@ export class VisitWorkflowService {
       const recordedBy = user?.displayName || 'Unknown';
       const initialEtaTimestamp = Timestamp.fromDate(data.initialEta);
 
-      // 1. Ensure/Update the master Ship record
       const shipId = await this.shipRepository.findOrCreateShip(data);
 
-      // 2. Create the new Visit Document in /visits
       const newVisit: Omit<Visit, 'id'> = {
         shipId: shipId,
-        shipName: data.shipName, // Denormalized field
-        grossTonnage: data.grossTonnage, // Denormalized field
-        currentStatus: 'Due' as VisitStatus, // Initial state
+        shipName: data.shipName,
+        grossTonnage: data.grossTonnage,
+        currentStatus: 'Due' as VisitStatus,
         initialEta: initialEtaTimestamp,
         berthPort: data.berthPort,
         visitNotes: data.visitNotes,
-
-        // Audit Fields
         statusLastUpdated: now,
         updatedBy: recordedBy,
       };
       const visitId = await this.visitRepository.addVisit(newVisit);
 
-      // 3. Create the initial 'In' Trip in /trips
       const initialTrip: Omit<Trip, 'id'> = {
         visitId: visitId,
-        shipId: shipId, // Denormalized
-
+        shipId: shipId,
         typeTrip: 'In' as TripType,
-        boarding: initialEtaTimestamp, // Use ETA as provisional boarding time
+        boarding: initialEtaTimestamp,
         pilot: data.pilot,
-
-        fromPort: null, // 'In' implies from sea (null is preferred over undefined for database fields)
+        fromPort: null,
         toPort: data.berthPort,
-
-        pilotNotes: data.visitNotes || '', // Initial notes can come from the visit notes
+        pilotNotes: data.visitNotes || '',
         extraChargesNotes: '',
         isConfirmed: false,
-
-        // Audit Fields
         recordedBy: recordedBy,
         recordedAt: now,
-
-        // 🚀 FIX: Ensure all optional fields from the Trip model are included, using null/undefined as defaults
         ownNote: null,
         pilotNo: null,
         monthNo: null,
@@ -84,18 +61,10 @@ export class VisitWorkflowService {
       };
       await this.tripRepository.addTrip(initialTrip);
 
-      return visitId; // Return the new visit ID
+      return visitId;
     });
   }
 
-  /**
-   * Creates a minimal Visit and a single, confirmed Trip for scenarios where a pilot
-   * is creating a charge directly without a preceding visit/trip record.
-   * This ensures all new charges follow the normalized data structure.
-   * @param chargeData The confirmed trip details from the charge form.
-   * @param shipId The ID of the existing/new master ship document.
-   * @returns The newly created Trip ID.
-   */
   async createVisitAndTripFromCharge(
     chargeData: Omit<Charge, 'updateTime' | 'createdBy' | 'createdById'>,
     shipId: string
@@ -106,25 +75,19 @@ export class VisitWorkflowService {
       const recordedBy = user?.displayName || 'Unknown';
       const boardingTimestamp = Timestamp.fromDate(chargeData.boarding);
 
-      // --- 1. Create the new Visit Document in /visits ---
       const newVisit: Omit<Visit, 'id'> = {
         shipId: shipId,
         shipName: chargeData.ship,
         grossTonnage: chargeData.gt,
-
-        // Status determination based on trip type
         currentStatus: chargeData.typeTrip === 'Out' ? 'Sailed' : 'Alongside',
-        initialEta: boardingTimestamp, // Use boarding time as the best estimate
+        initialEta: boardingTimestamp,
         berthPort: chargeData.port,
         visitNotes: `Trip confirmed directly by pilot: ${chargeData.pilot}`,
-
-        // Audit Fields
         statusLastUpdated: now,
         updatedBy: recordedBy,
       };
       const visitId = await this.visitRepository.addVisit(newVisit);
 
-      // --- 2. Create the Confirmed Trip in /trips ---
       const newTrip: Omit<Trip, 'id'> = {
         visitId: visitId,
         shipId: shipId,
@@ -135,10 +98,9 @@ export class VisitWorkflowService {
         toPort: chargeData.typeTrip === 'Out' ? null : chargeData.port,
         pilotNotes: chargeData.sailingNote || '',
         extraChargesNotes: chargeData.extra || '',
-        isConfirmed: true, // It is confirmed immediately
+        isConfirmed: true,
         recordedBy: recordedBy,
         recordedAt: now,
-        // 🚀 FIX: Ensure all optional fields from the Trip model are included
         ownNote: null,
         pilotNo: null,
         monthNo: null,
