@@ -19,6 +19,12 @@ export const routes: Routes = [
     canActivate: [roleGuard]
   },
 
+  {
+    path: 'date-time-picker',
+    loadComponent: () => import('./date-time-picker/date-time-picker.component').then(c => c.DateTimePickerComponent),
+    canActivate: [roleGuard]
+  },
+
 
   // Group authentication-related routes under the 'auth' path.
   {
