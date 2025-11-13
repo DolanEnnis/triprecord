@@ -72,10 +72,6 @@ button mat-progress-spinner {
   min-width: 300px;
 }
 
-.visits-section > a {
-  align-self: flex-start;
-}
-
 .visits-header {
   margin-top: 1rem;
 }
@@ -138,5 +134,27 @@ button mat-progress-spinner {
   /* Use the more specific accessibility selector */
   mat-divider[aria-orientation="vertical"] {
     display: none; /* Hide the vertical divider */
+  }
+}
+
+.table-container {
+  width: 100%;
+  overflow: auto;
+}
+
+.active-visit {
+  font-weight: bold;
+  color: red;
+}
+
+.notes-source-container {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1rem 1.5rem;
+}
+
+@media (max-width: 600px) {
+  .notes-source-container {
+    grid-template-columns: 1fr;
   }
 }

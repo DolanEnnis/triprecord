@@ -27,9 +27,18 @@ export class TripRepository {
 
   async addTrip(trip: Omit<Trip, 'id'>): Promise<string> {
     return runInInjectionContext(this.injector, async () => {
-      const tripsCollection = collection(this.firestore, 'trips');
-      const docRef = await addDoc(tripsCollection, trip);
-      return docRef.id;
+      try { // 🚀 ADDED: Try/Catch block to expose errors
+        const tripsCollection = collection(this.firestore, 'trips');
+        console.log('Attempting to add trip:', trip); // 🚀 ADDED: Log payload
+        const docRef = await addDoc(tripsCollection, trip);
+        console.log('Trip successfully added with ID:', docRef.id); // 🚀 ADDED: Success log
+        return docRef.id;
+      } catch (error: any) {
+        // 🛑 CRITICAL: Log the error and the payload to debug
+        console.error('CRITICAL ERROR: Failed to add trip document.', error, 'Payload:', trip);
+        // Re-throw the error with a meaningful message to break the chain
+        throw new Error(`Database error during trip creation: ${error.message || 'Unknown error'}`);
+      }
     });
   }
 

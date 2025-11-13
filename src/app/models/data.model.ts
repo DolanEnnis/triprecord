@@ -17,6 +17,9 @@ export type TripType = 'In' | 'Out' | 'Anchorage' | 'Shift' | 'BerthToBerth' | '
 // Defines the current state of a vessel's visit (State Machine)
 export type VisitStatus = 'Due' | 'Awaiting Berth' | 'Alongside' | 'Sailed' | 'Cancelled';
 
+// Defines the source of the information
+export type Source = 'Sheet' | 'AIS' | 'Good Guess' | 'Agent' | 'Pilot' | 'Other';
+
 
 /**
  * ----------------------------------------------------------------
@@ -59,6 +62,7 @@ export interface Visit {
   currentStatus: VisitStatus;
   initialEta: Timestamp;        // The planned arrival date
   berthPort?: Port | null;      // The current/intended location
+  inwardPilot?: string;         // The pilot for the initial 'In' trip
 
   // State Change & Audit
   statusLastUpdated: Timestamp | FieldValue;
@@ -124,6 +128,7 @@ export interface NewVisitData {
   initialEta: Date; // Form uses Date, service will convert to Timestamp
   berthPort: Port | null;
   visitNotes: string | null;
+  source: Source;
 
   // Trip Details (for the initial 'In' trip in /trips document)
   pilot: string;

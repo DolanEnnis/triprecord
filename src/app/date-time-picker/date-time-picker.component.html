@@ -23,12 +23,13 @@
 
     <mat-form-field appearance="outline" class="time-select">
       <mat-label>Minute</mat-label>
-      <input matInput type="number" formControlName="minute" min="0" max="59" step="10" (blur)="handleBlur()" required>
+      <mat-select formControlName="minute" (blur)="handleBlur()" required>
+        @for (minute of minutes; track minute) {
+          <mat-option [value]="minute.value">{{ minute.label }}</mat-option>
+        }
+      </mat-select>
       @if (form.get('minute')?.hasError('required') && form.get('minute')?.touched) {
         <mat-error>Minute is required</mat-error>
-      }
-      @if (form.get('minute')?.hasError('min') || form.get('minute')?.hasError('max')) {
-        <mat-error>Minute must be between 0 and 59</mat-error>
       }
     </mat-form-field>
   </div>

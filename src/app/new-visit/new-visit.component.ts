@@ -15,6 +15,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatAutocompleteModule, MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
 import { MatDivider } from '@angular/material/divider';
+import { MatTableModule } from '@angular/material/table';
 import { Router, RouterLink } from '@angular/router';
 
 // --- Custom Components ---
@@ -25,9 +26,10 @@ import { debounceTime, distinctUntilChanged, switchMap, startWith } from 'rxjs/o
 
 import { VisitWorkflowService } from '../services/visit-workflow.service';
 import { AuthService} from '../auth/auth';
-import { Port, Ship, Visit, NewVisitData } from '../models/data.model';
+import { Port, Ship, Visit, NewVisitData, Source } from '../models/data.model';
 import { ShipRepository } from '../services/ship.repository';
 import { VisitRepository } from '../services/visit.repository';
+import { PilotUser, UserRepository } from '../services/user.repository';
 
 @Component({
   selector: 'app-new-visit',
@@ -40,6 +42,7 @@ import { VisitRepository } from '../services/visit.repository';
     // Material
     MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule, MatDatepickerModule,
     MatNativeDateModule, MatSelectModule, MatProgressSpinnerModule, MatAutocompleteModule, MatSnackBarModule, MatDivider,
+    MatTableModule,
   ],
   templateUrl: './new-visit.component.html',
   styleUrl: './new-visit.component.css',
@@ -50,14 +53,18 @@ export class NewVisitComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly shipRepository = inject(ShipRepository);
   private readonly visitRepository = inject(VisitRepository);
+  private readonly userRepository = inject(UserRepository);
   private readonly snackBar = inject(MatSnackBar);
   private readonly router = inject(Router);
   private readonly adapter = inject(DateAdapter<any>);
 
   visitForm!: FormGroup;
   isLoading: boolean = false;
+  displayedColumns: string[] = ['date', 'port', 'pilot'];
+  pilots$!: Observable<PilotUser[]>;
 
   readonly ports: Port[] = ['Anchorage', 'Cappa', 'Moneypoint', 'Tarbert', 'Foynes', 'Aughinish', 'Shannon', 'Limerick'];
+  readonly sources: Source[] = ['Sheet', 'AIS', 'Good Guess', 'Agent', 'Pilot', 'Other'];
   filteredShips$!: Observable<{ ship: string, gt: number, id: string }[]>;
   readonly minDate = new Date();
   previousVisits: WritableSignal<Visit[]> = signal([]);
@@ -67,7 +74,8 @@ export class NewVisitComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    const userDisplayName = this.authService.currentUserSig()?.displayName || 'Unknown';
+    const initialDate = new Date();
+    initialDate.setMinutes(0); // Set minutes to 0 for the default time
 
     this.visitForm = this.fb.group({
       // Ship details
@@ -78,13 +86,16 @@ export class NewVisitComponent implements OnInit {
       shipNotes: [''],
 
       // Visit details
-      initialEta: [new Date(), Validators.required],
+      initialEta: [initialDate, Validators.required],
       berthPort: [null as Port | null, Validators.required],
       visitNotes: [''],
+      source: [null, Validators.required],
 
       // Trip detail
-      pilot: [userDisplayName, Validators.required],
+      pilot: [null],
     });
+
+    this.pilots$ = this.userRepository.getPilots();
 
     this.filteredShips$ = this.shipNameControl.valueChanges.pipe(
       startWith(''),
@@ -180,6 +191,11 @@ export class NewVisitComponent implements OnInit {
     }
   }
 
+  isVisitActive(visit: Visit): boolean {
+    const activeStatuses: Visit['currentStatus'][] = ['Due', 'Awaiting Berth', 'Alongside'];
+    return activeStatuses.includes(visit.currentStatus);
+  }
+
   async onSubmit(): Promise<void> {
     if (this.visitForm.invalid) {
       this.visitForm.markAllAsTouched();
@@ -205,6 +221,7 @@ export class NewVisitComponent implements OnInit {
         initialEta: formValue.initialEta,
         berthPort: formValue.berthPort,
         visitNotes: formValue.visitNotes,
+        source: formValue.source,
 
         pilot: formValue.pilot,
       };

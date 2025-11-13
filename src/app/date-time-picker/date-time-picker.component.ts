@@ -15,6 +15,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule, DateAdapter } from '@angular/material/core';
+import { MatSelectModule } from '@angular/material/select';
 
 @Component({
   selector: 'app-date-time-picker',
@@ -23,7 +24,7 @@ import { MatNativeDateModule, DateAdapter } from '@angular/material/core';
     // Core
     CommonModule, ReactiveFormsModule,
     // Material
-    MatFormFieldModule, MatInputModule, MatDatepickerModule, MatNativeDateModule,
+    MatFormFieldModule, MatInputModule, MatDatepickerModule, MatNativeDateModule, MatSelectModule,
   ],
   templateUrl: './date-time-picker.component.html',
   styleUrls: ['./date-time-picker.component.css'],
@@ -42,6 +43,11 @@ export class DateTimePickerComponent implements ControlValueAccessor {
   form: FormGroup;
   readonly minDate = new Date();
 
+  minutes: { value: number; label: string }[] = Array.from({ length: 60 }, (_, i) => ({
+    value: i,
+    label: i.toString().padStart(2, '0')
+  }));
+
   onChange: (value: Date | null) => void = () => {};
   onTouched: () => void = () => {};
 
@@ -52,7 +58,7 @@ export class DateTimePickerComponent implements ControlValueAccessor {
     this.form = this.fb.group({
       date: [now, Validators.required],
       hour: [now.getHours(), [Validators.required, Validators.min(0), Validators.max(23)]],
-      minute: [now.getMinutes(), [Validators.required, Validators.min(0), Validators.max(59)]]
+      minute: [0, [Validators.required, Validators.min(0), Validators.max(59)]]
     });
 
     this.form.valueChanges.pipe(
