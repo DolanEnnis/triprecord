@@ -1,3 +1,5 @@
+/* --- Main Layout & Card Styling --- */
+
 .new-visit-container {
   display: flex;
   justify-content: center;
@@ -6,41 +8,54 @@
 
 .main-card {
   width: 100%;
-  max-width: 1200px; /* Increased for better side-by-side layout */
+  max-width: 1400px; /* Increased max-width for wider screens */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+mat-card-header {
+  background: #3f51b5;
+  color: white;
+  padding: 1.5rem;
+  margin: -16px -16px 1.5rem -16px;
+  border-radius: 8px 8px 0 0;
 }
 
 mat-card-title h2 {
+  color: white;
   margin: 0;
+  font-size: 1.75rem;
 }
 
 mat-card-subtitle {
-  margin-bottom: 1.5rem;
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1rem 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.form-grid mat-form-field {
-  width: 100%;
-}
-
-.full-width {
-  grid-column: 1 / -1;
+  color: rgba(255, 255, 255, 0.9);
+  margin-top: 0.5rem;
 }
 
 h3 {
-  border-bottom: 2px solid #ddd;
-  padding-bottom: 0.5rem;
-  margin-bottom: 1.5rem;
-  /* The color is applied via the `color="primary"` attribute in the HTML, which is the correct Angular Material way. */
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #3f51b5;
+  border-bottom: 2px solid #e0e0e0;
+  padding-bottom: 0.75rem;
+  margin: 2rem 0 1.5rem 0;
+}
+
+h3:first-of-type {
+  margin-top: 0;
 }
 
 mat-card-actions {
-  padding-top: 1rem;
+  padding: 1.5rem 1rem 1rem;
+  background: #fafafa;
+  margin: 1.5rem -16px -16px;
+  border-top: 1px solid #e0e0e0;
+}
+
+button[mat-flat-button] {
+  min-width: 140px;
+  height: 42px;
+  font-weight: 500;
 }
 
 button mat-progress-spinner {
@@ -48,28 +63,65 @@ button mat-progress-spinner {
   margin: 0 18px;
 }
 
-/* Responsive adjustment for small screens */
-@media (max-width: 600px) {
-  .new-visit-container {
-    padding: 1rem;
-  }
-}
-
-/* --- New Two-Column Layout Styles --- */
+/* --- Content & Form Layout --- */
 
 .content-flex-container {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr;
   gap: 2rem;
 }
 
 .form-section {
-  flex: 1 1 60%; /* Give more space to the form */
-  min-width: 300px;
+  min-width: 0; /* Reset min-width from flexbox era */
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.form-section {
+  /* This section is now controlled by the grid layout of its parent */
+  /* The flex properties are no longer needed. */
+  /* flex: 1 1 60%; */
+  min-width: 0; /* Reset min-width from flexbox era */
+}
+
+.full-width {
+  grid-column: 1 / -1;
+}
+
+.grid-col-span-2 {
+  grid-column: span 2;
+}
+
+.notes-source-container {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1rem 1.5rem;
 }
 
 .visits-section {
-  flex: 1 1 40%;
-  min-width: 300px;
+  background: #f9fafb;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+.table-container {
+  background: white;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.mat-mdc-table {
+  width: 100%;
+}
+
+.mat-mdc-table .mat-mdc-row.active-visit {
+  background-color: rgba(255, 0, 0, 0.05);
+  border-left: 5px solid #f44336;
 }
 
 .visits-header {
@@ -84,8 +136,8 @@ button mat-progress-spinner {
 
 .visit-list li {
   padding: 10px 15px;
-  /* Use the theme color via a more stable variable or a hardcoded fallback if needed */
-  border-left: 5px solid var(--mdc-theme-primary, #3f51b5);
+
+  border-left: 5px solid #3f51b5; /* FIX: Invalid 'var()' syntax corrected */
   border-bottom: 1px solid #eee;
   margin-bottom: 8px;
   background-color: #fcfcfc;
@@ -120,41 +172,73 @@ button mat-progress-spinner {
   border: 1px solid #ddd;
 }
 
-/* Provide a visual cue that autocomplete options are clickable */
+/* --- Component Overrides & Interaction States --- */
+
+mat-form-field {
+  transition: all 0.2s ease;
+}
+
+/* Using ::ng-deep for Angular Material component styling */
+::ng-deep .mat-mdc-form-field.mat-focused {
+  transform: translateY(-1px);
+}
+
 ::ng-deep .mat-mdc-autocomplete-panel .mat-mdc-option {
   cursor: pointer;
 }
 
-/* On smaller screens, stack the columns */
-@media (max-width: 900px) {
+/* --- Responsive Breakpoints --- */
+
+@media (min-width: 900px) {
   .content-flex-container {
-    flex-direction: column;
+    grid-template-columns: 1.5fr 1fr;
   }
 
-  /* Use the more specific accessibility selector */
-  mat-divider[aria-orientation="vertical"] {
-    display: none; /* Hide the vertical divider */
+  .form-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .visits-section {
+    border-left: 1px solid #e0e0e0;
+    padding-left: 2rem;
   }
 }
 
-.table-container {
-  width: 100%;
-  overflow: auto;
-}
-
-.active-visit {
-  font-weight: bold;
-  color: red;
-}
-
-.notes-source-container {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 1rem 1.5rem;
+@media (max-width: 899px) {
+  .visits-section {
+    border-top: 1px solid #e0e0e0;
+    padding-top: 2rem;
+    margin-top: 1rem;
+  }
 }
 
 @media (max-width: 600px) {
+  .new-visit-container {
+    padding: 0.5rem;
+  }
+
+  .main-card {
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  mat-card-header {
+    margin: -16px -16px 1rem -16px;
+    padding: 1rem;
+  }
+
+  mat-card-title h2 {
+    font-size: 1.35rem;
+  }
+
+  .form-grid,
   .notes-source-container {
     grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  button[mat-flat-button] {
+    width: 100%;
+    margin-top: 0.5rem;
   }
 }

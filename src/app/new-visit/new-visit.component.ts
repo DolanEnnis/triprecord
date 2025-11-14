@@ -14,7 +14,6 @@ import { MatNativeDateModule, DateAdapter } from '@angular/material/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatAutocompleteModule, MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
-import { MatDivider } from '@angular/material/divider';
 import { MatTableModule } from '@angular/material/table';
 import { Router, RouterLink } from '@angular/router';
 
@@ -41,7 +40,7 @@ import { PilotUser, UserRepository } from '../services/user.repository';
     DateTimePickerComponent,
     // Material
     MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule, MatDatepickerModule,
-    MatNativeDateModule, MatSelectModule, MatProgressSpinnerModule, MatAutocompleteModule, MatSnackBarModule, MatDivider,
+    MatNativeDateModule, MatSelectModule, MatProgressSpinnerModule, MatAutocompleteModule, MatSnackBarModule,
     MatTableModule,
   ],
   templateUrl: './new-visit.component.html',
@@ -61,7 +60,6 @@ export class NewVisitComponent implements OnInit {
   visitForm!: FormGroup;
   isLoading: boolean = false;
   displayedColumns: string[] = ['date', 'port', 'pilot'];
-  pilots$!: Observable<PilotUser[]>;
 
   readonly ports: Port[] = ['Anchorage', 'Cappa', 'Moneypoint', 'Tarbert', 'Foynes', 'Aughinish', 'Shannon', 'Limerick'];
   readonly sources: Source[] = ['Sheet', 'AIS', 'Good Guess', 'Agent', 'Pilot', 'Other'];
@@ -90,12 +88,7 @@ export class NewVisitComponent implements OnInit {
       berthPort: [null as Port | null, Validators.required],
       visitNotes: [''],
       source: [null, Validators.required],
-
-      // Trip detail
-      pilot: [null],
     });
-
-    this.pilots$ = this.userRepository.getPilots();
 
     this.filteredShips$ = this.shipNameControl.valueChanges.pipe(
       startWith(''),
@@ -155,7 +148,7 @@ export class NewVisitComponent implements OnInit {
   }
 
   private populateFormWithShipData(ship: Ship): void {
-    this.shipNameControl.setValue(ship.shipName, { emitEvent: false });
+    this.shipNameControl.setValue(ship, { emitEvent: false });
 
     this.visitForm.patchValue({
       grossTonnage: ship.grossTonnage,
@@ -222,8 +215,6 @@ export class NewVisitComponent implements OnInit {
         berthPort: formValue.berthPort,
         visitNotes: formValue.visitNotes,
         source: formValue.source,
-
-        pilot: formValue.pilot,
       };
 
       await this.visitWorkflowService.createNewVisit(newVisitData);

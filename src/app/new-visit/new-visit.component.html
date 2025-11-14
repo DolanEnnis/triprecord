@@ -39,9 +39,15 @@
               <input matInput type="number" formControlName="imoNumber">
             </mat-form-field>
 
-            <mat-form-field appearance="outline">
+            <mat-form-field appearance="outline" class="full-width">
               <mat-label>Marine Traffic URL</mat-label>
               <input matInput type="url" formControlName="marineTrafficLink">
+              @if(visitForm.get('marineTrafficLink')?.value) {
+                <a mat-icon-button matSuffix [href]="visitForm.get('marineTrafficLink')?.value" target="_blank"
+                   aria-label="Open Marine Traffic link in a new tab">
+                  <mat-icon>open_in_new</mat-icon>
+                </a>
+              }
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="full-width">
@@ -55,7 +61,7 @@
 
             <app-date-time-picker formControlName="initialEta"></app-date-time-picker>
 
-            <mat-form-field appearance="outline">
+            <mat-form-field appearance="outline" class="grid-col-span-2">
               <mat-label>Destination Port</mat-label>
               <mat-select formControlName="berthPort" required>
                 @for (port of ports; track port) {
@@ -65,15 +71,6 @@
               @if (visitForm.get('berthPort')?.hasError('required') && visitForm.get('berthPort')?.touched) {
                 <mat-error>Destination is required</mat-error>
               }
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Initial Pilot</mat-label>
-              <mat-select formControlName="pilot">
-                @for (pilot of pilots$ | async; track pilot.id) {
-                  <mat-option [value]="pilot.displayName">{{ pilot.displayName }}</mat-option>
-                }
-              </mat-select>
             </mat-form-field>
 
             <div class="notes-source-container full-width">
@@ -99,7 +96,6 @@
       </div>
 
       @if (previousVisits().length > 0) {
-        <mat-divider [vertical]="true"></mat-divider>
         <div class="visits-section">
           <h3 color="primary" class="visits-header">Previous Visits ({{ previousVisits().length }} Total)</h3>
 
@@ -109,7 +105,7 @@
               <!-- Date Column -->
               <ng-container matColumnDef="date">
                 <th mat-header-cell *matHeaderCellDef>Date</th>
-                <td mat-cell *matCellDef="let visit">{{ visit.initialEta.toDate() | date:'dd/MM/yy HH:mm' }}</td>
+                <td mat-cell *matCellDef="let visit">{{ visit.initialEta.toDate() | date:'dd/MM/yy' }}</td>
               </ng-container>
 
               <!-- Port Column -->

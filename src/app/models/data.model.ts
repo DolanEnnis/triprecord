@@ -131,5 +131,5 @@ export interface NewVisitData {
   source: Source;
 
   // Trip Details (for the initial 'In' trip in /trips document)
-  pilot: string;
+  pilot?: string;
 }

@@ -44,7 +44,7 @@ export class VisitWorkflowService {
         shipId: shipId,
         typeTrip: 'In' as TripType,
         boarding: initialEtaTimestamp,
-        pilot: data.pilot,
+        pilot: data.pilot ?? user?.displayName ?? '',
         fromPort: null,
         toPort: data.berthPort,
         pilotNotes: data.visitNotes || '',
