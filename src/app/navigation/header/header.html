@@ -17,8 +17,10 @@
         <li><a href="http://www.cargopro.ie/sfpc/download/rpt_daydiary.pdf" target="_blank" rel="noopener">Day Diary</a></li>
 
         @if (authService.isAuthenticated()) {
-          @if(authService.isPrivilegedUser()) {
+          @if(authService.canConfirmTrips()) {
             <li><a routerLink="/trip-confirmation">Trip Confirmation</a></li>
+          }
+          @if(authService.canCreateVisit()) {
             <li><a routerLink="/new-visit">New Visit</a></li>
           }
           @if(authService.isAdmin()){
@@ -28,6 +30,7 @@
           <li><a class="logout-link" (click)="onLogout()">Logout</a></li>
         } @else {
           <li><a routerLink="/auth/login">Login</a></li>
+          <li><a routerLink="/auth/register">Register</a></li>
         }
       </ul>
     </nav>

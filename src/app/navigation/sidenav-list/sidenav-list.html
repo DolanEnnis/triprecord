@@ -1,9 +1,11 @@
 <mat-nav-list>
   @if (authService.isAuthenticated()) {
-    @if(authService.isPrivilegedUser()) {
+    @if(authService.canConfirmTrips()) {
       <a mat-list-item routerLink="/trip-confirmation" (click)="onClose()">
         <mat-icon>home</mat-icon> Trip Confirmation
       </a>
+    }
+    @if(authService.canCreateVisit()) {
       <a mat-list-item routerLink="/new-visit" (click)="onClose()">
         <mat-icon>add_box</mat-icon> New Visit
       </a>
@@ -24,6 +26,9 @@
   } @else {
     <a mat-list-item routerLink="/auth/login" (click)="onClose()">
       <mat-icon>login</mat-icon> Login
+    </a>
+    <a mat-list-item routerLink="/auth/register" (click)="onClose()">
+      <mat-icon>person_add</mat-icon> Register
     </a>
   }
 </mat-nav-list>
