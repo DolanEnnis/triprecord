@@ -25,6 +25,13 @@ export const routes: Routes = [
     canActivate: [roleGuard]
   },
 
+  {
+    path: 'admin',
+    loadComponent: () => import('./admin/admin.component').then(c => c.AdminComponent),
+    canActivate: [roleGuard],
+    data: { roles: ['admin'] }
+  },
+
 
   // Group authentication-related routes under the 'auth' path.
   {

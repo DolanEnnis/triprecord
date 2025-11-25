@@ -21,6 +21,9 @@
             <li><a routerLink="/trip-confirmation">Trip Confirmation</a></li>
             <li><a routerLink="/new-visit">New Visit</a></li>
           }
+          @if(authService.isAdmin()){
+            <li><a routerLink="/admin">Admin</a></li>
+          }
           <li><a href="https://shannonpilots-6fedd.firebaseapp.com/" target="_blank" rel="noopener">Current Ships</a></li>
           <li><a class="logout-link" (click)="onLogout()">Logout</a></li>
         } @else {

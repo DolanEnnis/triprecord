@@ -1,0 +1,21 @@
+.container {
+  padding: 24px;
+}
+
+mat-form-field {
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.table-container {
+  overflow: auto;
+}
+
+.mat-table {
+  width: 100%;
+}
+
+.mat-column-actions {
+  width: 80px;
+  text-align: center;
+}

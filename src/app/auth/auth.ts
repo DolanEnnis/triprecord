@@ -46,6 +46,10 @@ export class AuthService implements OnDestroy {
     const userType = this.currentUserSig()?.userType?.toLowerCase();
     return userType === 'pilot' || userType === 'admin';
   });
+  public readonly isAdmin = computed(() => {
+    const userType = this.currentUserSig()?.userType?.toLowerCase();
+    return userType === 'admin';
+  });
 
   constructor() {
     this.profile$ = this.user$.pipe(
