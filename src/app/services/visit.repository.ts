@@ -21,7 +21,7 @@ import {
   orderBy,
 } from '@angular/fire/firestore';
 import { combineLatest, from, Observable, of } from 'rxjs';
-import { map, switchMap } from 'rxjs/operators';
+import { map, switchMap, catchError } from 'rxjs/operators';
 import { Trip, Visit, VisitStatus } from '../models/data.model';
 import { StatusListRow } from '../models/status-list.model'; // 1. Make sure this is imported
 
@@ -74,32 +74,34 @@ export class VisitRepository {
       return (
         collectionData(visitsQuery, { idField: 'id' }) as Observable<Visit[]>
       ).pipe(
-        switchMap((visits) => {
+        switchMap((visits: Visit[]) => {
           if (visits.length === 0) {
             return of([]);
           }
 
-          const visitsWithPilots$ = visits.map((visit) => {
-            const tripsCollection = collection(
-              this.firestore,
-              this.TRIPS_COLLECTION
-            );
-            const inwardTripQuery = query(
-              tripsCollection,
-              where('visitId', '==', visit.id),
-              where('typeTrip', '==', 'In'),
-              limit(1)
-            );
+          const visitsWithPilots$ = visits.map((visit: Visit) => {
+            return runInInjectionContext(this.injector, () => {
+              const tripsCollection = collection(
+                this.firestore,
+                this.TRIPS_COLLECTION
+              );
+              const inwardTripQuery = query(
+                tripsCollection,
+                where('visitId', '==', visit.id),
+                where('typeTrip', '==', 'In'),
+                limit(1)
+              );
 
-            return from(getDocs(inwardTripQuery)).pipe(
-              map((tripSnapshot) => {
-                if (!tripSnapshot.empty) {
-                  const inwardTrip = tripSnapshot.docs[0].data() as Trip;
-                  return { ...visit, inwardPilot: inwardTrip.pilot };
-                }
-                return visit; // Return original visit if no 'In' trip is found
-              })
-            );
+              return from(getDocs(inwardTripQuery)).pipe(
+                map((tripSnapshot) => {
+                  if (!tripSnapshot.empty) {
+                    const inwardTrip = tripSnapshot.docs[0].data() as Trip;
+                    return { ...visit, inwardPilot: inwardTrip.pilot };
+                  }
+                  return visit; // Return original visit if no 'In' trip is found
+                })
+              );
+            });
           });
 
           return combineLatest(visitsWithPilots$);
@@ -120,6 +122,24 @@ export class VisitRepository {
       );
       await updateDoc(visitDocRef, {
         currentStatus: newStatus,
+        statusLastUpdated: serverTimestamp(),
+        updatedBy: updatedBy,
+      });
+    });
+  }
+
+  async updateVisitLocation(
+    visitId: string,
+    newPort: any, // Using any to avoid circular dependency if Port is not imported, but better to import Port
+    updatedBy: string
+  ): Promise<void> {
+    return runInInjectionContext(this.injector, async () => {
+      const visitDocRef = doc(
+        this.firestore,
+        `${this.VISITS_COLLECTION}/${visitId}`
+      );
+      await updateDoc(visitDocRef, {
+        berthPort: newPort,
         statusLastUpdated: serverTimestamp(),
         updatedBy: updatedBy,
       });
@@ -153,72 +173,74 @@ export class VisitRepository {
 
           // 2. For each visit, fetch the relevant trip
           const joinedRows$ = visits.map((visit) => {
-            // Determine which trip type to look for based on status logic
-            const targetTripType =
-              status === 'Alongside' || status === 'Sailed' ? 'Out' : 'In';
+            return runInInjectionContext(this.injector, () => {
+              // Determine which trip type to look for based on status logic
+              const targetTripType =
+                status === 'Alongside' || status === 'Sailed' ? 'Out' : 'In';
 
-            const tripsCollection = collection(
-              this.firestore,
-              this.TRIPS_COLLECTION
-            );
-            const tripQuery = query(
-              tripsCollection,
-              where('visitId', '==', visit.id),
-              where('typeTrip', '==', targetTripType),
-              limit(1)
-            );
+              const tripsCollection = collection(
+                this.firestore,
+                this.TRIPS_COLLECTION
+              );
+              const tripQuery = query(
+                tripsCollection,
+                where('visitId', '==', visit.id),
+                where('typeTrip', '==', targetTripType),
+                limit(1)
+              );
 
-            return from(getDocs(tripQuery)).pipe(
-              map((snapshot) => {
-                let tripData: Trip | undefined;
-                if (!snapshot.empty) {
-                  tripData = snapshot.docs[0].data() as Trip;
-                }
+              return from(getDocs(tripQuery)).pipe(
+                map((snapshot) => {
+                  let tripData: Trip | undefined;
+                  if (!snapshot.empty) {
+                    tripData = snapshot.docs[0].data() as Trip;
+                  }
 
-                // 3. Map to the clean View Model (StatusListRow)
+                  // 3. Map to the clean View Model (StatusListRow)
 
-                // Safe Date Conversions:
-                let activeDate: Date;
-                if (
-                  tripData?.boarding &&
-                  tripData.boarding instanceof Timestamp
-                ) {
-                  activeDate = tripData.boarding.toDate();
-                } else if (
-                  visit.initialEta &&
-                  visit.initialEta instanceof Timestamp
-                ) {
-                  activeDate = visit.initialEta.toDate();
-                } else {
-                  activeDate = new Date(); // Fallback if data is corrupt
-                }
+                  // Safe Date Conversions:
+                  let activeDate: Date;
+                  if (
+                    tripData?.boarding &&
+                    tripData.boarding instanceof Timestamp
+                  ) {
+                    activeDate = tripData.boarding.toDate();
+                  } else if (
+                    visit.initialEta &&
+                    visit.initialEta instanceof Timestamp
+                  ) {
+                    activeDate = visit.initialEta.toDate();
+                  } else {
+                    activeDate = new Date(); // Fallback if data is corrupt
+                  }
 
-                const updateDate =
-                  visit.statusLastUpdated instanceof Timestamp
-                    ? visit.statusLastUpdated.toDate()
-                    : new Date();
+                  const updateDate =
+                    visit.statusLastUpdated instanceof Timestamp
+                      ? visit.statusLastUpdated.toDate()
+                      : new Date();
 
-                return {
-                  visitId: visit.id!,
-                  shipName: visit.shipName,
-                  status: visit.currentStatus,
-                  date: activeDate,
+                  return {
+                    visitId: visit.id!,
+                    shipName: visit.shipName,
+                    status: visit.currentStatus,
+                    date: activeDate,
 
-                  // Flattened fields (Handling "No Info" logic)
-                  port:
-                    tripData?.toPort ||
-                    tripData?.fromPort ||
-                    visit.berthPort ||
-                    'No Info',
-                  note: tripData?.pilotNotes || visit.visitNotes || '',
-                  pilot: tripData?.pilot || visit.inwardPilot || 'Unassigned',
+                    // Flattened fields (Handling "No Info" logic)
+                    port:
+                      tripData?.toPort ||
+                      tripData?.fromPort ||
+                      visit.berthPort ||
+                      'No Info',
+                    note: tripData?.pilotNotes || visit.visitNotes || '',
+                    pilot: tripData?.pilot || visit.inwardPilot || 'Unassigned',
 
-                  updatedBy: visit.updatedBy,
-                  updatedAt: updateDate,
-                  // Marine Traffic link omitted as requested
-                } as StatusListRow;
-              })
-            );
+                    updatedBy: visit.updatedBy,
+                    updatedAt: updateDate,
+                    // Marine Traffic link omitted as requested
+                  } as StatusListRow;
+                })
+              );
+            });
           });
 
           return combineLatest(joinedRows$);

@@ -5,16 +5,10 @@ import { MatSliderModule } from '@angular/material/slider';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { MaritimeCalculatorService } from '../../services/maritime-calculator.service';
 import { CalculationResult, ShipPosition, Waypoint } from '../../interfaces/waypoint';
 import { Observable } from 'rxjs';
 import { take } from 'rxjs/operators';
-
-import { DistanceRepository } from '../../../services/distance.repository';
-
-import { AuthService } from '../../../auth/auth';
 
 @Component({
   selector: 'app-control-panel',
@@ -25,9 +19,7 @@ import { AuthService } from '../../../auth/auth';
     MatSliderModule,
     MatFormFieldModule,
     MatInputModule,
-    MatButtonModule,
-    MatIconModule,
-    MatTooltipModule
+    MatButtonModule
   ],
   templateUrl: './control-panel.html',
   styleUrl: './control-panel.scss'
@@ -42,14 +34,7 @@ export class ControlPanelComponent implements OnInit {
   waypoints: Waypoint[];
   pastedCoordinates = '';
 
-  shipName = '';
-  isSaving = false;
-
-  constructor(
-    private maritimeService: MaritimeCalculatorService,
-    private distanceRepository: DistanceRepository,
-    private authService: AuthService
-  ) {
+  constructor(private maritimeService: MaritimeCalculatorService) {
     this.calculation$ = this.maritimeService.getCalculation();
     this.waypoints = this.maritimeService.getWaypoints();
   }
@@ -93,49 +78,41 @@ export class ControlPanelComponent implements OnInit {
     }
   }
 
-  async saveCalculation() {
-    if (!this.shipName) {
-      alert('Please enter a Ship Name');
-      return;
-    }
 
-    this.isSaving = true;
-    this.calculation$.pipe(take(1)).subscribe(async calc => {
-      if (calc) {
-        try {
-          console.log('Attempting to save calculation:', this.shipName);
-          const currentUser = this.authService.currentUserSig();
-          const docId = await this.distanceRepository.addDistance({
-            shipName: this.shipName,
-            position: this.position,
-            calculatedAt: calc.fromTime,
-            nextWaypoint: calc.nextWP,
-            distToScattery: calc.distToScattery,
-            speed: this.position.speed,
-            etaKilcredaun: calc.etaKil,
-            etaScattery: calc.etaScattery,
-            user: currentUser ? currentUser.displayName : 'Unknown'
-          });
-          console.log('Calculation saved with ID:', docId);
-          alert('Calculation saved successfully!');
-          this.shipName = ''; // Reset ship name
-        } catch (error) {
-          console.error('Error saving calculation:', error);
-          alert('Failed to save calculation. Check console for details.');
-        } finally {
-          this.isSaving = false;
-        }
+
+  marineDistanceResult: any = null;
+  isLoadingMarineDistance = false;
+
+  calculateMarineDistance() {
+    this.isLoadingMarineDistance = true;
+    this.marineDistanceResult = null;
+
+    // We need the current calculation to get the next waypoint
+    // We can subscribe once to get the latest value
+    this.calculation$.subscribe(calc => {
+      if (calc && calc.nextWP) {
+        const lat1 = this.position.lat + (this.position.latmin / 60);
+        const lon1 = -(this.position.long + (this.position.longmin / 60)); // West is negative
+        const lat2 = calc.nextWP.lat;
+        const lon2 = calc.nextWP.long;
+
+        this.maritimeService.getMarineDistance(lat1, lon1, lat2, lon2).subscribe({
+          next: (res) => {
+            this.marineDistanceResult = res;
+            this.isLoadingMarineDistance = false;
+          },
+          error: (err) => {
+            console.error('API Error', err);
+            this.isLoadingMarineDistance = false;
+            // Mock result for testing if API fails (or if key is invalid)
+            // this.marineDistanceResult = { route: { distance: 12345 } }; 
+          }
+        });
       }
-    });
+    }).unsubscribe();
   }
 
   formatLabel(value: number): string {
     return `${value}`;
-  }
-
-  get saveTooltip(): string {
-    if (this.isSaving) return 'Saving...';
-    if (!this.shipName) return 'Enter Ship Name to Save';
-    return 'Save Calculation';
   }
 }

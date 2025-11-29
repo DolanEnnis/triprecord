@@ -1,37 +1,50 @@
 .app-container {
   display: flex;
+  flex-direction: column;
   height: 100vh;
   width: 100vw;
   overflow: hidden;
 }
 
-.sidebar {
-  width: 400px;
+.dist2shannon-container {
+  display: flex;
+  flex-direction: column;
   height: 100%;
-  border-right: 1px solid #ccc;
+  box-sizing: border-box;
   overflow-y: auto;
-  z-index: 10;
 }
 
-.main-content {
+.split-container {
+  display: flex;
   flex: 1;
-  height: 100%;
-  position: relative;
+  min-height: 400px; /* Ensure map has height */
+  
+  app-results-panel {
+    width: 300px;
+    flex-shrink: 0;
+    border-right: 1px solid #e0e0e0;
+  }
+  
+  app-map {
+    flex-grow: 1;
+    display: block; /* Important for custom element */
+    height: 100%;
+  }
 }
 
-@media (max-width: 768px) {
-  .app-container {
+app-history-table {
+  width: 100%;
+  flex-shrink: 0;
+}
+
+@media (max-width: 800px) {
+  .split-container {
     flex-direction: column;
-  }
-
-  .sidebar {
-    width: 100%;
-    height: 50%;
-    border-right: none;
-    border-bottom: 1px solid #ccc;
-  }
-
-  .main-content {
-    height: 50%;
+    
+    app-results-panel {
+      width: 100%;
+      border-right: none;
+      border-bottom: 1px solid #e0e0e0;
+    }
   }
 }

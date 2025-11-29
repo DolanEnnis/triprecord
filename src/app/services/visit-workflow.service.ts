@@ -1,5 +1,5 @@
 import { inject, Injectable, Injector, runInInjectionContext } from '@angular/core';
-import { serverTimestamp, Timestamp } from '@angular/fire/firestore';
+import { serverTimestamp, Timestamp, doc, updateDoc } from '@angular/fire/firestore';
 import { AuthService } from '../auth/auth';
 import { NewVisitData, Trip, TripType, Visit, VisitStatus } from '../models/data.model';
 import { Charge } from '../models/trip.model';
@@ -109,6 +109,91 @@ export class VisitWorkflowService {
         good: null,
       };
       return this.tripRepository.addTrip(newTrip);
+    });
+  }
+
+  async arriveShip(visitId: string, port: any): Promise<void> {
+    return runInInjectionContext(this.injector, async () => {
+      const user = this.authService.currentUserSig();
+      const now = serverTimestamp();
+      const updatedBy = user?.displayName || 'Unknown';
+
+      // Update Visit Status
+      await this.visitRepository.updateVisitStatus(visitId, 'Alongside', updatedBy);
+    });
+  }
+
+  async shiftShip(visitId: string, fromPort: any, toPort: any, pilot: string): Promise<void> {
+    return runInInjectionContext(this.injector, async () => {
+      const user = this.authService.currentUserSig();
+      const now = serverTimestamp();
+      const recordedBy = user?.displayName || 'Unknown';
+
+      // 1. Create Shift Trip
+      const visit = await this.visitRepository.getVisitById(visitId).toPromise();
+      if (!visit) throw new Error('Visit not found');
+
+      const shiftTrip: Omit<Trip, 'id'> = {
+        visitId: visitId,
+        shipId: visit.shipId,
+        typeTrip: 'Shift',
+        boarding: now as Timestamp,
+        pilot: pilot,
+        fromPort: fromPort,
+        toPort: toPort,
+        pilotNotes: '',
+        extraChargesNotes: '',
+        isConfirmed: false,
+        recordedBy: recordedBy,
+        recordedAt: now,
+        ownNote: null,
+        pilotNo: null,
+        monthNo: null,
+        car: null,
+        timeOff: null,
+        good: null,
+      };
+      await this.tripRepository.addTrip(shiftTrip);
+
+      // 2. Update Visit Location
+      await this.visitRepository.updateVisitLocation(visitId, toPort, recordedBy);
+    });
+  }
+
+  async sailShip(visitId: string, pilot: string): Promise<void> {
+    return runInInjectionContext(this.injector, async () => {
+      const user = this.authService.currentUserSig();
+      const now = serverTimestamp();
+      const recordedBy = user?.displayName || 'Unknown';
+
+      const visit = await this.visitRepository.getVisitById(visitId).toPromise();
+      if (!visit) throw new Error('Visit not found');
+
+      // 1. Create Out Trip
+      const outTrip: Omit<Trip, 'id'> = {
+        visitId: visitId,
+        shipId: visit.shipId,
+        typeTrip: 'Out',
+        boarding: now as Timestamp,
+        pilot: pilot,
+        fromPort: visit.berthPort,
+        toPort: null,
+        pilotNotes: '',
+        extraChargesNotes: '',
+        isConfirmed: false,
+        recordedBy: recordedBy,
+        recordedAt: now,
+        ownNote: null,
+        pilotNo: null,
+        monthNo: null,
+        car: null,
+        timeOff: null,
+        good: null,
+      };
+      await this.tripRepository.addTrip(outTrip);
+
+      // 2. Update Visit Status to Sailed
+      await this.visitRepository.updateVisitStatus(visitId, 'Sailed', recordedBy);
     });
   }
 }

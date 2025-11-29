@@ -2,24 +2,16 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ControlPanelComponent } from './components/control-panel/control-panel';
 import { MapComponent } from './components/map/map';
-import { ResultsPanelComponent } from './components/results-panel/results-panel.component';
-import { HistoryTableComponent } from './components/history-table/history-table.component';
-import { environment } from '../../environments/environment';
+import { environment } from '../environments/environment';
 
 @Component({
-  selector: 'app-dist2shannon',
+  selector: 'app-root',
   standalone: true,
-  imports: [
-    CommonModule,
-    ControlPanelComponent,
-    MapComponent,
-    ResultsPanelComponent,
-    HistoryTableComponent
-  ],
-  templateUrl: './dist2shannon.component.html',
-  styleUrl: './dist2shannon.component.scss'
+  imports: [CommonModule, ControlPanelComponent, MapComponent],
+  templateUrl: './app.html',
+  styleUrl: './app.scss'
 })
-export class Dist2ShannonComponent implements OnInit {
+export class AppComponent implements OnInit {
   title = 'dist2shannon';
   apiLoaded = false;
 

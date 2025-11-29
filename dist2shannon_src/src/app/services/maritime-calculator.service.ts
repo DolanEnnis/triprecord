@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
-import { environment } from '../../../environments/environment';
+import { environment } from '../../environments/environment';
 import { Waypoint, CalculationResult, ShipPosition } from '../interfaces/waypoint';
 
 @Injectable({
@@ -81,6 +81,11 @@ export class MaritimeCalculatorService {
 
     getWaypoints(): Waypoint[] {
         return this.waypoints;
+    }
+
+    getMarineDistance(lat1: number, lon1: number, lat2: number, lon2: number): Observable<any> {
+        const url = `https://api.distance.tools/v1/route.json?stops=${lat1},${lon1}|${lat2},${lon2}&apikey=${environment.distanceApiKey}`;
+        return this.http.get(url);
     }
 
     updatePosition(pos: ShipPosition) {

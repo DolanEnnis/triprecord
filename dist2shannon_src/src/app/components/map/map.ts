@@ -1,6 +1,6 @@
-import { Component, OnInit, ViewChild, AfterViewInit } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { GoogleMapsModule, MapInfoWindow, MapMarker, GoogleMap } from '@angular/google-maps';
+import { GoogleMapsModule, MapInfoWindow, MapMarker } from '@angular/google-maps';
 import { MaritimeCalculatorService } from '../../services/maritime-calculator.service';
 import { ShipPosition, Waypoint } from '../../interfaces/waypoint';
 
@@ -11,7 +11,7 @@ import { ShipPosition, Waypoint } from '../../interfaces/waypoint';
   templateUrl: './map.html',
   styleUrl: './map.scss'
 })
-export class MapComponent implements OnInit, AfterViewInit {
+export class MapComponent implements OnInit {
 
   center: google.maps.LatLngLiteral = { lat: 52.53333, lng: -10 };
   zoom = 8;
@@ -50,30 +50,16 @@ export class MapComponent implements OnInit, AfterViewInit {
     });
   }
 
-  ngAfterViewInit() {
-    this.fitMapBounds();
-  }
-
-  @ViewChild(GoogleMap) map!: GoogleMap;
-
   updateShipPosition(pos: ShipPosition) {
     const lat = pos.lat + (pos.latmin / 60);
     const lng = -(pos.long + (pos.longmin / 60)); // Longitude is negative for West
 
     this.shipPosition = { lat, lng };
-    this.fitMapBounds();
-  }
+    this.center = { lat, lng };
 
-  private fitMapBounds() {
-    // Find Kilcreadaun waypoint
-    const kilcreadaun = this.waypoints.find(wp => wp.name === 'Kilcreadaun');
-    
-    if (this.map && kilcreadaun && this.shipPosition) {
-      const bounds = new google.maps.LatLngBounds();
-      bounds.extend(this.shipPosition);
-      bounds.extend({ lat: kilcreadaun.lat, lng: kilcreadaun.long });
-      this.map.fitBounds(bounds, 50); // Add padding
-    }
+    // Trigger polyline update with current nextWP if available
+    // Note: We rely on the calculation subscription to handle the full update,
+    // but we need to ensure shipPosition is set first.
   }
 
   updatePolyline(nextWP: Waypoint) {

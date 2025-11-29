@@ -1,0 +1,25 @@
+.history-container {
+  width: 100%;
+  padding: 16px;
+  box-sizing: border-box;
+  background-color: white;
+
+  h3 {
+    margin-top: 0;
+    margin-bottom: 16px;
+    color: #333;
+  }
+
+  table {
+    width: 100%;
+    
+    th.mat-header-cell {
+      font-weight: bold;
+      color: #555;
+    }
+    
+    td.mat-cell {
+      font-size: 13px;
+    }
+  }
+}

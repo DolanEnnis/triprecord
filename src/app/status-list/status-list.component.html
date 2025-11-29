@@ -1,0 +1,134 @@
+<div class="status-container">
+  
+  <!-- DUE SHIPS -->
+  <div class="section-header" *ngIf="dueShips().length > 0">
+    <h2>Due</h2>
+  </div>
+  <mat-table *ngIf="dueShips().length > 0" [dataSource]="dueShips()" class="mat-elevation-z2">
+
+    <!-- Ship Column -->
+    <ng-container matColumnDef="ship">
+      <mat-header-cell *matHeaderCellDef> Vessel Name </mat-header-cell>
+      <mat-cell *matCellDef="let element"> {{element.shipName}} </mat-cell>
+    </ng-container>
+
+    <!-- Office Time (ETA) Column -->
+    <ng-container matColumnDef="officeTime">
+      <mat-header-cell *matHeaderCellDef> ETA </mat-header-cell>
+      <mat-cell *matCellDef="let element" [style.color]="isToday(getDate(element.initialEta)) ? 'red' : 'inherit'">
+        {{ getDate(element.initialEta) | date:'EEE dd, HH:mm' }}
+      </mat-cell>
+    </ng-container>
+
+    <!-- Port Column -->
+    <ng-container matColumnDef="port">
+      <mat-header-cell *matHeaderCellDef> Port </mat-header-cell>
+      <mat-cell *matCellDef="let element"> {{element.berthPort}} </mat-cell>
+    </ng-container>
+
+    <!-- Note Column -->
+    <ng-container matColumnDef="note">
+      <mat-header-cell *matHeaderCellDef> Note </mat-header-cell>
+      <mat-cell *matCellDef="let element"> {{element.visitNotes}} </mat-cell>
+    </ng-container>
+
+    <!-- Pilot Column -->
+    <ng-container matColumnDef="pilot">
+      <mat-header-cell *matHeaderCellDef> Pilot </mat-header-cell>
+      <mat-cell *matCellDef="let element"> {{element.inwardPilot || 'Unassigned'}} </mat-cell>
+    </ng-container>
+
+    <!-- Updated Column -->
+    <ng-container matColumnDef="updated">
+      <mat-header-cell *matHeaderCellDef> Updated </mat-header-cell>
+      <mat-cell *matCellDef="let element" class="update-info">
+        {{ getDate(element.statusLastUpdated) | timeAgo }} by {{element.updatedBy}}
+      </mat-cell>
+    </ng-container>
+
+
+    <mat-header-row *matHeaderRowDef="displayedColumns"></mat-header-row>
+    <mat-row *matRowDef="let row; columns: displayedColumns;"></mat-row>
+  </mat-table>
+
+
+  <!-- AWAITING BERTH SHIPS -->
+  <div class="section-header" *ngIf="awaitingBerthShips().length > 0">
+    <h2>Awaiting Berth</h2>
+  </div>
+  <mat-table *ngIf="awaitingBerthShips().length > 0" [dataSource]="awaitingBerthShips()" class="mat-elevation-z2">
+    <!-- Reuse same columns -->
+    <ng-container matColumnDef="ship">
+      <mat-header-cell *matHeaderCellDef> Vessel Name </mat-header-cell>
+      <mat-cell *matCellDef="let element"> {{element.shipName}} </mat-cell>
+    </ng-container>
+    <ng-container matColumnDef="officeTime">
+      <mat-header-cell *matHeaderCellDef> ETA </mat-header-cell>
+      <mat-cell *matCellDef="let element" [style.color]="isToday(getDate(element.initialEta)) ? 'red' : 'inherit'">
+        {{ getDate(element.initialEta) | date:'EEE dd, HH:mm' }}
+      </mat-cell>
+    </ng-container>
+    <ng-container matColumnDef="port">
+      <mat-header-cell *matHeaderCellDef> Port </mat-header-cell>
+      <mat-cell *matCellDef="let element"> {{element.berthPort}} </mat-cell>
+    </ng-container>
+    <ng-container matColumnDef="note">
+      <mat-header-cell *matHeaderCellDef> Note </mat-header-cell>
+      <mat-cell *matCellDef="let element"> {{element.visitNotes}} </mat-cell>
+    </ng-container>
+    <ng-container matColumnDef="pilot">
+      <mat-header-cell *matHeaderCellDef> Pilot </mat-header-cell>
+      <mat-cell *matCellDef="let element"> {{element.inwardPilot || 'Unassigned'}} </mat-cell>
+    </ng-container>
+    <ng-container matColumnDef="updated">
+      <mat-header-cell *matHeaderCellDef> Updated </mat-header-cell>
+      <mat-cell *matCellDef="let element" class="update-info">
+        {{ getDate(element.statusLastUpdated) | timeAgo }} by {{element.updatedBy}}
+      </mat-cell>
+    </ng-container>
+
+    <mat-header-row *matHeaderRowDef="displayedColumns"></mat-header-row>
+    <mat-row *matRowDef="let row; columns: displayedColumns;"></mat-row>
+  </mat-table>
+
+
+  <!-- ALONGSIDE SHIPS -->
+  <div class="section-header" *ngIf="alongsideShips().length > 0">
+    <h2>Alongside</h2>
+  </div>
+  <mat-table *ngIf="alongsideShips().length > 0" [dataSource]="alongsideShips()" class="mat-elevation-z2">
+    <!-- Reuse same columns -->
+    <ng-container matColumnDef="ship">
+      <mat-header-cell *matHeaderCellDef> Vessel Name </mat-header-cell>
+      <mat-cell *matCellDef="let element"> {{element.shipName}} </mat-cell>
+    </ng-container>
+    <ng-container matColumnDef="officeTime">
+      <mat-header-cell *matHeaderCellDef> ETA </mat-header-cell>
+      <mat-cell *matCellDef="let element" [style.color]="isToday(getDate(element.initialEta)) ? 'red' : 'inherit'">
+        {{ getDate(element.initialEta) | date:'EEE dd, HH:mm' }}
+      </mat-cell>
+    </ng-container>
+    <ng-container matColumnDef="port">
+      <mat-header-cell *matHeaderCellDef> Port </mat-header-cell>
+      <mat-cell *matCellDef="let element"> {{element.berthPort}} </mat-cell>
+    </ng-container>
+    <ng-container matColumnDef="note">
+      <mat-header-cell *matHeaderCellDef> Note </mat-header-cell>
+      <mat-cell *matCellDef="let element"> {{element.visitNotes}} </mat-cell>
+    </ng-container>
+    <ng-container matColumnDef="pilot">
+      <mat-header-cell *matHeaderCellDef> Pilot </mat-header-cell>
+      <mat-cell *matCellDef="let element"> {{element.inwardPilot || 'Unassigned'}} </mat-cell>
+    </ng-container>
+    <ng-container matColumnDef="updated">
+      <mat-header-cell *matHeaderCellDef> Updated </mat-header-cell>
+      <mat-cell *matCellDef="let element" class="update-info">
+        {{ getDate(element.statusLastUpdated) | timeAgo }} by {{element.updatedBy}}
+      </mat-cell>
+    </ng-container>
+
+    <mat-header-row *matHeaderRowDef="displayedColumns"></mat-header-row>
+    <mat-row *matRowDef="let row; columns: displayedColumns;"></mat-row>
+  </mat-table>
+
+</div>

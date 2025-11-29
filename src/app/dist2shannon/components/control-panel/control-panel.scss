@@ -1,44 +1,106 @@
 .control-panel {
-  padding: 20px;
+  padding: 10px;
   background-color: #f5f5f5;
-  height: 100%;
-  overflow-y: auto;
   box-sizing: border-box;
-}
-
-.input-group {
-  display: flex;
-  gap: 10px;
-  
-  mat-form-field {
-    flex: 1;
-  }
-}
-
-.slider-container {
-  margin: 20px 0;
+  width: 100%;
   display: flex;
   flex-direction: column;
+  gap: 10px;
 }
 
-.results {
-  margin-top: 20px;
-  padding: 15px;
-  background-color: white;
-  border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
+.toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 
-.waypoints {
-  margin-top: 20px;
-  
-  .waypoint-buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
+  mat-form-field {
+    font-size: 12px;
     
-    button {
-      flex: 1 0 45%; 
+    /* Make inputs compact */
+    &.compact-field {
+      width: 80px;
+      
+      &.ship-name {
+        width: 260px; /* Increased width */
+      }
+      
+      &.coords {
+        width: 260px; /* Precise width for coordinates */
+        flex-grow: 0;
+      }
+      
+      &.number-input {
+        width: 60px; /* Precise width for min inputs */
+      }
+
+      &.wide-input {
+        width: 120px; /* Double width for Speed and Delay */
+      }
+
+      &.speed-input {
+        margin-left: 20px; /* Gap before Speed input */
+      }
+
+      /* Highlighting key inputs */
+      &.highlight-input {
+        ::ng-deep .mat-mdc-form-field-flex {
+          background-color: rgba(63, 81, 181, 0.05); /* Subtle primary color tint */
+          border: 1px solid rgba(63, 81, 181, 0.3);
+          border-radius: 4px;
+        }
+        
+        mat-label {
+          color: #3f51b5; /* Primary color */
+          font-weight: 500;
+        }
+      }
+
+      /* Fading less used inputs */
+      &.faded-input {
+        opacity: 0.7;
+        transform: scale(0.95); /* Slightly smaller */
+        
+        &:hover, &:focus-within {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
     }
   }
+
+  /* Remove bottom padding from form fields to make them tighter */
+  ::ng-deep .mat-mdc-form-field-subscript-wrapper {
+    display: none;
+  }
+}
+
+.coord-inputs, .delay-inputs {
+  display: flex;
+  gap: 4px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto; /* Push to the right */
+}
+
+/* Responsive adjustments */
+@media (max-width: 1000px) {
+  .toolbar-row {
+    gap: 4px;
+  }
+}
+
+/* Hide spinners for number inputs */
+input[type=number]::-webkit-inner-spin-button, 
+input[type=number]::-webkit-outer-spin-button { 
+  -webkit-appearance: none; 
+  margin: 0; 
+}
+
+input[type=number] {
+  appearance: textfield;
+  -moz-appearance: textfield;
 }

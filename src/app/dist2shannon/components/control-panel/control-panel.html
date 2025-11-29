@@ -1,136 +1,59 @@
 <div class="control-panel">
-  <h2>Ship Position</h2>
-
-  <div class="input-group">
-    <mat-form-field appearance="fill" class="full-width">
-      <mat-label>Paste Coordinates (Lat, Long)</mat-label>
-      <input matInput placeholder="e.g. 50.625, -8.855" (paste)="onPasteCoordinates($event)"
-        [(ngModel)]="pastedCoordinates">
+  <div class="toolbar-row">
+    <mat-form-field appearance="outline" class="compact-field ship-name">
+      <mat-label>Ship Name</mat-label>
+      <input matInput placeholder="Name" [(ngModel)]="shipName">
     </mat-form-field>
-  </div>
 
-  <div class="input-group">
-    <mat-form-field appearance="fill">
-      <mat-label>Latitude</mat-label>
-      <input matInput type="number" [(ngModel)]="position.lat" (ngModelChange)="onPositionChange()">
+    <mat-form-field appearance="outline" class="compact-field coords highlight-input">
+      <mat-label>Paste Coords</mat-label>
+      <input matInput placeholder="Lat, Long" (paste)="onPasteCoordinates($event)" [(ngModel)]="pastedCoordinates">
     </mat-form-field>
-    <mat-form-field appearance="fill">
-      <mat-label>Lat Min</mat-label>
-      <input matInput type="number" [(ngModel)]="position.latmin" (ngModelChange)="onPositionChange()">
-    </mat-form-field>
-  </div>
 
-  <div class="input-group">
-    <mat-form-field appearance="fill">
-      <mat-label>Longitude</mat-label>
-      <input matInput type="number" [(ngModel)]="position.long" (ngModelChange)="onPositionChange()">
-    </mat-form-field>
-    <mat-form-field appearance="fill">
-      <mat-label>Long Min</mat-label>
-      <input matInput type="number" [(ngModel)]="position.longmin" (ngModelChange)="onPositionChange()">
-    </mat-form-field>
-  </div>
-
-  <div class="input-group">
-    <mat-form-field appearance="fill">
-      <mat-label>Speed (knots)</mat-label>
-      <input matInput type="number" [(ngModel)]="position.speed" (ngModelChange)="onPositionChange()">
-    </mat-form-field>
-  </div>
-
-  <div class="slider-container">
-    <label>Speed Adjustment</label>
-    <mat-slider min="1" max="30" step="0.1" showTickMarks discrete [displayWith]="formatLabel">
-      <input matSliderThumb [(ngModel)]="position.speed" (ngModelChange)="onPositionChange()">
-    </mat-slider>
-  </div>
-
-  <div class="input-group">
-    <mat-form-field appearance="fill">
-      <mat-label>Delay (Hrs)</mat-label>
-      <input matInput type="number" [(ngModel)]="position.delay_hrs" (ngModelChange)="onPositionChange()">
-    </mat-form-field>
-    <mat-form-field appearance="fill">
-      <mat-label>Delay (Mins)</mat-label>
-      <input matInput type="number" [(ngModel)]="position.delay_mns" (ngModelChange)="onPositionChange()">
-    </mat-form-field>
-  </div>
-  <div class="control-panel">
-    <h2>Ship Position</h2>
-
-    <div class="input-group">
-      <mat-form-field appearance="fill" class="full-width">
-        <mat-label>Paste Coordinates (Lat, Long)</mat-label>
-        <input matInput placeholder="e.g. 50.625, -8.855" (paste)="onPasteCoordinates($event)"
-          [(ngModel)]="pastedCoordinates">
-      </mat-form-field>
-    </div>
-
-    <div class="input-group">
-      <mat-form-field appearance="fill">
-        <mat-label>Latitude</mat-label>
+    <div class="coord-inputs">
+      <mat-form-field appearance="outline" class="compact-field number-input faded-input">
+        <mat-label>Lat</mat-label>
         <input matInput type="number" [(ngModel)]="position.lat" (ngModelChange)="onPositionChange()">
       </mat-form-field>
-      <mat-form-field appearance="fill">
-        <mat-label>Lat Min</mat-label>
+      <mat-form-field appearance="outline" class="compact-field number-input faded-input">
+        <mat-label>Min</mat-label>
         <input matInput type="number" [(ngModel)]="position.latmin" (ngModelChange)="onPositionChange()">
       </mat-form-field>
     </div>
 
-    <div class="input-group">
-      <mat-form-field appearance="fill">
-        <mat-label>Longitude</mat-label>
+    <div class="coord-inputs">
+      <mat-form-field appearance="outline" class="compact-field number-input faded-input">
+        <mat-label>Long</mat-label>
         <input matInput type="number" [(ngModel)]="position.long" (ngModelChange)="onPositionChange()">
       </mat-form-field>
-      <mat-form-field appearance="fill">
-        <mat-label>Long Min</mat-label>
+      <mat-form-field appearance="outline" class="compact-field number-input faded-input">
+        <mat-label>Min</mat-label>
         <input matInput type="number" [(ngModel)]="position.longmin" (ngModelChange)="onPositionChange()">
       </mat-form-field>
     </div>
 
-    <div class="input-group">
-      <mat-form-field appearance="fill">
-        <mat-label>Speed (knots)</mat-label>
-        <input matInput type="number" [(ngModel)]="position.speed" (ngModelChange)="onPositionChange()">
-      </mat-form-field>
-    </div>
+    <mat-form-field appearance="outline" class="compact-field number-input highlight-input speed-input wide-input">
+      <mat-label>Spd</mat-label>
+      <input matInput type="number" [(ngModel)]="position.speed" (ngModelChange)="onPositionChange()">
+    </mat-form-field>
 
-    <div class="slider-container">
-      <label>Speed Adjustment</label>
-      <mat-slider min="1" max="30" step="0.1" showTickMarks discrete [displayWith]="formatLabel">
-        <input matSliderThumb [(ngModel)]="position.speed" (ngModelChange)="onPositionChange()">
-      </mat-slider>
-    </div>
-
-    <div class="input-group">
-      <mat-form-field appearance="fill">
-        <mat-label>Delay (Hrs)</mat-label>
+    <div class="delay-inputs">
+       <mat-form-field appearance="outline" class="compact-field number-input highlight-input wide-input">
+        <mat-label>Delay H</mat-label>
         <input matInput type="number" [(ngModel)]="position.delay_hrs" (ngModelChange)="onPositionChange()">
       </mat-form-field>
-      <mat-form-field appearance="fill">
-        <mat-label>Delay (Mins)</mat-label>
+      <mat-form-field appearance="outline" class="compact-field number-input highlight-input wide-input">
+        <mat-label>Delay M</mat-label>
         <input matInput type="number" [(ngModel)]="position.delay_mns" (ngModelChange)="onPositionChange()">
       </mat-form-field>
     </div>
 
-    <div class="results" *ngIf="calculation$ | async as calc">
-      <h3>Results</h3>
-      <p><strong>Next Waypoint:</strong> {{ calc.nextWP.name }}</p>
-      <p><strong>Dist to WP:</strong> {{ calc.distToWP | number:'1.2-2' }} NM</p>
-      <p><strong>Distance to Scattery:</strong> {{ calc.distToScattery | number:'1.2-2' }} NM</p>
-      <p><strong>ETA Kilcredaun:</strong> {{ calc.etaKil | date:'EEE (dd) HH:mm' }}</p>
-      <p><strong>ETA Scattery:</strong> {{ calc.etaScattery | date:'EEE (dd) HH:mm' }}</p>
-    
-    <div class="marine-distance" style="margin-top: 10px;">
-      <button mat-raised-button color="primary" (click)="calculateMarineDistance()" [disabled]="isLoadingMarineDistance">
-        Calculate Sea Route (API)
-      </button>
-      <div *ngIf="marineDistanceResult" style="margin-top: 5px;">
-        <p><strong>Sea Route Distance:</strong> {{ marineDistanceResult.route.distance / 1852 | number:'1.2-2' }} NM</p>
+    <div class="actions">
+      <div [matTooltip]="saveTooltip">
+        <button mat-mini-fab color="primary" (click)="saveCalculation()" [disabled]="isSaving || !shipName">
+          <mat-icon>save</mat-icon>
+        </button>
       </div>
-      <div *ngIf="isLoadingMarineDistance" style="margin-top: 5px;">
-        <p>Calculating...</p>
-      </div>
-    </div>
     </div>
   </div>
+</div>

@@ -1,21 +1,66 @@
+rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match/users/{docID}{
-    	allow read: if request.auth.uid != null;
-    	allow write: if request.resource.data.uid == request.auth.uid
+
+    // --- Helper Functions ---
+    
+    function isSignedIn() {
+      return request.auth != null;
     }
-    match /visits/{visitId} { // Rule for the existing app's collection
-      allow read, write: if request.auth != null;
+
+    // Look up the REQUESTER'S document to check if they are an admin.
+    function isAdmin() {
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userType == 'admin';
     }
-    match /visits_new/{visitId} { // 🚀 NEW: Rule for the new app's collection
-      allow read, write: if request.auth != null;
+
+    // --- Users Collection ---
+    
+    match /users/{docId} {
+      // Allow Reading:
+      // 1. Admins can read everything (for the Admin Table).
+      // 2. Users can read their own profile.
+      // 3. We allow listing for login (AuthService.findUserDocByEmail) 
+      allow list: if isSignedIn(); 
+      allow get: if isSignedIn() && (request.auth.uid == docId || isAdmin());
+
+      // Allow Writing:
+      // 1. Admins can update any user (Update Roles).
+      // 2. Users can write to their own document (request.auth.uid == docId).
+      allow write: if (isSignedIn() && request.auth.uid == docId) || isAdmin();
     }
-    match /charges/{docID} {
-      allow read: if request.auth.uid != null;
-      allow write: if request.auth.uid != null;
+
+    // --- Visits & Trips (Protecting the core data) ---
+    
+    match /visits/{visitId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn(); // Consider restricting delete to admins
     }
+    
+    match /visits_new/{visitId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    match /trips/{tripId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
     match /ships/{shipId} {
-      allow read, write: if request.auth != null;
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+    
+    match /charges/{chargeId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn(); // Ideally only allow creates, disable updates/deletes for audit
+    }
+
+    // --- Distance Feature ---
+    match /distance/{document=**} {
+      allow read, write: if isSignedIn();
     }
   }
 }

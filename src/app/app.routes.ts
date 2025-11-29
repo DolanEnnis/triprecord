@@ -2,7 +2,11 @@ import { Routes } from '@angular/router';
 import { roleGuard } from './auth/guards/role.guard';
 
 export const routes: Routes = [
-  { path: '', redirectTo: 'trip-confirmation', pathMatch: 'full' },
+  { 
+    path: '', 
+    loadComponent: () => import('./status-list/status-list.component').then(c => c.StatusListComponent),
+    pathMatch: 'full' 
+  },
 
   {
     path: 'trip-confirmation',
