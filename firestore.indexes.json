@@ -1,0 +1,39 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "charges",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "ship",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "typeTrip",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "boarding",
+          "order": "ASCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "visits",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "eta",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ship",
+          "order": "ASCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
+    }
+  ],
+  "fieldOverrides": []
+}

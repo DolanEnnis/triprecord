@@ -1,5 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -16,7 +16,6 @@ import { finalize } from 'rxjs';
   selector: 'app-login',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     MatCardModule,
     MatFormFieldModule,
@@ -25,7 +24,7 @@ import { finalize } from 'rxjs';
     MatProgressSpinnerModule,
     MatIconModule,
     MatSnackBarModule
-  ],
+],
   templateUrl: './login.component.html',
   styleUrl: './login.component.css'
 })

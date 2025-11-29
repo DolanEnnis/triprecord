@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "shannonpilots-6fedd"
+  },
+  "targets": {
+    "shannonpilots-6fedd": {
+      "hosting": {
+        "trip": [
+          "shannonpilots-6fedd-trip"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

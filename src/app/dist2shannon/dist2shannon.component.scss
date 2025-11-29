@@ -1,0 +1,37 @@
+.app-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+.sidebar {
+  width: 400px;
+  height: 100%;
+  border-right: 1px solid #ccc;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.main-content {
+  flex: 1;
+  height: 100%;
+  position: relative;
+}
+
+@media (max-width: 768px) {
+  .app-container {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: 50%;
+    border-right: none;
+    border-bottom: 1px solid #ccc;
+  }
+
+  .main-content {
+    height: 50%;
+  }
+}

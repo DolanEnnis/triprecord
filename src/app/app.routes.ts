@@ -46,5 +46,12 @@ export const routes: Routes = [
     ]
   },
 
+  {
+    path: 'dist2shannon',
+    loadComponent: () => import('./dist2shannon/dist2shannon.component').then(c => c.Dist2ShannonComponent),
+    canActivate: [roleGuard],
+    data: { roles: ['pilot', 'admin', 'sfpc'] }
+  },
+
   { path: '**', redirectTo: 'auth/login' }
 ];

@@ -1,5 +1,5 @@
 import { Component, forwardRef, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import {
   ControlValueAccessor,
   FormBuilder,
@@ -21,11 +21,13 @@ import { MatSelectModule } from '@angular/material/select';
   selector: 'app-date-time-picker',
   standalone: true,
   imports: [
-    // Core
-    CommonModule, ReactiveFormsModule,
-    // Material
-    MatFormFieldModule, MatInputModule, MatDatepickerModule, MatNativeDateModule, MatSelectModule,
-  ],
+    ReactiveFormsModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatDatepickerModule,
+    MatNativeDateModule,
+    MatSelectModule
+],
   templateUrl: './date-time-picker.component.html',
   styleUrls: ['./date-time-picker.component.css'],
   providers: [
