@@ -33,6 +33,17 @@
         }
       ],
       "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "visits_new",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "initialEta",
+          "order": "DESCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
     }
   ],
   "fieldOverrides": []
