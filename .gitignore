@@ -49,3 +49,7 @@ Thumbs.db
 # Environment files containing secrets. Never commit these.
 /src/environments/environment.ts
 /src/environments/environment.prod.ts
+
+# Temporary reference/backup directories
+temp_spa_reference/
+dist2shannon_src/

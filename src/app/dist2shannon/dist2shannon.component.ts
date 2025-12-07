@@ -28,6 +28,13 @@ export class Dist2ShannonComponent implements OnInit {
   }
 
   loadGoogleMaps() {
+    // TODO: Add production domain (e.g., triprecord.firebaseapp.com) to Google Cloud Console key restrictions before deploying.
+    if (!environment.googleMapsApiKey) {
+      console.warn('Google Maps API Key is missing. Map will not be loaded.');
+      this.apiLoaded = false;
+      return;
+    }
+
     if (document.getElementById('google-maps-script')) {
       this.apiLoaded = true;
       return;

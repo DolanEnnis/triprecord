@@ -68,6 +68,7 @@ export interface Visit {
   statusLastUpdated: Timestamp | FieldValue;
   updatedBy: string;            // User display name/Pilot recording the status
   visitNotes?: string | null;   // Notes specific to this port call
+  source?: Source;              // Source of the information (Sheet, AIS, etc.)
 }
 
 

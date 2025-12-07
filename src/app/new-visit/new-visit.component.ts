@@ -225,7 +225,7 @@ export class NewVisitComponent implements OnInit {
         horizontalPosition: 'end',
       });
 
-      await this.router.navigate(['/trip-confirmation']);
+      await this.router.navigate(['/']);
     } catch (error: any) {
       console.error('Visit creation failed:', error);
       this.snackBar.open(`Error creating visit: ${error.message || 'An unexpected error occurred.'}`, 'Close', {

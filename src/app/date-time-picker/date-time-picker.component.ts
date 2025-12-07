@@ -15,7 +15,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule, DateAdapter } from '@angular/material/core';
-import { MatSelectModule } from '@angular/material/select';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 
 @Component({
   selector: 'app-date-time-picker',
@@ -26,7 +26,7 @@ import { MatSelectModule } from '@angular/material/select';
     MatInputModule,
     MatDatepickerModule,
     MatNativeDateModule,
-    MatSelectModule
+    MatAutocompleteModule
 ],
   templateUrl: './date-time-picker.component.html',
   styleUrls: ['./date-time-picker.component.css'],
@@ -43,11 +43,11 @@ export class DateTimePickerComponent implements ControlValueAccessor {
   private readonly adapter = inject(DateAdapter<any>);
 
   form: FormGroup;
-  readonly minDate = new Date();
 
-  minutes: { value: number; label: string }[] = Array.from({ length: 60 }, (_, i) => ({
-    value: i,
-    label: i.toString().padStart(2, '0')
+  // Generate 10-minute increments for the autocomplete suggestions
+  minutes: { value: number; label: string }[] = Array.from({ length: 6 }, (_, i) => ({
+    value: i * 10,
+    label: (i * 10).toString().padStart(2, '0')
   }));
 
   onChange: (value: Date | null) => void = () => {};

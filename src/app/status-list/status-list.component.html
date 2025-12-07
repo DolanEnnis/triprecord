@@ -1,10 +1,21 @@
 <div class="status-container">
   
+  <!-- Port Filter -->
+  <div class="filter-container">
+    <mat-button-toggle-group [value]="portFilter()" (valueChange)="onPortFilterChange($event)" aria-label="Filter by port">
+      <mat-button-toggle value="All">All Ports</mat-button-toggle>
+      <mat-button-toggle value="Aughinish">Aughinish</mat-button-toggle>
+      <mat-button-toggle value="Foynes">Foynes</mat-button-toggle>
+      <mat-button-toggle value="Limerick">Limerick</mat-button-toggle>
+      <mat-button-toggle value="Other">Other</mat-button-toggle>
+    </mat-button-toggle-group>
+  </div>
+  
   <!-- DUE SHIPS -->
-  <div class="section-header" *ngIf="dueShips().length > 0">
+  <div class="section-header" *ngIf="filteredDueShips().length > 0">
     <h2>Due</h2>
   </div>
-  <mat-table *ngIf="dueShips().length > 0" [dataSource]="dueShips()" class="mat-elevation-z2">
+  <mat-table *ngIf="filteredDueShips().length > 0" [dataSource]="filteredDueShips()" class="mat-elevation-z2">
 
     <!-- Ship Column -->
     <ng-container matColumnDef="ship">
@@ -15,34 +26,49 @@
     <!-- Office Time (ETA) Column -->
     <ng-container matColumnDef="officeTime">
       <mat-header-cell *matHeaderCellDef> ETA </mat-header-cell>
-      <mat-cell *matCellDef="let element" [style.color]="isToday(getDate(element.initialEta)) ? 'red' : 'inherit'">
-        {{ getDate(element.initialEta) | date:'EEE dd, HH:mm' }}
+      <mat-cell *matCellDef="let element" 
+                class="clickable-cell"
+                (click)="openEtaDialog(element)"
+                matTooltip="Click to update ETA"
+                [style.color]="isToday(getDate(element.date)) ? 'red' : 'inherit'">
+        {{ getDate(element.date) | date:'EEE dd, HH:mm' }}
       </mat-cell>
     </ng-container>
 
     <!-- Port Column -->
     <ng-container matColumnDef="port">
       <mat-header-cell *matHeaderCellDef> Port </mat-header-cell>
-      <mat-cell *matCellDef="let element"> {{element.berthPort}} </mat-cell>
+      <mat-cell *matCellDef="let element"> {{element.port}} </mat-cell>
     </ng-container>
 
     <!-- Note Column -->
     <ng-container matColumnDef="note">
       <mat-header-cell *matHeaderCellDef> Note </mat-header-cell>
-      <mat-cell *matCellDef="let element"> {{element.visitNotes}} </mat-cell>
+      <mat-cell *matCellDef="let element"> {{element.note}} </mat-cell>
     </ng-container>
 
     <!-- Pilot Column -->
     <ng-container matColumnDef="pilot">
       <mat-header-cell *matHeaderCellDef> Pilot </mat-header-cell>
-      <mat-cell *matCellDef="let element"> {{element.inwardPilot || 'Unassigned'}} </mat-cell>
+      <mat-cell *matCellDef="let element"> {{element.pilot}} </mat-cell>
     </ng-container>
 
     <!-- Updated Column -->
     <ng-container matColumnDef="updated">
       <mat-header-cell *matHeaderCellDef> Updated </mat-header-cell>
-      <mat-cell *matCellDef="let element" class="update-info">
-        {{ getDate(element.statusLastUpdated) | timeAgo }} by {{element.updatedBy}}
+      <mat-cell *matCellDef="let element" class="update-info" [ngClass]="getSourceClass(element)">
+        <div>Updated {{ getDate(element.updatedAt) | timeAgo }} by {{element.updatedBy}}</div>
+        <div>from {{ getSource(element) }}</div>
+      </mat-cell>
+    </ng-container>
+
+    <!-- Actions Column -->
+    <ng-container matColumnDef="actions">
+      <mat-header-cell *matHeaderCellDef> Actions </mat-header-cell>
+      <mat-cell *matCellDef="let element">
+        <button mat-icon-button color="primary" (click)="editTrip(element)" matTooltip="Edit Trip">
+          <mat-icon>edit</mat-icon>
+        </button>
       </mat-cell>
     </ng-container>
 
@@ -53,37 +79,50 @@
 
 
   <!-- AWAITING BERTH SHIPS -->
-  <div class="section-header" *ngIf="awaitingBerthShips().length > 0">
+  <div class="section-header" *ngIf="filteredAwaitingBerthShips().length > 0">
     <h2>Awaiting Berth</h2>
   </div>
-  <mat-table *ngIf="awaitingBerthShips().length > 0" [dataSource]="awaitingBerthShips()" class="mat-elevation-z2">
+  <mat-table *ngIf="filteredAwaitingBerthShips().length > 0" [dataSource]="filteredAwaitingBerthShips()" class="mat-elevation-z2">
     <!-- Reuse same columns -->
     <ng-container matColumnDef="ship">
       <mat-header-cell *matHeaderCellDef> Vessel Name </mat-header-cell>
       <mat-cell *matCellDef="let element"> {{element.shipName}} </mat-cell>
     </ng-container>
     <ng-container matColumnDef="officeTime">
-      <mat-header-cell *matHeaderCellDef> ETA </mat-header-cell>
-      <mat-cell *matCellDef="let element" [style.color]="isToday(getDate(element.initialEta)) ? 'red' : 'inherit'">
-        {{ getDate(element.initialEta) | date:'EEE dd, HH:mm' }}
+      <mat-header-cell *matHeaderCellDef> ETB </mat-header-cell>
+      <mat-cell *matCellDef="let element" 
+                class="clickable-cell"
+                (click)="openEtaDialog(element)"
+                matTooltip="Click to update ETA"
+                [style.color]="isToday(getDate(element.date)) ? 'red' : 'inherit'">
+        {{ getDate(element.date) | date:'EEE dd, HH:mm' }}
       </mat-cell>
     </ng-container>
     <ng-container matColumnDef="port">
       <mat-header-cell *matHeaderCellDef> Port </mat-header-cell>
-      <mat-cell *matCellDef="let element"> {{element.berthPort}} </mat-cell>
+      <mat-cell *matCellDef="let element"> {{element.port}} </mat-cell>
     </ng-container>
     <ng-container matColumnDef="note">
       <mat-header-cell *matHeaderCellDef> Note </mat-header-cell>
-      <mat-cell *matCellDef="let element"> {{element.visitNotes}} </mat-cell>
+      <mat-cell *matCellDef="let element"> {{element.note}} </mat-cell>
     </ng-container>
     <ng-container matColumnDef="pilot">
       <mat-header-cell *matHeaderCellDef> Pilot </mat-header-cell>
-      <mat-cell *matCellDef="let element"> {{element.inwardPilot || 'Unassigned'}} </mat-cell>
+      <mat-cell *matCellDef="let element"> {{element.pilot}} </mat-cell>
     </ng-container>
     <ng-container matColumnDef="updated">
       <mat-header-cell *matHeaderCellDef> Updated </mat-header-cell>
-      <mat-cell *matCellDef="let element" class="update-info">
-        {{ getDate(element.statusLastUpdated) | timeAgo }} by {{element.updatedBy}}
+      <mat-cell *matCellDef="let element" class="update-info" [ngClass]="getSourceClass(element)">
+        <div>Updated {{ getDate(element.updatedAt) | timeAgo }} by {{element.updatedBy}}</div>
+        <div>from {{ getSource(element) }}</div>
+      </mat-cell>
+    </ng-container>
+    <ng-container matColumnDef="actions">
+      <mat-header-cell *matHeaderCellDef> Actions </mat-header-cell>
+      <mat-cell *matCellDef="let element">
+        <button mat-icon-button color="primary" (click)="editTrip(element)" matTooltip="Edit Trip">
+          <mat-icon>edit</mat-icon>
+        </button>
       </mat-cell>
     </ng-container>
 
@@ -93,37 +132,50 @@
 
 
   <!-- ALONGSIDE SHIPS -->
-  <div class="section-header" *ngIf="alongsideShips().length > 0">
+  <div class="section-header" *ngIf="filteredAlongsideShips().length > 0">
     <h2>Alongside</h2>
   </div>
-  <mat-table *ngIf="alongsideShips().length > 0" [dataSource]="alongsideShips()" class="mat-elevation-z2">
+  <mat-table *ngIf="filteredAlongsideShips().length > 0" [dataSource]="filteredAlongsideShips()" class="mat-elevation-z2">
     <!-- Reuse same columns -->
     <ng-container matColumnDef="ship">
       <mat-header-cell *matHeaderCellDef> Vessel Name </mat-header-cell>
       <mat-cell *matCellDef="let element"> {{element.shipName}} </mat-cell>
     </ng-container>
     <ng-container matColumnDef="officeTime">
-      <mat-header-cell *matHeaderCellDef> ETA </mat-header-cell>
-      <mat-cell *matCellDef="let element" [style.color]="isToday(getDate(element.initialEta)) ? 'red' : 'inherit'">
-        {{ getDate(element.initialEta) | date:'EEE dd, HH:mm' }}
+      <mat-header-cell *matHeaderCellDef> ETS </mat-header-cell>
+      <mat-cell *matCellDef="let element" 
+                class="clickable-cell"
+                (click)="openEtaDialog(element)"
+                matTooltip="Click to update ETA"
+                [style.color]="isToday(getDate(element.date)) ? 'red' : 'inherit'">
+        {{ getDate(element.date) | date:'EEE dd, HH:mm' }}
       </mat-cell>
     </ng-container>
     <ng-container matColumnDef="port">
       <mat-header-cell *matHeaderCellDef> Port </mat-header-cell>
-      <mat-cell *matCellDef="let element"> {{element.berthPort}} </mat-cell>
+      <mat-cell *matCellDef="let element"> {{element.port}} </mat-cell>
     </ng-container>
     <ng-container matColumnDef="note">
       <mat-header-cell *matHeaderCellDef> Note </mat-header-cell>
-      <mat-cell *matCellDef="let element"> {{element.visitNotes}} </mat-cell>
+      <mat-cell *matCellDef="let element"> {{element.note}} </mat-cell>
     </ng-container>
     <ng-container matColumnDef="pilot">
       <mat-header-cell *matHeaderCellDef> Pilot </mat-header-cell>
-      <mat-cell *matCellDef="let element"> {{element.inwardPilot || 'Unassigned'}} </mat-cell>
+      <mat-cell *matCellDef="let element"> {{element.pilot}} </mat-cell>
     </ng-container>
     <ng-container matColumnDef="updated">
       <mat-header-cell *matHeaderCellDef> Updated </mat-header-cell>
-      <mat-cell *matCellDef="let element" class="update-info">
-        {{ getDate(element.statusLastUpdated) | timeAgo }} by {{element.updatedBy}}
+      <mat-cell *matCellDef="let element" class="update-info" [ngClass]="getSourceClass(element)">
+        <div>Updated {{ getDate(element.updatedAt) | timeAgo }} by {{element.updatedBy}}</div>
+        <div>from {{ getSource(element) }}</div>
+      </mat-cell>
+    </ng-container>
+    <ng-container matColumnDef="actions">
+      <mat-header-cell *matHeaderCellDef> Actions </mat-header-cell>
+      <mat-cell *matCellDef="let element">
+        <button mat-icon-button color="primary" (click)="editTrip(element)" matTooltip="Edit Trip">
+          <mat-icon>edit</mat-icon>
+        </button>
       </mat-cell>
     </ng-container>
 

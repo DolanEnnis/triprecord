@@ -2,6 +2,7 @@ import { Timestamp } from '@angular/fire/firestore';
 
 export interface StatusListRow {
   visitId: string;
+  tripId?: string;     // Added for updating trip-specific data
   shipName: string;
   status: string;      // 'Due', 'Alongside', etc.
 
@@ -17,5 +18,6 @@ export interface StatusListRow {
   // 3. Metadata
   updatedBy: string;
   updatedAt: Date;
+  source?: string; // Added for update source tracking
   marineTrafficLink?: string | null;
 }

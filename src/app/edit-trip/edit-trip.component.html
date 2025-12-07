@@ -1,0 +1,206 @@
+<div class="container" *ngIf="!loading(); else loader">
+  <div class="header">
+    <h2>Edit Visit</h2>
+    <div class="actions">
+      <button mat-raised-button color="primary" (click)="save()" [disabled]="form.invalid || saving()">
+        <mat-icon>save</mat-icon>
+        {{ saving() ? 'Saving...' : 'Save Changes' }}
+      </button>
+    </div>
+  </div>
+
+  <form [formGroup]="form" class="edit-form">
+    
+    <!-- SHIP INFO -->
+    <mat-card class="section-card" formGroupName="ship">
+      <mat-card-header>
+        <mat-card-title>Ship Details</mat-card-title>
+      </mat-card-header>
+      <mat-card-content class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Ship Name</mat-label>
+          <input matInput formControlName="shipName" placeholder="e.g. MAERSK SHANNON">
+          <mat-error *ngIf="form.get('ship.shipName')?.hasError('required')">Ship Name is required</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Gross Tonnage</mat-label>
+          <input matInput type="number" formControlName="grossTonnage">
+          <mat-error *ngIf="form.get('ship.grossTonnage')?.hasError('required')">Gross Tonnage is required</mat-error>
+          <mat-error *ngIf="form.get('ship.grossTonnage')?.hasError('min')">Min value is 50</mat-error>
+          <mat-error *ngIf="form.get('ship.grossTonnage')?.hasError('max')">Max value is 200,000</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>IMO Number</mat-label>
+          <input matInput type="number" formControlName="imoNumber">
+          <!-- TODO: AI Ship Intelligence Feature - Currently disabled
+               Attempted implementations with Gemini API and OpenAI GPT (3.5-turbo, 4o, 4o-mini, 5.1-chat-latest)
+               all failed due to lack of web browsing capabilities in API mode, resulting in hallucinations or null data.
+               Future options: MarineTraffic API, VesselFinder API, or other maritime database services.
+          <button mat-icon-button matSuffix (click)="fetchShipInfo()" [disabled]="fetchLoading()" matTooltip="Fetch Ship Info from AI">
+            <mat-icon *ngIf="!fetchLoading()">auto_awesome</mat-icon>
+            <mat-icon *ngIf="fetchLoading()" class="spin">sync</mat-icon>
+          </button>
+          -->
+          <mat-error *ngIf="form.get('ship.imoNumber')?.hasError('min') || form.get('ship.imoNumber')?.hasError('max')">IMO must be 7 digits</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Marine Traffic Link</mat-label>
+          <input matInput formControlName="marineTrafficLink" #mtLink>
+          <a mat-icon-button matSuffix [href]="mtLink.value" target="_blank" *ngIf="mtLink.value" title="Open Link">
+            <mat-icon>open_in_new</mat-icon>
+          </a>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Ship Notes</mat-label>
+          <textarea matInput formControlName="shipNotes" rows="2"></textarea>
+        </mat-form-field>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- VISIT INFO -->
+    <mat-card class="section-card" formGroupName="visit">
+      <mat-card-header>
+        <mat-card-title>Visit Status</mat-card-title>
+      </mat-card-header>
+      <mat-card-content class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Current Status</mat-label>
+          <mat-select formControlName="currentStatus">
+            <mat-option *ngFor="let status of visitStatuses" [value]="status">
+              {{ status }}
+            </mat-option>
+          </mat-select>
+          <mat-error *ngIf="form.get('visit.currentStatus')?.hasError('required')">Status is required</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Initial ETA</mat-label>
+          <input matInput [matDatepicker]="etaPicker" formControlName="initialEta">
+          <mat-datepicker-toggle matIconSuffix [for]="etaPicker"></mat-datepicker-toggle>
+          <mat-datepicker #etaPicker></mat-datepicker>
+          <mat-error *ngIf="form.get('visit.initialEta')?.hasError('required')">ETA is required</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Berth / Port</mat-label>
+          <mat-select formControlName="berthPort">
+            <mat-option *ngFor="let port of ports" [value]="port">
+              {{ port }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Source</mat-label>
+          <mat-select formControlName="source">
+            <mat-option *ngFor="let src of sources" [value]="src">
+              {{ src }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Visit Notes</mat-label>
+          <textarea matInput formControlName="visitNotes" rows="2"></textarea>
+        </mat-form-field>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- INWARD TRIP -->
+    <mat-card class="section-card" formGroupName="inwardTrip">
+      <mat-card-header>
+        <mat-card-title>Inward Trip</mat-card-title>
+      </mat-card-header>
+      <mat-card-content class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Pilot</mat-label>
+          <input matInput formControlName="pilot">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Boarding Time</mat-label>
+          <input matInput [matDatepicker]="inPicker" formControlName="boarding">
+          <mat-datepicker-toggle matIconSuffix [for]="inPicker"></mat-datepicker-toggle>
+          <mat-datepicker #inPicker></mat-datepicker>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>From</mat-label>
+          <mat-select formControlName="fromPort">
+            <mat-option *ngFor="let port of ports" [value]="port">
+              {{ port }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>To</mat-label>
+          <mat-select formControlName="toPort">
+            <mat-option *ngFor="let port of ports" [value]="port">
+              {{ port }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Pilot Notes</mat-label>
+          <textarea matInput formControlName="pilotNotes" rows="2"></textarea>
+        </mat-form-field>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- OUTWARD TRIP -->
+    <mat-card class="section-card" formGroupName="outwardTrip">
+      <mat-card-header>
+        <mat-card-title>Outward Trip</mat-card-title>
+      </mat-card-header>
+      <mat-card-content class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Pilot</mat-label>
+          <input matInput formControlName="pilot">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Boarding Time</mat-label>
+          <input matInput [matDatepicker]="outPicker" formControlName="boarding">
+          <mat-datepicker-toggle matIconSuffix [for]="outPicker"></mat-datepicker-toggle>
+          <mat-datepicker #outPicker></mat-datepicker>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>From</mat-label>
+          <mat-select formControlName="fromPort">
+            <mat-option *ngFor="let port of ports" [value]="port">
+              {{ port }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>To</mat-label>
+          <mat-select formControlName="toPort">
+            <mat-option *ngFor="let port of ports" [value]="port">
+              {{ port }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Pilot Notes</mat-label>
+          <textarea matInput formControlName="pilotNotes" rows="2"></textarea>
+        </mat-form-field>
+      </mat-card-content>
+    </mat-card>
+
+  </form>
+</div>
+
+<ng-template #loader>
+  <div class="loader-container">
+    <p>Loading visit details...</p>
+  </div>
+</ng-template>
