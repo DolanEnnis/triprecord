@@ -57,5 +57,26 @@ export const routes: Routes = [
     data: { roles: ['pilot', 'admin', 'sfpc'] }
   },
 
+  {
+    path: 'edit/:id',
+    loadComponent: () => import('./edit-trip/edit-trip.component').then(c => c.EditTripComponent),
+    canActivate: [roleGuard],
+    data: { roles: ['pilot', 'admin', 'sfpc'] }
+  },
+
+  {
+    path: 'ships',
+    loadComponent: () => import('./ships/ships.component').then(c => c.ShipsComponent),
+    canActivate: [roleGuard],
+    data: { roles: ['pilot', 'admin', 'sfpc'] }
+  },
+
+  {
+    path: 'previous',
+    loadComponent: () => import('./previous-visits/previous-visits.component').then(c => c.PreviousVisitsComponent),
+    canActivate: [roleGuard],
+    data: { roles: ['pilot', 'admin', 'sfpc'] }
+  },
+
   { path: '**', redirectTo: 'auth/login' }
 ];
