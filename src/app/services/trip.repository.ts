@@ -56,4 +56,12 @@ export class TripRepository {
       return collectionData(recentTripsQuery, { idField: 'id' }) as Observable<Trip[]>;
     });
   }
+
+  getTripsByVisitId(visitId: string): Observable<Trip[]> {
+    return runInInjectionContext(this.injector, () => {
+      const tripsCollection = collection(this.firestore, 'trips');
+      const q = query(tripsCollection, where('visitId', '==', visitId));
+      return collectionData(q, { idField: 'id' }) as Observable<Trip[]>;
+    });
+  }
 }

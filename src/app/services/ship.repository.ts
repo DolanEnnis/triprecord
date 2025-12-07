@@ -206,4 +206,13 @@ export class ShipRepository {
       }
     });
   }
+  async updateShip(shipId: string, data: Partial<Ship>): Promise<void> {
+    return runInInjectionContext(this.injector, async () => {
+      const shipDocRef = doc(this.firestore, `ships/${shipId}`);
+      await updateDoc(shipDocRef, {
+        ...data,
+        updatedAt: serverTimestamp()
+      });
+    });
+  }
 }

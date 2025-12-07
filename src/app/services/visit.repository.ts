@@ -161,8 +161,8 @@ export class VisitRepository {
       // 1. Fetch Visits by Status
       const visitsQuery = query(
         visitsCollection,
-        where('currentStatus', '==', status),
-        orderBy('initialEta', 'asc') // Order by ETA by default
+        where('currentStatus', '==', status)
+        // orderBy('initialEta', 'asc') - Removed to avoid index requirement and allow sorting by effective date
       );
 
       return (
@@ -219,8 +219,10 @@ export class VisitRepository {
                       ? visit.statusLastUpdated.toDate()
                       : new Date();
 
+
                   return {
                     visitId: visit.id!,
+                    tripId: tripData?.id, // Populate tripId
                     shipName: visit.shipName,
                     status: visit.currentStatus,
                     date: activeDate,
@@ -236,6 +238,7 @@ export class VisitRepository {
 
                     updatedBy: visit.updatedBy,
                     updatedAt: updateDate,
+                    source: visit.source,
                     // Marine Traffic link omitted as requested
                   } as StatusListRow;
                 })
@@ -243,7 +246,240 @@ export class VisitRepository {
             });
           });
 
-          return combineLatest(joinedRows$);
+          return combineLatest(joinedRows$).pipe(
+            map((rows) => rows.sort((a, b) => a.date.getTime() - b.date.getTime()))
+          );
+        })
+      );
+    });
+  }
+
+  async updateVisitDate(
+    visitId: string,
+    tripId: string | undefined,
+    status: VisitStatus,
+    newDate: Date,
+    updatedBy: string
+  ): Promise<void> {
+    return runInInjectionContext(this.injector, async () => {
+      // 1. Always update the Visit's audit fields
+      const visitDocRef = doc(this.firestore, `${this.VISITS_COLLECTION}/${visitId}`);
+      const visitUpdatePayload: any = {
+        statusLastUpdated: serverTimestamp(),
+        updatedBy: updatedBy,
+      };
+
+      // 2. If 'Due', update initialEta on the Visit
+      if (status === 'Due') {
+        visitUpdatePayload.initialEta = Timestamp.fromDate(newDate);
+        await updateDoc(visitDocRef, visitUpdatePayload);
+      } else {
+        // 3. For 'Awaiting Berth' or 'Alongside', update the Trip's boarding time
+        // First, update the visit audit fields
+        await updateDoc(visitDocRef, visitUpdatePayload);
+
+        if (tripId) {
+          const tripDocRef = doc(this.firestore, `${this.TRIPS_COLLECTION}/${tripId}`);
+          await updateDoc(tripDocRef, {
+            boarding: Timestamp.fromDate(newDate),
+          });
+        } else {
+          console.warn(`Cannot update date for status ${status}: Missing Trip ID.`);
+          throw new Error('Missing Trip ID for date update.');
+        }
+      }
+    });
+  }
+
+  async updateVisit(visitId: string, data: Partial<Visit>): Promise<void> {
+    return runInInjectionContext(this.injector, async () => {
+      const visitDocRef = doc(this.firestore, `${this.VISITS_COLLECTION}/${visitId}`);
+      await updateDoc(visitDocRef, {
+        ...data,
+        statusLastUpdated: serverTimestamp()
+      });
+    });
+  }
+
+  getAllCompletedVisits(startDate?: Date, endDate?: Date): Observable<any[]> {
+    return runInInjectionContext(this.injector, () => {
+      const visitsCollection = collection(
+        this.firestore,
+        this.VISITS_COLLECTION
+      );
+
+      // Build query constraints based on parameters
+      const constraints: any[] = [];
+      
+      // If date range is provided, filter by it
+      if (startDate) {
+        constraints.push(where('initialEta', '>=', Timestamp.fromDate(startDate)));
+      }
+      if (endDate) {
+        constraints.push(where('initialEta', '<=', Timestamp.fromDate(endDate)));
+      }
+      
+      // Always order by initialEta descending (most recent first)
+      constraints.push(orderBy('initialEta', 'desc'));
+      
+      // If no date range specified, limit to recent 200 for performance
+      if (!startDate && !endDate) {
+        constraints.push(limit(200));
+      } else {
+        // With date range, limit to 500 to prevent excessive queries
+        constraints.push(limit(500));
+      }
+
+      const visitsQuery = query(visitsCollection, ...constraints);
+
+      return this.executeVisitsQuery(visitsQuery);
+    });
+  }
+
+  searchVisitsByShip(shipName: string): Observable<any[]> {
+    return runInInjectionContext(this.injector, () => {
+      const visitsCollection = collection(
+        this.firestore,
+        this.VISITS_COLLECTION
+      );
+
+      // Search by lowercase ship name for case-insensitive matching
+      const searchTerm = shipName.toLowerCase().trim();
+      
+      // Query for ships that match the search term
+      // Note: This requires shipName_lowercase field to be populated
+      const visitsQuery = query(
+        visitsCollection,
+        where('shipName_lowercase', '>=', searchTerm),
+        where('shipName_lowercase', '<=', searchTerm + '\uf8ff'),
+        orderBy('shipName_lowercase'),
+        orderBy('initialEta', 'desc'),
+        limit(100)
+      );
+
+      return this.executeVisitsQuery(visitsQuery);
+    });
+  }
+
+  searchVisitsByGT(grossTonnage: number): Observable<any[]> {
+    return runInInjectionContext(this.injector, () => {
+      const visitsCollection = collection(
+        this.firestore,
+        this.VISITS_COLLECTION
+      );
+
+      // Query for visits with matching gross tonnage
+      const visitsQuery = query(
+        visitsCollection,
+        where('grossTonnage', '==', grossTonnage),
+        orderBy('initialEta', 'desc'),
+        limit(100)
+      );
+
+      return this.executeVisitsQuery(visitsQuery);
+    });
+  }
+
+  private executeVisitsQuery(visitsQuery: any): Observable<any[]> {
+    return runInInjectionContext(this.injector, () => {
+      return (
+        collectionData(visitsQuery, { idField: 'id' }) as Observable<Visit[]>
+      ).pipe(
+        catchError((error) => {
+          console.error('Error fetching visits:', error);
+          return of([]);
+        }),
+        switchMap((visits) => {
+          if (visits.length === 0) {
+            console.log('No visits found in database');
+            return of([]);
+          }
+
+          console.log(`Found ${visits.length} visits, fetching trip details...`);
+
+          // For each visit, fetch both In and Out trips
+          const enrichedVisits$ = visits.map((visit) => {
+            return runInInjectionContext(this.injector, () => {
+              const tripsCollection = collection(
+                this.firestore,
+                this.TRIPS_COLLECTION
+              );
+              
+              // Query for all trips for this visit
+              const tripQuery = query(
+                tripsCollection,
+                where('visitId', '==', visit.id)
+              );
+
+              return from(getDocs(tripQuery)).pipe(
+                catchError((error) => {
+                  console.error(`Error fetching trips for visit ${visit.id}:`, error);
+                  return of({ docs: [] } as any);
+                }),
+                map((snapshot) => {
+                  let inTrip: Trip | undefined;
+                  let outTrip: Trip | undefined;
+
+                  snapshot.docs.forEach((doc: any) => {
+                    const trip = doc.data() as Trip;
+                    if (trip.typeTrip === 'In') {
+                      inTrip = trip;
+                    } else if (trip.typeTrip === 'Out') {
+                      outTrip = trip;
+                    }
+                  });
+
+                  // Determine the primary date (use Out trip boarding if available, otherwise In trip)
+                  let displayDate: Date;
+                  if (outTrip?.boarding && outTrip.boarding instanceof Timestamp) {
+                    displayDate = outTrip.boarding.toDate();
+                  } else if (inTrip?.boarding && inTrip.boarding instanceof Timestamp) {
+                    displayDate = inTrip.boarding.toDate();
+                  } else if (visit.initialEta && visit.initialEta instanceof Timestamp) {
+                    displayDate = visit.initialEta.toDate();
+                  } else {
+                    displayDate = new Date();
+                  }
+
+                  const updateDate =
+                    visit.statusLastUpdated instanceof Timestamp
+                      ? visit.statusLastUpdated.toDate()
+                      : new Date();
+
+                  return {
+                    visitId: visit.id!,
+                    shipName: visit.shipName,
+                    grossTonnage: visit.grossTonnage,
+                    status: visit.currentStatus,
+                    displayDate: displayDate,
+                    
+                    // Inward trip details
+                    arrivedDate: inTrip?.boarding instanceof Timestamp ? inTrip.boarding.toDate() : null,
+                    inwardPilot: inTrip?.pilot || visit.inwardPilot || 'Unassigned',
+                    inwardPort: inTrip?.toPort || visit.berthPort || 'No Info',
+                    
+                    // Outward trip details
+                    sailedDate: outTrip?.boarding instanceof Timestamp ? outTrip.boarding.toDate() : null,
+                    outwardPilot: outTrip?.pilot || 'Unassigned',
+                    outwardPort: outTrip?.fromPort || 'No Info',
+                    
+                    // Other details
+                    note: inTrip?.pilotNotes || outTrip?.pilotNotes || visit.visitNotes || '',
+                    updatedBy: visit.updatedBy,
+                    updatedAt: updateDate,
+                    source: visit.source,
+                  };
+                })
+              );
+            });
+          });
+
+          return combineLatest(enrichedVisits$).pipe(
+            catchError((error) => {
+              console.error('Error combining visit data:', error);
+              return of([]);
+            })
+          );
         })
       );
     });
