@@ -17,17 +17,18 @@
         <li><a href="http://www.cargopro.ie/sfpc/download/rpt_daydiary.pdf" target="_blank" rel="noopener">Day Diary</a></li>
 
         @if (authService.isAuthenticated()) {
-          @if(authService.canConfirmTrips()) {
-            <li><a routerLink="/trip-confirmation">Trip Confirmation</a></li>
-          }
           @if(authService.canCreateVisit()) {
             <li><a routerLink="/new-visit">New Visit</a></li>
-            <li><a routerLink="/dist2shannon">Dist2Shannon</a></li>
+            <li><a routerLink="/previous">Previous</a></li>
+             <li><a routerLink="/ships">Ships</a></li>
+             <li><a routerLink="/dist2shannon">Dist2Shannon</a></li>
           }
           @if(authService.isAdmin()){
             <li><a routerLink="/admin">Admin</a></li>
           }
-          <li><a href="https://shannonpilots-6fedd.firebaseapp.com/" target="_blank" rel="noopener">Current Ships</a></li>
+          @if(authService.canConfirmTrips()) {
+            <li><a routerLink="/trip-confirmation">Trip Confirmation</a></li>
+          }
           <li><a class="logout-link" (click)="onLogout()">Logout</a></li>
         } @else {
           <li><a routerLink="/auth/login">Login</a></li>

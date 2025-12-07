@@ -66,7 +66,7 @@ export class LoginComponent {
         // resolved the user's profile, preventing the race condition.
         next: (profile) => {
           if (profile) {
-            this.router.navigate(['/trip-confirmation']);
+            this.router.navigate(['/']);
           } else {
             // This case is a fallback for unexpected errors during profile resolution.
             this.snackBar.open('Login succeeded, but failed to retrieve user profile.', 'Close', {

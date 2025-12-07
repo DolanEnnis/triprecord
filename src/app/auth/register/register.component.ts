@@ -44,7 +44,7 @@ export class RegisterComponent {
     const { email, password, displayName } = this.form.getRawValue();
     this.authService.register(email!, password!, displayName!).subscribe({
       next: () => {
-        this.router.navigate(['/trip-confirmation']);
+        this.router.navigate(['/']);
       },
       error: (err) => {
         this.snackBar.open(err.message, 'Close', { duration: 5000 });

@@ -1,24 +1,27 @@
 <mat-nav-list>
   @if (authService.isAuthenticated()) {
-    @if(authService.canConfirmTrips()) {
-      <a mat-list-item routerLink="/trip-confirmation" (click)="onClose()">
-        <mat-icon>home</mat-icon> Trip Confirmation
-      </a>
-    }
     @if(authService.canCreateVisit()) {
       <a mat-list-item routerLink="/new-visit" (click)="onClose()">
         <mat-icon>add_box</mat-icon> New Visit
       </a>
+      <a mat-list-item routerLink="/ships" (click)="onClose()">
+        <mat-icon>directions_boat</mat-icon> Ships
+      </a>
       <a mat-list-item routerLink="/dist2shannon" (click)="onClose()">
         <mat-icon>map</mat-icon> Dist2Shannon
+      </a>
+      <a mat-list-item routerLink="/previous" (click)="onClose()">
+        <mat-icon>history</mat-icon> Previous
       </a>
     }
     <a mat-list-item routerLink="/charges" (click)="onClose()">
       <mat-icon>receipt_long</mat-icon> Charges
     </a>
-    <a mat-list-item href="https://shannonpilots-6fedd.firebaseapp.com/" target="_blank" rel="noopener" (click)="onClose()">
-      <mat-icon>directions_boat</mat-icon> Current Ships
-    </a>
+    @if(authService.canConfirmTrips()) {
+      <a mat-list-item routerLink="/trip-confirmation" (click)="onClose()">
+        <mat-icon>home</mat-icon> Trip Confirmation
+      </a>
+    }
     <a mat-list-item href="http://www.cargopro.ie/sfpc/download/rpt_daydiary.pdf" target="_blank" rel="noopener" (click)="onClose()">
       <mat-icon>description</mat-icon> Day Diary
     </a>
