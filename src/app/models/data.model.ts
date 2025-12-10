@@ -90,8 +90,7 @@ export interface Trip {
   pilot: string;                // Pilot who performed the service
 
   // Movement Details
-  fromPort?: Port | null;       // Source port (optional, useful for 'Shift')
-  toPort?: Port | null;         // Destination port (renamed from old Trip.port for clarity)
+  port?: Port | null;           // Destination for 'In', Origin for 'Out', Destination for 'Shift'
 
   // Notes & Billing
   pilotNotes?: string;          // Pilot's internal log/notes (from old preTripNote/sailingNote)

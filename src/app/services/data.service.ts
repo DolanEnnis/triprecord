@@ -152,4 +152,12 @@ export class DataService {
   async createNewVisit(data: NewVisitData): Promise<string> {
     return this.visitWorkflowService.createNewVisit(data);
   }
+
+  /**
+   * Alias for createNewVisit - used by port-reconciliation component.
+   * @param data The new visit data
+   */
+  async addNewVisitFromPaste(data: NewVisitData): Promise<string> {
+    return this.createNewVisit(data);
+  }
 }

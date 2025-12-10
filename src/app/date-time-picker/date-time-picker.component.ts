@@ -59,8 +59,8 @@ export class DateTimePickerComponent implements ControlValueAccessor {
     const now = new Date();
     this.form = this.fb.group({
       date: [now, Validators.required],
-      hour: [now.getHours(), [Validators.required, Validators.min(0), Validators.max(23)]],
-      minute: [0, [Validators.required, Validators.min(0), Validators.max(59)]]
+      hour: [String(now.getHours()).padStart(2, '0'), [Validators.required, Validators.min(0), Validators.max(23)]],
+      minute: ['00', [Validators.required, Validators.min(0), Validators.max(59)]]
     });
 
     this.form.valueChanges.pipe(
@@ -68,11 +68,17 @@ export class DateTimePickerComponent implements ControlValueAccessor {
     ).subscribe(value => {
       if (this.form.valid) {
         const { date, hour, minute } = value;
-        const combinedDateTime = new Date(date);
-        combinedDateTime.setHours(hour);
-        combinedDateTime.setMinutes(minute);
-        combinedDateTime.setSeconds(0);
-        this.onChange(combinedDateTime);
+        // Parse string values to numbers
+        const hourNum = parseInt(hour, 10);
+        const minuteNum = parseInt(minute, 10);
+        
+        if (!isNaN(hourNum) && !isNaN(minuteNum) && hourNum >= 0 && hourNum <= 23 && minuteNum >= 0 && minuteNum <= 59) {
+          const combinedDateTime = new Date(date);
+          combinedDateTime.setHours(hourNum);
+          combinedDateTime.setMinutes(minuteNum);
+          combinedDateTime.setSeconds(0);
+          this.onChange(combinedDateTime);
+        }
       } else {
         this.onChange(null);
       }
@@ -83,8 +89,8 @@ export class DateTimePickerComponent implements ControlValueAccessor {
     if (value) {
       this.form.setValue({
         date: value,
-        hour: value.getHours(),
-        minute: value.getMinutes()
+        hour: String(value.getHours()).padStart(2, '0'),
+        minute: String(value.getMinutes()).padStart(2, '0')
       }, { emitEvent: false });
     }
   }
@@ -102,6 +108,24 @@ export class DateTimePickerComponent implements ControlValueAccessor {
   }
 
   handleBlur(): void {
+    // Pad hour and minute values when user leaves the field
+    const hourControl = this.form.get('hour');
+    const minuteControl = this.form.get('minute');
+    
+    if (hourControl?.value) {
+      const hourNum = parseInt(hourControl.value, 10);
+      if (!isNaN(hourNum) && hourNum >= 0 && hourNum <= 23) {
+        hourControl.setValue(String(hourNum).padStart(2, '0'), { emitEvent: false });
+      }
+    }
+    
+    if (minuteControl?.value) {
+      const minuteNum = parseInt(minuteControl.value, 10);
+      if (!isNaN(minuteNum) && minuteNum >= 0 && minuteNum <= 59) {
+        minuteControl.setValue(String(minuteNum).padStart(2, '0'), { emitEvent: false });
+      }
+    }
+    
     this.onTouched();
   }
 }

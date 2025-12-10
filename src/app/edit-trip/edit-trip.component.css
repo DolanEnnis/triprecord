@@ -41,6 +41,10 @@
   grid-column: 1 / -1;
 }
 
+.span-2 {
+  grid-column: span 2;
+}
+
 .loader-container {
   display: flex;
   justify-content: center;

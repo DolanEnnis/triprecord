@@ -77,13 +77,7 @@
           <mat-error *ngIf="form.get('visit.currentStatus')?.hasError('required')">Status is required</mat-error>
         </mat-form-field>
 
-        <mat-form-field appearance="outline">
-          <mat-label>Initial ETA</mat-label>
-          <input matInput [matDatepicker]="etaPicker" formControlName="initialEta">
-          <mat-datepicker-toggle matIconSuffix [for]="etaPicker"></mat-datepicker-toggle>
-          <mat-datepicker #etaPicker></mat-datepicker>
-          <mat-error *ngIf="form.get('visit.initialEta')?.hasError('required')">ETA is required</mat-error>
-        </mat-form-field>
+        <app-date-time-picker formControlName="initialEta" class="span-2"></app-date-time-picker>
 
         <mat-form-field appearance="outline">
           <mat-label>Berth / Port</mat-label>
@@ -121,25 +115,11 @@
           <input matInput formControlName="pilot">
         </mat-form-field>
 
-        <mat-form-field appearance="outline">
-          <mat-label>Boarding Time</mat-label>
-          <input matInput [matDatepicker]="inPicker" formControlName="boarding">
-          <mat-datepicker-toggle matIconSuffix [for]="inPicker"></mat-datepicker-toggle>
-          <mat-datepicker #inPicker></mat-datepicker>
-        </mat-form-field>
+        <app-date-time-picker formControlName="boarding" class="span-2"></app-date-time-picker>
 
         <mat-form-field appearance="outline">
-          <mat-label>From</mat-label>
-          <mat-select formControlName="fromPort">
-            <mat-option *ngFor="let port of ports" [value]="port">
-              {{ port }}
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>To</mat-label>
-          <mat-select formControlName="toPort">
+          <mat-label>Destination Port</mat-label>
+          <mat-select formControlName="port">
             <mat-option *ngFor="let port of ports" [value]="port">
               {{ port }}
             </mat-option>
@@ -164,25 +144,11 @@
           <input matInput formControlName="pilot">
         </mat-form-field>
 
-        <mat-form-field appearance="outline">
-          <mat-label>Boarding Time</mat-label>
-          <input matInput [matDatepicker]="outPicker" formControlName="boarding">
-          <mat-datepicker-toggle matIconSuffix [for]="outPicker"></mat-datepicker-toggle>
-          <mat-datepicker #outPicker></mat-datepicker>
-        </mat-form-field>
+        <app-date-time-picker formControlName="boarding" class="span-2"></app-date-time-picker>
 
         <mat-form-field appearance="outline">
-          <mat-label>From</mat-label>
-          <mat-select formControlName="fromPort">
-            <mat-option *ngFor="let port of ports" [value]="port">
-              {{ port }}
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>To</mat-label>
-          <mat-select formControlName="toPort">
+          <mat-label>Origin Port</mat-label>
+          <mat-select formControlName="port">
             <mat-option *ngFor="let port of ports" [value]="port">
               {{ port }}
             </mat-option>

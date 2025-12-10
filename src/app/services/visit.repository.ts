@@ -229,8 +229,7 @@ export class VisitRepository {
 
                     // Flattened fields (Handling "No Info" logic)
                     port:
-                      tripData?.toPort ||
-                      tripData?.fromPort ||
+                      tripData?.port ||
                       visit.berthPort ||
                       'No Info',
                     note: tripData?.pilotNotes || visit.visitNotes || '',
@@ -300,6 +299,30 @@ export class VisitRepository {
       });
     });
   }
+
+  /**
+   * Get all active visits (Due, Awaiting Berth, Alongside)
+   * Used for port reconciliation and active ship tracking
+   */
+  getActiveVisits(): Observable<Visit[]> {
+    return runInInjectionContext(this.injector, () => {
+      const visitsCollection = collection(
+        this.firestore,
+        this.VISITS_COLLECTION
+      );
+
+      const activeStatuses: VisitStatus[] = ['Due', 'Awaiting Berth', 'Alongside'];
+      
+      const visitsQuery = query(
+        visitsCollection,
+        where('currentStatus', 'in', activeStatuses),
+        orderBy('initialEta', 'asc')
+      );
+
+      return collectionData(visitsQuery, { idField: 'id' }) as Observable<Visit[]>;
+    });
+  }
+
 
   getAllCompletedVisits(startDate?: Date, endDate?: Date): Observable<any[]> {
     return runInInjectionContext(this.injector, () => {
@@ -456,12 +479,12 @@ export class VisitRepository {
                     // Inward trip details
                     arrivedDate: inTrip?.boarding instanceof Timestamp ? inTrip.boarding.toDate() : null,
                     inwardPilot: inTrip?.pilot || visit.inwardPilot || 'Unassigned',
-                    inwardPort: inTrip?.toPort || visit.berthPort || 'No Info',
+                    inwardPort: inTrip?.port || visit.berthPort || 'No Info',
                     
                     // Outward trip details
                     sailedDate: outTrip?.boarding instanceof Timestamp ? outTrip.boarding.toDate() : null,
                     outwardPilot: outTrip?.pilot || 'Unassigned',
-                    outwardPort: outTrip?.fromPort || 'No Info',
+                    outwardPort: outTrip?.port || 'No Info',
                     
                     // Other details
                     note: inTrip?.pilotNotes || outTrip?.pilotNotes || visit.visitNotes || '',

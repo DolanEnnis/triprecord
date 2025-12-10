@@ -115,7 +115,7 @@ export class UnifiedTripLogService {
                 gt: grossTonnage,
                 boarding: trip.boarding.toDate(),
                 // Use explicit trip ports, fallback to visit berth
-                port: trip.toPort || trip.fromPort || visit.berthPort || null,
+                port: trip.port || visit.berthPort || null,
                 pilot: trip.pilot,
                 typeTrip: trip.typeTrip,
                 extra: trip.extraChargesNotes || '',
@@ -160,7 +160,7 @@ export class UnifiedTripLogService {
       ship: shipName,
       gt: grossTonnage,
       boarding: trip.boarding.toDate(),
-      port: trip.toPort || trip.fromPort || visit.berthPort || null,
+      port: trip.port || visit.berthPort || null,
       pilot: trip.pilot || 'Unknown Pilot',
       typeTrip: trip.typeTrip as TripType,
       sailingNote: trip.pilotNotes || '',

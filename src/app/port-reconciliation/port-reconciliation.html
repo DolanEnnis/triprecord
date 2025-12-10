@@ -1,0 +1,137 @@
+<div class="reconciliation-container">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>add_box</mat-icon>
+        Quick Add Ship from Port Report
+      </mat-card-title>
+    </mat-card-header>
+
+    <mat-card-content>
+      <!-- Paste Input -->
+      <mat-form-field class="full-width">
+        <mat-label>Paste ship data from port report</mat-label>
+        <textarea 
+          matInput 
+          [ngModel]="pastedText()"
+          (ngModelChange)="pastedText.set($event)"
+          rows="3"
+          placeholder="Paste here...">
+        </textarea>
+      </mat-form-field>
+
+      <div class="button-row">
+        <button mat-raised-button color="primary" (click)="parse()" [disabled]="!pastedText().trim()">
+          <mat-icon>sync</mat-icon>
+          Parse
+        </button>
+        @if (parsedData()) {
+          <button mat-button (click)="reset()">Clear</button>
+        }
+      </div>
+
+      @if (parseError()) {
+        <div class="error-message">
+          <mat-icon color="warn">error</mat-icon>
+          <p>{{ parseError() }}</p>
+        </div>
+      }
+
+      <!-- Parsed Data Display -->
+      @if (parsedData()) {
+        <div class="parsed-section">
+          <h3>Parsed Information</h3>
+          <div class="parsed-card">
+            <div class="data-row">
+              <strong>Ship Name:</strong>
+              <span>{{ parsedData()!.shipName }}</span>
+            </div>
+            <div class="data-row">
+              <strong>Gross Tonnage:</strong>
+              <span>{{ parsedData()!.grossTonnage }}</span>
+            </div>
+            <div class="data-row">
+              <strong>ETA:</strong>
+              <span>{{ parsedData()!.eta | date:'EEE dd MMM yyyy HH:mm' }}</span>
+            </div>
+            <div class="data-row">
+              <strong>Berth:</strong>
+              <span>{{ parsedData()!.berthPort }}</span>
+            </div>
+          </div>
+
+          <!-- Comparison Results -->
+          @if (loading()) {
+            <div class="loading-container">
+              <mat-spinner diameter="40"></mat-spinner>
+              <p>Checking existing data...</p>
+            </div>
+          }
+
+          @if (comparison()) {
+            <div class="comparison-section">
+              <h3>Comparison with Database</h3>
+              
+              @if (comparison()!.isNewShip) {
+                <div class="status-card new">
+                  <mat-icon>add_circle</mat-icon>
+                  <p><strong>New Ship:</strong> This ship is not in the system</p>
+                </div>
+              } @else {
+                <div class="status-card existing">
+                  <mat-icon>check_circle</mat-icon>
+                  <p><strong>Existing Ship:</strong> Found in database</p>
+                </div>
+              }
+
+              @if (comparison()!.isNewVisit) {
+                <div class="status-card new">
+                  <mat-icon>add_circle</mat-icon>
+                  <p><strong>New Visit:</strong> No active visit for this ship</p>
+                </div>
+              } @else {
+                <div class="status-card existing">
+                  <mat-icon>check_circle</mat-icon>
+                  <p><strong>Existing Visit:</strong> Active visit found</p>
+                  
+                  @if (comparison()!.hasChanges) {
+                    <div class="changes-list">
+                      <p><strong>Detected changes:</strong></p>
+                      <ul>
+                        @for (change of comparison()!.changes; track change) {
+                          <li>{{ change }}</li>
+                        }
+                      </ul>
+                    </div>
+                  } @else {
+                    <p class="no-changes">No changes detected</p>
+                  }
+                </div>
+              }
+
+              <!-- Action Buttons -->
+              <div class="action-buttons">
+                @if (comparison()!.isNewShip || comparison()!.isNewVisit) {
+                  <button mat-raised-button color="primary" (click)="addToFirebase()" [disabled]="saving()">
+                    @if (saving()) {
+                      <mat-spinner diameter="20"></mat-spinner>
+                    }
+                    Add Visit
+                  </button>
+                }
+                @if (!comparison()!.isNewVisit && comparison()!.hasChanges) {
+                  <button mat-raised-button color="accent" (click)="updateFirebase()" [disabled]="saving()">
+                    @if (saving()) {
+                      <mat-spinner diameter="20"></mat-spinner>
+                    }
+                    Update Visit
+                  </button>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </mat-card-content>
+  </mat-card>
+</div>

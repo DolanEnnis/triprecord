@@ -12,7 +12,7 @@
 
     <mat-form-field appearance="outline" class="time-select">
       <mat-label>Hour</mat-label>
-      <input matInput type="number" formControlName="hour" min="0" max="23" (blur)="handleBlur()" required>
+      <input matInput type="text" formControlName="hour" pattern="[0-2]?[0-9]" maxlength="2" (blur)="handleBlur()" required>
       @if (form.get('hour')?.hasError('required') && form.get('hour')?.touched) {
         <mat-error>Hour is required</mat-error>
       }
@@ -23,7 +23,7 @@
 
     <mat-form-field appearance="outline" class="time-select">
       <mat-label>Minute</mat-label>
-      <input matInput type="number" formControlName="minute" [matAutocomplete]="auto" min="0" max="59" (blur)="handleBlur()" required>
+      <input matInput type="text" formControlName="minute" [matAutocomplete]="auto" pattern="[0-5]?[0-9]" maxlength="2" (blur)="handleBlur()" required>
       <mat-autocomplete #auto="matAutocomplete">
         @for (minute of minutes; track minute) {
           <mat-option [value]="minute.value">{{ minute.label }}</mat-option>

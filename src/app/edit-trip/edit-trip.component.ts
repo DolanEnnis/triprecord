@@ -20,6 +20,7 @@ import { ShipIntelligenceDialogComponent } from '../dialogs/ship-intelligence-di
 import { Trip, Visit, Ship, Port, VisitStatus, TripType, Source } from '../models/data.model';
 import { combineLatest, filter, map, switchMap, of, forkJoin, catchError, tap, take, Observable } from 'rxjs';
 import { Timestamp } from '@angular/fire/firestore';
+import { DateTimePickerComponent } from '../date-time-picker/date-time-picker.component';
 
 @Component({
   selector: 'app-edit-trip',
@@ -37,7 +38,8 @@ import { Timestamp } from '@angular/fire/firestore';
     MatSnackBarModule,
     MatSnackBarModule,
     MatNativeDateModule,
-    MatDialogModule
+    MatDialogModule,
+    DateTimePickerComponent
   ],
   templateUrl: './edit-trip.component.html',
   styleUrls: ['./edit-trip.component.css']
@@ -98,15 +100,13 @@ export class EditTripComponent implements OnInit {
       inwardTrip: this.fb.group({
         pilot: [''],
         boarding: [null],
-        fromPort: [null],
-        toPort: [null],
+        port: [null],
         pilotNotes: ['']
       }),
       outwardTrip: this.fb.group({
         pilot: [''],
         boarding: [null],
-        fromPort: [null],
-        toPort: [null],
+        port: [null],
         pilotNotes: ['']
       })
     });
@@ -165,9 +165,15 @@ export class EditTripComponent implements OnInit {
             inwardTrip: {
               pilot: inTrip.pilot,
               boarding: inTrip.boarding instanceof Timestamp ? inTrip.boarding.toDate() : inTrip.boarding,
-              fromPort: inTrip.fromPort,
-              toPort: inTrip.toPort,
+              port: inTrip.port || visit.berthPort, // Default to visit berth
               pilotNotes: inTrip.pilotNotes
+            }
+          });
+        } else {
+          // No inward trip yet - set default port to berth
+          this.form.patchValue({
+            inwardTrip: {
+              port: visit.berthPort
             }
           });
         }
@@ -178,9 +184,15 @@ export class EditTripComponent implements OnInit {
             outwardTrip: {
               pilot: outTrip.pilot,
               boarding: outTrip.boarding instanceof Timestamp ? outTrip.boarding.toDate() : outTrip.boarding,
-              fromPort: outTrip.fromPort,
-              toPort: outTrip.toPort,
+              port: outTrip.port || visit.berthPort, // Default to visit berth
               pilotNotes: outTrip.pilotNotes
+            }
+          });
+        } else {
+          // No outward trip yet - set default port to berth
+          this.form.patchValue({
+            outwardTrip: {
+              port: visit.berthPort
             }
           });
         }
@@ -233,8 +245,7 @@ export class EditTripComponent implements OnInit {
         await this.tripRepo.updateTrip(this.inwardTripId, {
           pilot: formVal.inwardTrip.pilot ?? null,
           boarding: (formVal.inwardTrip.boarding ? Timestamp.fromDate(formVal.inwardTrip.boarding) : null) as any,
-          fromPort: formVal.inwardTrip.fromPort ?? null,
-          toPort: formVal.inwardTrip.toPort ?? null,
+          port: formVal.inwardTrip.port ?? null,
           pilotNotes: formVal.inwardTrip.pilotNotes ?? null
         });
       }
@@ -243,8 +254,7 @@ export class EditTripComponent implements OnInit {
         await this.tripRepo.updateTrip(this.outwardTripId, {
           pilot: formVal.outwardTrip.pilot ?? null,
           boarding: (formVal.outwardTrip.boarding ? Timestamp.fromDate(formVal.outwardTrip.boarding) : null) as any,
-          fromPort: formVal.outwardTrip.fromPort ?? null,
-          toPort: formVal.outwardTrip.toPort ?? null,
+          port: formVal.outwardTrip.port ?? null,
           pilotNotes: formVal.outwardTrip.pilotNotes ?? null
         });
       }

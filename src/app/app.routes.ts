@@ -78,5 +78,12 @@ export const routes: Routes = [
     data: { roles: ['pilot', 'admin', 'sfpc'] }
   },
 
+  {
+    path: 'port-reconciliation',
+    loadComponent: () => import('./port-reconciliation/port-reconciliation').then(c => c.PortReconciliationComponent),
+    canActivate: [roleGuard],
+    data: { roles: ['pilot', 'admin', 'sfpc'] }
+  },
+
   { path: '**', redirectTo: 'auth/login' }
 ];

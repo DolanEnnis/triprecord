@@ -150,6 +150,32 @@ export class ShipRepository {
   }
 
   /**
+   * Searches for ships by name (prefix match, case-insensitive).
+   * Used by port-reconciliation component.
+   * @param search The search string.
+   * @returns Observable array of matching Ship objects.
+   */
+  searchShipsByName(search: string): Observable<Ship[]> {
+    if (!search || search.length < 2) {
+      return of([]);
+    }
+
+    return runInInjectionContext(this.injector, () => {
+      const shipsCollection = collection(this.firestore, 'ships');
+      const lowerCaseSearch = search.toLowerCase();
+      const q = query(
+        shipsCollection,
+        where('shipName_lowercase', '>=', lowerCaseSearch),
+        where('shipName_lowercase', '<=', lowerCaseSearch + '\uf8ff'),
+        orderBy('shipName_lowercase'),
+        limit(20)
+      );
+
+      return collectionData(q, { idField: 'id' }) as Observable<Ship[]>;
+    });
+  }
+
+  /**
    * Finds an existing Ship document by name and updates its grossTonnage if different,
    * or creates a new Ship document if it doesn't exist.
    * This is used by the charge creation/editing flow to keep the master ship list up-to-date
