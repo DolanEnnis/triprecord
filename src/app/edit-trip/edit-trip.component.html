@@ -1,12 +1,6 @@
 <div class="container" *ngIf="!loading(); else loader">
   <div class="header">
     <h2>Edit Visit</h2>
-    <div class="actions">
-      <button mat-raised-button color="primary" (click)="save()" [disabled]="form.invalid || saving()">
-        <mat-icon>save</mat-icon>
-        {{ saving() ? 'Saving...' : 'Save Changes' }}
-      </button>
-    </div>
   </div>
 
   <form [formGroup]="form" class="edit-form">
@@ -112,7 +106,21 @@
       <mat-card-content class="form-grid">
         <mat-form-field appearance="outline">
           <mat-label>Pilot</mat-label>
-          <input matInput formControlName="pilot">
+          <input 
+            matInput 
+            formControlName="pilot"
+            [matAutocomplete]="inwardPilotAuto"
+            (input)="onInwardPilotInput($any($event.target).value)">
+          <mat-autocomplete #inwardPilotAuto="matAutocomplete">
+            @for (pilot of filteredInwardPilots(); track pilot) {
+              <mat-option [value]="pilot === 'Unassigned' ? '' : pilot">
+                {{ pilot }}
+              </mat-option>
+            }
+          </mat-autocomplete>
+          <mat-error *ngIf="form.get('inwardTrip.pilot')?.hasError('invalidPilot')">
+            Please select a valid pilot from the list
+          </mat-error>
         </mat-form-field>
 
         <app-date-time-picker formControlName="boarding" class="span-2"></app-date-time-picker>
@@ -141,7 +149,21 @@
       <mat-card-content class="form-grid">
         <mat-form-field appearance="outline">
           <mat-label>Pilot</mat-label>
-          <input matInput formControlName="pilot">
+          <input 
+            matInput 
+            formControlName="pilot"
+            [matAutocomplete]="outwardPilotAuto"
+            (input)="onOutwardPilotInput($any($event.target).value)">
+          <mat-autocomplete #outwardPilotAuto="matAutocomplete">
+            @for (pilot of filteredOutwardPilots(); track pilot) {
+              <mat-option [value]="pilot === 'Unassigned' ? '' : pilot">
+                {{ pilot }}
+              </mat-option>
+            }
+          </mat-autocomplete>
+          <mat-error *ngIf="form.get('outwardTrip.pilot')?.hasError('invalidPilot')">
+            Please select a valid pilot from the list
+          </mat-error>
         </mat-form-field>
 
         <app-date-time-picker formControlName="boarding" class="span-2"></app-date-time-picker>
@@ -162,7 +184,101 @@
       </mat-card-content>
     </mat-card>
 
+    <!-- ADDITIONAL TRIPS -->
+    <mat-card class="section-card">
+      <mat-card-header>
+        <mat-card-title>Additional Trips</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        
+        <div formArrayName="additionalTrips">
+          @if (additionalTripsArray.length === 0) {
+            <p class="empty-state">No additional trips. Click "Add Trip" to create one.</p>
+          }
+
+          @for (trip of additionalTripsArray.controls; track trip; let i = $index) {
+            <div [formGroupName]="i" class="additional-trip-card">
+              <div class="trip-header">
+                <h3>Trip {{ i + 1 }}</h3>
+                <button mat-icon-button color="warn" (click)="removeTrip(i)" type="button" matTooltip="Delete this trip">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+
+              <div class="form-grid">
+                <mat-form-field appearance="outline">
+                  <mat-label>Trip Type</mat-label>
+                  <mat-select formControlName="typeTrip">
+                    @for (type of additionalTripTypes; track type) {
+                      <mat-option [value]="type">{{ type }}</mat-option>
+                    }
+                  </mat-select>
+                  <mat-error *ngIf="trip.get('typeTrip')?.hasError('required')">
+                    Trip type is required
+                  </mat-error>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Pilot</mat-label>
+                  <input 
+                    matInput 
+                    formControlName="pilot"
+                    [matAutocomplete]="auto">
+                  <mat-autocomplete #auto="matAutocomplete">
+                    @for (pilot of pilotService.pilotNames(); track pilot) {
+                      <mat-option [value]="pilot">{{ pilot }}</mat-option>
+                    }
+                    <mat-option value="">Unassigned</mat-option>
+                  </mat-autocomplete>
+                  <mat-error *ngIf="trip.get('pilot')?.hasError('required')">
+                    Pilot is required
+                  </mat-error>
+                  <mat-error *ngIf="trip.get('pilot')?.hasError('invalidPilot')">
+                    Please select a valid pilot
+                  </mat-error>
+                </mat-form-field>
+
+                <app-date-time-picker formControlName="boarding" class="span-2"></app-date-time-picker>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Port</mat-label>
+                  <mat-select formControlName="port">
+                    @for (port of ports; track port) {
+                      <mat-option [value]="port">{{ port }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Pilot Notes</mat-label>
+                  <textarea matInput formControlName="pilotNotes" rows="2"></textarea>
+                </mat-form-field>
+              </div>
+            </div>
+          }
+        </div>
+
+        <button mat-raised-button color="accent" (click)="addTrip()" type="button" class="add-trip-btn">
+          <mat-icon>add</mat-icon>
+          Add Trip
+        </button>
+
+      </mat-card-content>
+    </mat-card>
+
   </form>
+
+  <!-- Floating Save Button -->
+  <button 
+    mat-extended-fab 
+    color="primary" 
+    class="fab-save" 
+    (click)="save()" 
+    [disabled]="saving()"
+    matTooltip="Save all changes">
+    <mat-icon>save</mat-icon>
+    <span>{{ saving() ? 'Saving...' : 'Save Changes' }}</span>
+  </button>
 </div>
 
 <ng-template #loader>

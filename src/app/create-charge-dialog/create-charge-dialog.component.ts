@@ -1,8 +1,9 @@
-import { Component, inject, Inject, OnInit, Optional } from '@angular/core';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Component, inject, Inject, OnInit, Optional, signal, computed } from '@angular/core';
+import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, ValidatorFn, AbstractControl, ValidationErrors } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { DataService } from '../services/data.service';
 import { AuthService } from '../auth/auth';
+import { PilotService } from '../services/pilot.service';
 import { Charge, ChargeableEvent } from '../models/trip.model';
 import { Port, TripType } from '../models/data.model';
 import { CommonModule } from '@angular/common';
@@ -18,6 +19,22 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Observable, of } from 'rxjs';
 import { debounceTime, distinctUntilChanged, startWith, switchMap, tap } from 'rxjs/operators';
 import { ConfirmationDialogComponent } from '../shared/confirmation-dialog/confirmation-dialog.component';
+
+/**
+ * Custom validator for pilot field (same as in EditTripComponent)
+ */
+function pilotValidator(pilotService: PilotService): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    const value = control.value;
+    if (!value || value.trim() === '') {
+      return null;
+    }
+    if (!pilotService.isPilotValid(value)) {
+      return { invalidPilot: { value } };
+    }
+    return null;
+  };
+}
 
 export type ChargeDialogData = { mode: 'fromVisit', event: ChargeableEvent } | { mode: 'editCharge', charge: Charge } | null;
 
@@ -45,6 +62,7 @@ export class CreateChargeDialogComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly dataService = inject(DataService);
   private readonly authService = inject(AuthService);
+  pilotService = inject(PilotService); // Public for template access
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialogRef = inject(MatDialogRef<CreateChargeDialogComponent>);
   private readonly dialog = inject(MatDialog);
@@ -63,13 +81,27 @@ export class CreateChargeDialogComponent implements OnInit {
   readonly tripTypes: TripType[] = ['In', 'Out', 'Anchorage', 'Shift', 'BerthToBerth', 'Other'];
   readonly ports: Port[] = ['Anchorage', 'Cappa', 'Moneypoint', 'Tarbert', 'Foynes', 'Aughinish', 'Shannon', 'Limerick'];
 
+  // Pilot autocomplete filtering
+  pilotFilter = signal<string>('');
+  filteredPilots = computed(() => {
+    const filterValue = this.pilotFilter().toLowerCase();
+    const pilots = this.pilotService.pilotNames();
+    
+    if (!filterValue) {
+      return ['Unassigned', ...pilots];
+    }
+    
+    const filtered = pilots.filter(name => name.toLowerCase().includes(filterValue));
+    return ['Unassigned', ...filtered];
+  });
+
   // Form is initialized in the constructor to ensure all properties are available.
   readonly form: FormGroup = this.fb.group({
     ship: ['', Validators.required],
     gt: [null as number | null, Validators.required],
     boarding: [new Date(), Validators.required],
     port: [null as Port | null, Validators.required],
-    pilot: ['', Validators.required],
+    pilot: ['', [Validators.required, pilotValidator(this.pilotService)]],
     typeTrip: ['', Validators.required],
     sailingNote: [''],
     extra: [''],
@@ -118,6 +150,13 @@ export class CreateChargeDialogComponent implements OnInit {
         }
       })
     );
+  }
+
+  /**
+   * Called when user types in the pilot autocomplete.
+   */
+  onPilotInput(value: string): void {
+    this.pilotFilter.set(value);
   }
 
   async onSave() {

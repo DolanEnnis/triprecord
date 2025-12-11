@@ -86,7 +86,7 @@ export interface Trip {
 
   // Core Trip Details
   typeTrip: TripType;           // e.g., 'In', 'Shift', 'Out'
-  boarding: Timestamp;          // The time the service began
+  boarding: Timestamp | null;   // ETB (Estimated Time of Boarding) or actual boarding time. NULL until known.
   pilot: string;                // Pilot who performed the service
 
   // Movement Details

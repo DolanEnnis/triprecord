@@ -56,11 +56,11 @@ export class DateTimePickerComponent implements ControlValueAccessor {
   constructor() {
     this.adapter.setLocale('en-GB');
 
-    const now = new Date();
+    //Don't default to current time - leave empty until value is provided
     this.form = this.fb.group({
-      date: [now, Validators.required],
-      hour: [String(now.getHours()).padStart(2, '0'), [Validators.required, Validators.min(0), Validators.max(23)]],
-      minute: ['00', [Validators.required, Validators.min(0), Validators.max(59)]]
+      date: [null, Validators.required],
+      hour: ['', [Validators.required, Validators.min(0), Validators.max(23)]],
+      minute: ['', [Validators.required, Validators.min(0), Validators.max(59)]]
     });
 
     this.form.valueChanges.pipe(
@@ -91,6 +91,13 @@ export class DateTimePickerComponent implements ControlValueAccessor {
         date: value,
         hour: String(value.getHours()).padStart(2, '0'),
         minute: String(value.getMinutes()).padStart(2, '0')
+      }, { emitEvent: false });
+    } else {
+      // Clear the form when value is null
+      this.form.setValue({
+        date: null,
+        hour: '',
+        minute: ''
       }, { emitEvent: false });
     }
   }

@@ -255,7 +255,7 @@ export class VisitRepository {
 
   async updateVisitDate(
     visitId: string,
-    tripId: string | undefined,
+    tripId: string | undefined, // Kept for backward compatibility but not used
     status: VisitStatus,
     newDate: Date,
     updatedBy: string
@@ -273,18 +273,32 @@ export class VisitRepository {
         visitUpdatePayload.initialEta = Timestamp.fromDate(newDate);
         await updateDoc(visitDocRef, visitUpdatePayload);
       } else {
-        // 3. For 'Awaiting Berth' or 'Alongside', update the Trip's boarding time
+        // 3. For 'Awaiting Berth' or 'Alongside', update the correct Trip's boarding time
         // First, update the visit audit fields
         await updateDoc(visitDocRef, visitUpdatePayload);
 
-        if (tripId) {
-          const tripDocRef = doc(this.firestore, `${this.TRIPS_COLLECTION}/${tripId}`);
+        // Determine which trip type to update based on status
+        const targetTripType = status === 'Alongside' ? 'Out' : 'In';
+
+        // Query for the specific trip type
+        const tripsCollection = collection(this.firestore, this.TRIPS_COLLECTION);
+        const tripQuery = query(
+          tripsCollection,
+          where('visitId', '==', visitId),
+          where('typeTrip', '==', targetTripType),
+          limit(1)
+        );
+
+        const tripSnapshot = await getDocs(tripQuery);
+        
+        if (!tripSnapshot.empty) {
+          const tripDocRef = doc(this.firestore, `${this.TRIPS_COLLECTION}/${tripSnapshot.docs[0].id}`);
           await updateDoc(tripDocRef, {
             boarding: Timestamp.fromDate(newDate),
           });
         } else {
-          console.warn(`Cannot update date for status ${status}: Missing Trip ID.`);
-          throw new Error('Missing Trip ID for date update.');
+          console.warn(`Cannot update date for status ${status}: No ${targetTripType} trip found for visit ${visitId}.`);
+          throw new Error(`No ${targetTripType} trip found for this visit.`);
         }
       }
     });

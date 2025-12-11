@@ -43,8 +43,10 @@ export class StatusListComponent {
   private readonly authService = inject(AuthService);
   private readonly visitRepository = inject(VisitRepository);
 
-  // Filter Signal
-  readonly portFilter = signal<'All' | 'Aughinish' | 'Foynes' | 'Limerick' | 'Other'>('All');
+  // Filter Signal - Persisted in localStorage
+  readonly portFilter = signal<'All' | 'Aughinish' | 'Foynes' | 'Limerick' | 'Other'>(
+    (localStorage.getItem('statusListPortFilter') as any) || 'All'
+  );
 
   // Data Signals (using toSignal to convert Observables to Signals)
   readonly dueShips = toSignal(this.visitRepository.getVisitsWithTripDetails('Due'), { initialValue: [] });
@@ -111,6 +113,17 @@ export class StatusListComponent {
 
   onPortFilterChange(newFilter: 'All' | 'Aughinish' | 'Foynes' | 'Limerick' | 'Other') {
     this.portFilter.set(newFilter);
+    // Persist the filter selection to localStorage
+    localStorage.setItem('statusListPortFilter', newFilter);
+  }
+
+  // Get a user-friendly name for the current filter
+  getFilteredPortName(): string {
+    const filter = this.portFilter();
+    if (filter === 'Other') {
+      return 'other ports (Shannon, Moneypoint, Tarbert, Cappa)';
+    }
+    return filter;
   }
 
   // Get the source text, defaulting to 'Sheet' if unknown or inferred from updatedBy
@@ -140,11 +153,9 @@ export class StatusListComponent {
     return new Date();
   }
 
-  // Helper to check if date is today (for red color logic)
-  isToday(date: Date): boolean {
-    const today = new Date();
-    return date.getDate() === today.getDate() &&
-           date.getMonth() === today.getMonth() &&
-           date.getFullYear() === today.getFullYear();
+  // Helper to check if date is in the past (for red color logic on overdue times)
+  isPastDue(date: Date): boolean {
+    const now = new Date();
+    return date < now;
   }
 }

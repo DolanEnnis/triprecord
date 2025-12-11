@@ -78,3 +78,18 @@ mat-cell, mat-header-cell {
   background-color: #f0f0f0;
   text-decoration: underline;
 }
+
+.empty-state {
+  padding: 40px 20px;
+  text-align: center;
+  color: #757575;
+  font-style: italic;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  margin: 10px 0 20px 0;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 1rem;
+}

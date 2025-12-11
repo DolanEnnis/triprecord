@@ -29,6 +29,7 @@ import { Port, Ship, Visit, NewVisitData, Source } from '../models/data.model';
 import { ShipRepository } from '../services/ship.repository';
 import { VisitRepository } from '../services/visit.repository';
 import { UserRepository } from '../services/user.repository';
+import { IFormComponent } from '../guards/form-component.interface';
 
 @Component({
   selector: 'app-new-visit',
@@ -46,7 +47,7 @@ import { UserRepository } from '../services/user.repository';
   templateUrl: './new-visit.component.html',
   styleUrl: './new-visit.component.css',
 })
-export class NewVisitComponent implements OnInit {
+export class NewVisitComponent implements OnInit, IFormComponent {
   private readonly fb = inject(FormBuilder);
   private readonly visitWorkflowService = inject(VisitWorkflowService);
   private readonly authService = inject(AuthService);
@@ -60,6 +61,12 @@ export class NewVisitComponent implements OnInit {
   visitForm!: FormGroup;
   isLoading: boolean = false;
   displayedColumns: string[] = ['date', 'port', 'pilot'];
+  
+  /**
+   * Tracks whether the form has been successfully submitted.
+   * Prevents unsaved changes warning after successful visit creation.
+   */
+  private formSubmitted = false;
 
   readonly ports: Port[] = ['Anchorage', 'Cappa', 'Moneypoint', 'Tarbert', 'Foynes', 'Aughinish', 'Shannon', 'Limerick'];
   readonly sources: Source[] = ['Sheet', 'AIS', 'Good Guess', 'Agent', 'Pilot', 'Other'];
@@ -218,6 +225,9 @@ export class NewVisitComponent implements OnInit {
       };
 
       await this.visitWorkflowService.createNewVisit(newVisitData);
+      
+      // Mark form as submitted to prevent unsaved changes warning
+      this.formSubmitted = true;
 
       this.snackBar.open('New visit and initial trip successfully created!', 'Dismiss', {
         duration: 5000,
@@ -234,5 +244,15 @@ export class NewVisitComponent implements OnInit {
     } finally {
       this.isLoading = false;
     }
+  }
+  
+  /**
+   * Implementation of IFormComponent interface.
+   * Called by the CanDeactivate guard before navigation.
+   * 
+   * @returns true if safe to navigate (no unsaved changes), false otherwise
+   */
+  canDeactivate(): boolean {
+    return this.visitForm.pristine || this.formSubmitted;
   }
 }

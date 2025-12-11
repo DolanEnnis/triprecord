@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { roleGuard } from './auth/guards/role.guard';
+import { canDeactivateGuard } from './guards/can-deactivate.guard';
 
 export const routes: Routes = [
   { 
@@ -19,6 +20,7 @@ export const routes: Routes = [
     path: 'new-visit',
     loadComponent: () => import('./new-visit/new-visit.component').then(c => c.NewVisitComponent),
     canActivate: [roleGuard],
+    canDeactivate: [canDeactivateGuard],
     data: { roles: ['pilot', 'admin', 'sfpc'] }
   },
 
@@ -61,6 +63,7 @@ export const routes: Routes = [
     path: 'edit/:id',
     loadComponent: () => import('./edit-trip/edit-trip.component').then(c => c.EditTripComponent),
     canActivate: [roleGuard],
+    canDeactivate: [canDeactivateGuard],
     data: { roles: ['pilot', 'admin', 'sfpc'] }
   },
 

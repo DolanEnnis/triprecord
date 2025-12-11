@@ -35,7 +35,21 @@
 
     <mat-form-field>
       <mat-label>Pilot</mat-label>
-      <input matInput formControlName="pilot">
+      <input 
+        matInput 
+        formControlName="pilot"
+        [matAutocomplete]="pilotAuto"
+        (input)="onPilotInput($any($event.target).value)">
+      <mat-autocomplete #pilotAuto="matAutocomplete">
+        @for (pilot of filteredPilots(); track pilot) {
+          <mat-option [value]="pilot === 'Unassigned' ? '' : pilot">
+            {{ pilot }}
+          </mat-option>
+        }
+      </mat-autocomplete>
+      <mat-error *ngIf="form.get('pilot')?.hasError('invalidPilot')">
+        Please select a valid pilot from the list
+      </mat-error>
     </mat-form-field>
 
     <mat-form-field>

@@ -97,8 +97,8 @@ export class UnifiedTripLogService {
             const visit = visitsMap.get(trip.visitId);
             const today = new Date();
 
-            // Only process trips that are NOT confirmed and are in the past
-            if (visit && trip.id && !trip.isConfirmed && trip.boarding.toDate() <= today) {
+            // Only process trips that are NOT confirmed, have a boarding time, and are in the past
+            if (visit && trip.id && !trip.isConfirmed && trip.boarding && trip.boarding.toDate() <= today) {
               const event = this.createChargeableEvent(visit, trip);
 
               // If shipName is missing on the visit, fall back to the visitId for debugging.
@@ -154,12 +154,15 @@ export class UnifiedTripLogService {
     const shipName = visit.shipName || 'Unknown Ship';
     const grossTonnage = visit.grossTonnage || 0;
 
+    // boarding should not be null here since we check in the caller, but add safety check
+    const boardingDate = trip.boarding ? trip.boarding.toDate() : new Date();
+
     return {
       tripId: trip.id!,
       visitId: visit.id!, // New Visit document ID
       ship: shipName,
       gt: grossTonnage,
-      boarding: trip.boarding.toDate(),
+      boarding: boardingDate,
       port: trip.port || visit.berthPort || null,
       pilot: trip.pilot || 'Unknown Pilot',
       typeTrip: trip.typeTrip as TripType,

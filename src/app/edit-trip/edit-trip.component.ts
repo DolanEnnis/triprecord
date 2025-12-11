@@ -1,7 +1,7 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule, Validators, ValidatorFn, AbstractControl, ValidationErrors } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatDatepickerModule } from '@angular/material/datepicker';
@@ -11,9 +11,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatNativeDateModule } from '@angular/material/core';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { VisitRepository } from '../services/visit.repository';
 import { TripRepository } from '../services/trip.repository';
 import { ShipRepository } from '../services/ship.repository';
+import { PilotService } from '../services/pilot.service';
 import { ShipIntelligenceService } from '../services/ship-intelligence.service';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ShipIntelligenceDialogComponent } from '../dialogs/ship-intelligence-dialog.component';
@@ -21,6 +23,37 @@ import { Trip, Visit, Ship, Port, VisitStatus, TripType, Source } from '../model
 import { combineLatest, filter, map, switchMap, of, forkJoin, catchError, tap, take, Observable } from 'rxjs';
 import { Timestamp } from '@angular/fire/firestore';
 import { DateTimePickerComponent } from '../date-time-picker/date-time-picker.component';
+import { IFormComponent } from '../guards/form-component.interface';
+
+/**
+ * Custom validator to ensure the selected pilot is from the valid pilot list.
+ * 
+ * WHY A VALIDATOR FACTORY?
+ * - We need to pass the PilotService to the validator
+ * - Angular validators are just functions, so we use a factory pattern
+ * - This returns a ValidatorFn that has access to pilotService via closure
+ * 
+ * @param pilotService - The injected PilotService to validate against
+ * @returns A ValidatorFn that checks if the pilot name is valid
+ */
+function pilotValidator(pilotService: PilotService): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    const value = control.value;
+    
+    // Allow empty values (handled by required validator if needed)
+    if (!value || value.trim() === '') {
+      return null;
+    }
+    
+    // Check if the pilot name is valid using the service
+    // This demonstrates DEPENDENCY INJECTION in validators
+    if (!pilotService.isPilotValid(value)) {
+      return { invalidPilot: { value } };
+    }
+    
+    return null;
+  };
+}
 
 @Component({
   selector: 'app-edit-trip',
@@ -39,12 +72,13 @@ import { DateTimePickerComponent } from '../date-time-picker/date-time-picker.co
     MatSnackBarModule,
     MatNativeDateModule,
     MatDialogModule,
+    MatAutocompleteModule,
     DateTimePickerComponent
   ],
   templateUrl: './edit-trip.component.html',
   styleUrls: ['./edit-trip.component.css']
 })
-export class EditTripComponent implements OnInit {
+export class EditTripComponent implements OnInit, IFormComponent {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private fb = inject(FormBuilder);
@@ -54,6 +88,7 @@ export class EditTripComponent implements OnInit {
   private snackBar = inject(MatSnackBar);
   private shipIntelligence = inject(ShipIntelligenceService);
   private dialog = inject(MatDialog);
+  pilotService = inject(PilotService); // Public so template can access pilotService.pilotNames()
 
   visitId: string | null = null;
   form!: FormGroup;
@@ -68,6 +103,44 @@ export class EditTripComponent implements OnInit {
   shipId: string | null = null;
   inwardTripId: string | null = null;
   outwardTripId: string | null = null;
+  additionalTripIds: (string | null)[] = []; // Track IDs for additional trips (null = new trip)
+
+  // Additional trip types available for selection
+  additionalTripTypes: TripType[] = ['Anchorage', 'Shift', 'BerthToBerth', 'Other'];
+
+  // Autocomplete filtering
+  // These Signals hold the current input value to filter the pilot list
+  inwardPilotFilter = signal<string>('');
+  outwardPilotFilter = signal<string>('');
+
+  // Computed Signals that automatically filter pilots based on input
+  // This demonstrates FUNCTIONAL REACTIVE PROGRAMMING:
+  // - filteredInwardPilots automatically recalculates when pilotService.pilotNames() or inwardPilotFilter() changes
+  // - No manual subscription management needed!
+  filteredInwardPilots = computed(() => {
+    const filterValue = this.inwardPilotFilter().toLowerCase();
+    const pilots = this.pilotService.pilotNames();
+    
+    if (!filterValue) {
+      return ['Unassigned', ...pilots]; // Show all if no filter
+    }
+    
+    // Filter pilots that include the search term
+    const filtered = pilots.filter(name => name.toLowerCase().includes(filterValue));
+    return ['Unassigned', ...filtered];
+  });
+
+  filteredOutwardPilots = computed(() => {
+    const filterValue = this.outwardPilotFilter().toLowerCase();
+    const pilots = this.pilotService.pilotNames();
+    
+    if (!filterValue) {
+      return ['Unassigned', ...pilots];
+    }
+    
+    const filtered = pilots.filter(name => name.toLowerCase().includes(filterValue));
+    return ['Unassigned', ...filtered];
+  });
 
   ngOnInit() {
     this.initForm();
@@ -98,18 +171,74 @@ export class EditTripComponent implements OnInit {
         source: ['Sheet']
       }),
       inwardTrip: this.fb.group({
-        pilot: [''],
+        pilot: ['', pilotValidator(this.pilotService)], // Add custom validator
         boarding: [null],
         port: [null],
         pilotNotes: ['']
       }),
       outwardTrip: this.fb.group({
-        pilot: [''],
+        pilot: ['', pilotValidator(this.pilotService)], // Add custom validator
         boarding: [null],
         port: [null],
         pilotNotes: ['']
-      })
+      }),
+      additionalTrips: this.fb.array([]) // FormArray for dynamic additional trips
     });
+  }
+
+  /**
+   * Getter for easier access to the additionalTrips FormArray in the template
+   */
+  get additionalTripsArray(): FormArray {
+    return this.form.get('additionalTrips') as FormArray;
+  }
+
+  /**
+   * Creates a FormGroup for a single trip (used for additional trips)
+   * @param trip - Optional trip data to populate the form
+   * @returns FormGroup with trip fields
+   */
+  createTripFormGroup(trip?: Trip): FormGroup {
+    return this.fb.group({
+      typeTrip: [trip?.typeTrip || 'Anchorage', Validators.required],
+      pilot: [trip?.pilot || '', [Validators.required, pilotValidator(this.pilotService)]],
+      boarding: [trip?.boarding ? (trip.boarding instanceof Timestamp ? trip.boarding.toDate() : trip.boarding) : null, Validators.required],
+      port: [trip?.port || null],
+      pilotNotes: [trip?.pilotNotes || '']
+    });
+  }
+
+  /**
+   * Adds a new empty trip to the additional trips array
+   */
+  addTrip(): void {
+    this.additionalTripsArray.push(this.createTripFormGroup());
+    this.additionalTripIds.push(null); // null = new trip (not yet saved)
+  }
+
+  /**
+   * Removes a trip from the additional trips array
+   * @param index - Index of the trip to remove
+   */
+  removeTrip(index: number): void {
+    this.additionalTripsArray.removeAt(index);
+    this.additionalTripIds.splice(index, 1);
+  }
+
+  /**
+   * Called when user types in the inward pilot autocomplete.
+   * Updates the filter Signal, which triggers filteredInwardPilots to recalculate.
+   */
+  onInwardPilotInput(value: string): void {
+    this.inwardPilotFilter.set(value);
+  }
+
+  /**
+   * Called when user types in the outward pilot autocomplete.
+   * Updates the filter Signal, which triggers filteredOutwardPilots to recalculate.
+   */
+  onOutwardPilotInput(value: string): void {
+    this.outwardPilotFilter.set(value);
   }
 
   private loadData(visitId: string) {
@@ -197,6 +326,21 @@ export class EditTripComponent implements OnInit {
           });
         }
 
+        // Handle Additional Trips (anything that's not 'In' or 'Out')
+        const additionalTrips = trips.filter((t: Trip) => 
+          t.typeTrip !== 'In' && t.typeTrip !== 'Out'
+        );
+
+        // Clear existing additional trips
+        this.additionalTripsArray.clear();
+        this.additionalTripIds = [];
+
+        // Add each additional trip to the FormArray
+        additionalTrips.forEach((trip: Trip) => {
+          this.additionalTripsArray.push(this.createTripFormGroup(trip));
+          this.additionalTripIds.push(trip.id || null);
+        });
+
         this.loading.set(false);
       },
       error: (err) => {
@@ -208,9 +352,66 @@ export class EditTripComponent implements OnInit {
   }
 
   saving = signal(false);
+  
+  /**
+   * Tracks whether the form has been successfully submitted.
+   * This prevents the unsaved changes warning after a successful save.
+   * 
+   * WHY WE NEED THIS:
+   * - form.pristine only checks if form was touched, not if it was saved
+   * - After save(), form is still dirty, but data IS saved
+   * - This flag tells the guard: "data was saved, safe to navigate"
+   */
+  private formSubmitted = false;
 
   async save() {
-    if (this.form.invalid) return;
+    // If form is invalid, mark all fields as touched to show validation errors
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      
+      // Collect all validation errors
+      const errors: string[] = [];
+      
+      // Check ship errors
+      const shipGroup = this.form.get('ship');
+      if (shipGroup?.invalid) {
+        if (shipGroup.get('shipName')?.hasError('required')) errors.push('Ship name is required');
+        if (shipGroup.get('grossTonnage')?.hasError('required')) errors.push('Gross tonnage is required');
+        if (shipGroup.get('grossTonnage')?.hasError('min')) errors.push('Gross tonnage must be at least 50');
+        if (shipGroup.get('grossTonnage')?.hasError('max')) errors.push('Gross tonnage cannot exceed 200,000');
+      }
+
+      // Check visit errors
+      const visitGroup = this.form.get('visit');
+      if (visitGroup?.invalid) {
+        if (visitGroup.get('initialEta')?.hasError('required')) errors.push('Initial ETA is required');
+        if (visitGroup.get('currentStatus')?.hasError('required')) errors.push('Visit status is required');
+      }
+
+      // Check additional trips errors
+      const additionalTrips = this.additionalTripsArray;
+      additionalTrips.controls.forEach((trip, index) => {
+        if (trip.invalid) {
+          if (trip.get('typeTrip')?.hasError('required')) errors.push(`Trip ${index + 1}: Type is required`);
+          if (trip.get('pilot')?.hasError('required')) errors.push(`Trip ${index + 1}: Pilot is required`);
+          if (trip.get('pilot')?.hasError('invalidPilot')) errors.push(`Trip ${index + 1}: Invalid pilot selected`);
+          if (trip.get('boarding')?.hasError('required')) errors.push(`Trip ${index + 1}: Boarding time is required`);
+        }
+      });
+
+      // Show snackbar with errors
+      const errorMessage = errors.length > 0 
+        ? `Please fix the following:\n• ${errors.join('\n• ')}`
+        : 'Please fix the validation errors highlighted in red';
+      
+      this.snackBar.open(errorMessage, 'Close', { 
+        duration: 8000,
+        panelClass: 'error-snackbar'
+      });
+      
+      return;
+    }
+
     this.saving.set(true);
 
     const formVal = this.form.value;
@@ -259,6 +460,39 @@ export class EditTripComponent implements OnInit {
         });
       }
 
+      // 4. Handle Additional Trips
+      const additionalTripsData = formVal.additionalTrips as any[];
+      for (let i = 0; i < additionalTripsData.length; i++) {
+        const tripData = additionalTripsData[i];
+        const tripId = this.additionalTripIds[i];
+
+        const tripPayload = {
+          typeTrip: tripData.typeTrip,
+          pilot: tripData.pilot ?? '',
+          boarding: tripData.boarding ? Timestamp.fromDate(tripData.boarding) : null,
+          port: tripData.port ?? null,
+          pilotNotes: tripData.pilotNotes ?? ''
+        };
+
+        if (tripId) {
+          // Update existing trip
+          await this.tripRepo.updateTrip(tripId, tripPayload as any);
+        } else {
+          // Create new trip
+          await this.tripRepo.addTrip({
+            ...tripPayload,
+            visitId: this.visitId!,
+            shipId: this.shipId!,
+            isConfirmed: false,
+            recordedBy: 'Admin', // TODO: Real user
+            recordedAt: Timestamp.now()
+          } as any);
+        }
+      }
+
+      // Mark form as submitted to prevent unsaved changes warning
+      this.formSubmitted = true;
+      
       this.snackBar.open('Changes saved successfully', 'Close', { duration: 3000 });
       this.router.navigate(['/']); // Redirect to root (Status List)
     } catch (err) {
@@ -318,5 +552,23 @@ export class EditTripComponent implements OnInit {
         this.snackBar.open('Failed to fetch ship info. Check API Key.', 'Close');
       }
     });
+  }
+
+  /**
+   * Implementation of IFormComponent interface.
+   * Called by the CanDeactivate guard before navigation.
+   * 
+   * GUARD LOGIC:
+   * - Return true = safe to navigate (no warning)
+   * - Return false = show warning dialog
+   * 
+   * We allow navigation if:
+   * 1. Form is pristine (user hasn't touched it)
+   * 2. OR form was successfully submitted (data is saved)
+   * 
+   * @returns true if safe to navigate, false to show warning
+   */
+  canDeactivate(): boolean {
+    return this.form.pristine || this.formSubmitted;
   }
 }

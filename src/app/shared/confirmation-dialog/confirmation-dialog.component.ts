@@ -5,6 +5,8 @@ import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/materia
 export interface ConfirmationDialogData {
   title: string;
   message: string;
+  confirmText?: string; // Optional custom text for confirm button
+  cancelText?: string;  // Optional custom text for cancel button
 }
 
 @Component({

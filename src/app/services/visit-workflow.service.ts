@@ -26,12 +26,13 @@ export class VisitWorkflowService {
 
       const shipId = await this.shipRepository.findOrCreateShip(data);
 
+      // Create the Visit record with ship's ETA
       const newVisit: Omit<Visit, 'id'> = {
         shipId: shipId,
         shipName: data.shipName,
         grossTonnage: data.grossTonnage,
         currentStatus: 'Due' as VisitStatus,
-        initialEta: initialEtaTimestamp,
+        initialEta: initialEtaTimestamp,  // Ship's ETA to port
         berthPort: data.berthPort,
         visitNotes: data.visitNotes,
         statusLastUpdated: now,
@@ -39,12 +40,13 @@ export class VisitWorkflowService {
       };
       const visitId = await this.visitRepository.addVisit(newVisit);
 
-      const initialTrip: Omit<Trip, 'id'> = {
+      // Create INWARD Trip with boarding = null (ETB comes later)
+      const inwardTrip: Omit<Trip, 'id'> = {
         visitId: visitId,
         shipId: shipId,
         typeTrip: 'In' as TripType,
-        boarding: initialEtaTimestamp,
-        pilot: data.pilot ?? user?.displayName ?? '',
+        boarding: null,  // ETB not yet known
+        pilot: data.pilot ?? '',
         port: data.berthPort,
         pilotNotes: data.visitNotes || '',
         extraChargesNotes: '',
@@ -58,7 +60,29 @@ export class VisitWorkflowService {
         timeOff: null,
         good: null,
       };
-      await this.tripRepository.addTrip(initialTrip);
+      await this.tripRepository.addTrip(inwardTrip);
+
+      // Create OUTWARD Trip with boarding = null (ETS not yet known)
+      const outwardTrip: Omit<Trip, 'id'> = {
+        visitId: visitId,
+        shipId: shipId,
+        typeTrip: 'Out' as TripType,
+        boarding: null,  // ETS not yet known
+        pilot: '',  // Pilot assigned later
+        port: data.berthPort,
+        pilotNotes: '',
+        extraChargesNotes: '',
+        isConfirmed: false,
+        recordedBy: recordedBy,
+        recordedAt: now,
+        ownNote: null,
+        pilotNo: null,
+        monthNo: null,
+        car: null,
+        timeOff: null,
+        good: null,
+      };
+      await this.tripRepository.addTrip(outwardTrip);
 
       return visitId;
     });
