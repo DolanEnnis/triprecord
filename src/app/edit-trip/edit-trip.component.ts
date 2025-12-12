@@ -12,6 +12,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { VisitRepository } from '../services/visit.repository';
 import { TripRepository } from '../services/trip.repository';
 import { ShipRepository } from '../services/ship.repository';
@@ -73,6 +74,7 @@ function pilotValidator(pilotService: PilotService): ValidatorFn {
     MatNativeDateModule,
     MatDialogModule,
     MatAutocompleteModule,
+    MatTooltipModule,
     DateTimePickerComponent
   ],
   templateUrl: './edit-trip.component.html',
@@ -104,6 +106,17 @@ export class EditTripComponent implements OnInit, IFormComponent {
   inwardTripId: string | null = null;
   outwardTripId: string | null = null;
   additionalTripIds: (string | null)[] = []; // Track IDs for additional trips (null = new trip)
+  
+  /**
+   * Track IDs of trips that were deleted from the form.
+   * These need to be deleted from Firestore on save.
+   * 
+   * WHY WE NEED THIS:
+   * - When user clicks delete, trip is removed from FormArray
+   * - But the trip still exists in the database
+   * - We need to track which IDs to delete when save() is called
+   */
+  private deletedTripIds: string[] = [];
 
   // Additional trip types available for selection
   additionalTripTypes: TripType[] = ['Anchorage', 'Shift', 'BerthToBerth', 'Other'];
@@ -209,18 +222,38 @@ export class EditTripComponent implements OnInit, IFormComponent {
   }
 
   /**
-   * Adds a new empty trip to the additional trips array
+   * Adds a new empty trip to the additional trips array.
+   * 
+   * UX PATTERN: PREVENT ACCIDENTAL DOUBLE-ADDS
+   * - After adding a trip, the button is disabled (see hasUnsavedAdditionalTrip)
+   * - User must save first before adding another trip
+   * - This prevents accidental double-clicks and keeps workflow clear
    */
   addTrip(): void {
     this.additionalTripsArray.push(this.createTripFormGroup());
     this.additionalTripIds.push(null); // null = new trip (not yet saved)
+    
+    // Mark that we have an unsaved additional trip
+    // This will disable the "Add Trip" button until save() is called
+    this.hasUnsavedAdditionalTrip = true;
   }
 
   /**
-   * Removes a trip from the additional trips array
+   * Removes a trip from the additional trips array.
+   * If the trip exists in the database, mark it for deletion.
+   * 
    * @param index - Index of the trip to remove
    */
   removeTrip(index: number): void {
+    // Get the trip ID before removing from array
+    const tripId = this.additionalTripIds[index];
+    
+    // If this trip exists in the database (has an ID), mark it for deletion
+    if (tripId) {
+      this.deletedTripIds.push(tripId);
+    }
+    
+    // Remove from FormArray and IDs array
     this.additionalTripsArray.removeAt(index);
     this.additionalTripIds.splice(index, 1);
   }
@@ -363,6 +396,17 @@ export class EditTripComponent implements OnInit, IFormComponent {
    * - This flag tells the guard: "data was saved, safe to navigate"
    */
   private formSubmitted = false;
+  
+  /**
+   * Tracks if there's an unsaved additional trip.
+   * Used to disable "Add Trip" button until user saves.
+   * 
+   * UX REASONING:
+   * - Prevents accidental double-clicks on "Add Trip"
+   * - Enforces clear workflow: Add → Fill → Save → Add Another
+   * - Uncommon to need multiple additional trips at once
+   */
+  hasUnsavedAdditionalTrip = false;
 
   async save() {
     // If form is invalid, mark all fields as touched to show validation errors
@@ -441,26 +485,86 @@ export class EditTripComponent implements OnInit, IFormComponent {
         });
       }
 
-      // 3. Update Trips
+      // 3. Update or Create Trips
+      // Inward Trip: Update if exists, CREATE if doesn't exist
       if (this.inwardTripId) {
+        // Update existing inward trip
         await this.tripRepo.updateTrip(this.inwardTripId, {
           pilot: formVal.inwardTrip.pilot ?? null,
           boarding: (formVal.inwardTrip.boarding ? Timestamp.fromDate(formVal.inwardTrip.boarding) : null) as any,
           port: formVal.inwardTrip.port ?? null,
           pilotNotes: formVal.inwardTrip.pilotNotes ?? null
         });
+      } else if (formVal.inwardTrip.pilot || formVal.inwardTrip.boarding) {
+        // Create new inward trip if user has entered data but trip doesn't exist
+        const newInwardTrip: Omit<Trip, 'id'> = {
+          visitId: this.visitId!,
+          shipId: this.shipId!,
+          typeTrip: 'In',
+          pilot: formVal.inwardTrip.pilot ?? '',
+          boarding: formVal.inwardTrip.boarding ? Timestamp.fromDate(formVal.inwardTrip.boarding) : null,
+          port: formVal.inwardTrip.port ?? null,
+          pilotNotes: formVal.inwardTrip.pilotNotes ?? '',
+          extraChargesNotes: '',
+          isConfirmed: false,
+          recordedBy: 'Admin', // TODO: Real user
+          recordedAt: Timestamp.now(),
+          ownNote: null,
+          pilotNo: null,
+          monthNo: null,
+          car: null,
+          timeOff: null,
+          good: null
+        };
+        this.inwardTripId = await this.tripRepo.addTrip(newInwardTrip as any);
+        console.log('Created new inward trip with ID:', this.inwardTripId);
       }
 
+      // Outward Trip: Update if exists, CREATE if doesn't exist
+      // CRITICAL FIX: Previously only updated, never created
       if (this.outwardTripId) {
+        // Update existing outward trip
         await this.tripRepo.updateTrip(this.outwardTripId, {
           pilot: formVal.outwardTrip.pilot ?? null,
           boarding: (formVal.outwardTrip.boarding ? Timestamp.fromDate(formVal.outwardTrip.boarding) : null) as any,
           port: formVal.outwardTrip.port ?? null,
           pilotNotes: formVal.outwardTrip.pilotNotes ?? null
         });
+      } else if (formVal.outwardTrip.pilot || formVal.outwardTrip.boarding) {
+        // Create new outward trip if user has entered data but trip doesn't exist
+        // This handles cases where the visit was created without an outward trip
+        const newOutwardTrip: Omit<Trip, 'id'> = {
+          visitId: this.visitId!,
+          shipId: this.shipId!,
+          typeTrip: 'Out',
+          pilot: formVal.outwardTrip.pilot ?? '',
+          boarding: formVal.outwardTrip.boarding ? Timestamp.fromDate(formVal.outwardTrip.boarding) : null,
+          port: formVal.outwardTrip.port ?? null,
+          pilotNotes: formVal.outwardTrip.pilotNotes ?? '',
+          extraChargesNotes: '',
+          isConfirmed: false,
+          recordedBy: 'Admin', // TODO: Real user
+          recordedAt: Timestamp.now(),
+          ownNote: null,
+          pilotNo: null,
+          monthNo: null,
+          car: null,
+          timeOff: null,
+          good: null
+        };
+        this.outwardTripId = await this.tripRepo.addTrip(newOutwardTrip as any);
+        console.log('Created new outward trip with ID:', this.outwardTripId);
       }
 
-      // 4. Handle Additional Trips
+      // 4. Delete any trips that were removed from the form
+      // CRITICAL: Do this BEFORE updating remaining trips to avoid race conditions
+      for (const tripId of this.deletedTripIds) {
+        await this.tripRepo.deleteTrip(tripId);
+      }
+      // Clear the deletion tracking array after processing
+      this.deletedTripIds = [];
+
+      // 5. Handle Additional Trips (Update or Create)
       const additionalTripsData = formVal.additionalTrips as any[];
       for (let i = 0; i < additionalTripsData.length; i++) {
         const tripData = additionalTripsData[i];
@@ -492,6 +596,9 @@ export class EditTripComponent implements OnInit, IFormComponent {
 
       // Mark form as submitted to prevent unsaved changes warning
       this.formSubmitted = true;
+      
+      // Re-enable "Add Trip" button now that save is complete
+      this.hasUnsavedAdditionalTrip = false;
       
       this.snackBar.open('Changes saved successfully', 'Close', { duration: 3000 });
       this.router.navigate(['/']); // Redirect to root (Status List)

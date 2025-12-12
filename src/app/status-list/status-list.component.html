@@ -18,12 +18,15 @@
   <div class="section-header" *ngIf="filteredDueShips().length > 0">
     <h2>Due</h2>
   </div>
-  
+
   <!-- Empty state for filtered view -->
-  <div class="empty-state" *ngIf="filteredDueShips().length === 0 && portFilter() !== 'All'">
+  <div
+    class="empty-state"
+    *ngIf="filteredDueShips().length === 0 && portFilter() !== 'All'"
+  >
     <p>No ships due for {{ getFilteredPortName() }}</p>
   </div>
-  
+
   <mat-table
     *ngIf="filteredDueShips().length > 0"
     [dataSource]="filteredDueShips()"
@@ -43,7 +46,11 @@
         class="clickable-cell"
         (click)="openEtaDialog(element)"
         matTooltip="Click to update ETA"
-        [style.color]="isPastDue(getDate(element.date)) ? 'red' : 'inherit'"
+        [style.color]="
+          element.isTimeSet && isPastDue(getDate(element.date))
+            ? 'red'
+            : 'inherit'
+        "
       >
         {{ getDate(element.date) | date : "EEE dd, HH:mm" }}
       </mat-cell>
@@ -106,12 +113,15 @@
   <div class="section-header" *ngIf="filteredAwaitingBerthShips().length > 0">
     <h2>Awaiting Berth</h2>
   </div>
-  
+
   <!-- Empty state for filtered view -->
-  <div class="empty-state" *ngIf="filteredAwaitingBerthShips().length === 0 && portFilter() !== 'All'">
+  <div
+    class="empty-state"
+    *ngIf="filteredAwaitingBerthShips().length === 0 && portFilter() !== 'All'"
+  >
     <p>No ships awaiting berth for {{ getFilteredPortName() }}</p>
   </div>
-  
+
   <mat-table
     *ngIf="filteredAwaitingBerthShips().length > 0"
     [dataSource]="filteredAwaitingBerthShips()"
@@ -129,9 +139,10 @@
         class="clickable-cell"
         (click)="openEtaDialog(element)"
         matTooltip="Click to update ETA"
-        [style.color]="isPastDue(getDate(element.date)) ? 'red' : 'inherit'"
+        [style.color]="element.isTimeSet && isPastDue(getDate(element.date)) ? 'red' : 'inherit'"
       >
-        {{ getDate(element.date) | date : "EEE dd, HH:mm" }}
+        <span *ngIf="element.isTimeSet">{{ getDate(element.date) | date : "EEE dd, HH:mm" }}</span>
+        <span *ngIf="!element.isTimeSet" class="not-set">Not Set</span>
       </mat-cell>
     </ng-container>
     <ng-container matColumnDef="port">
@@ -182,12 +193,15 @@
   <div class="section-header" *ngIf="filteredAlongsideShips().length > 0">
     <h2>Alongside</h2>
   </div>
-  
+
   <!-- Empty state for filtered view -->
-  <div class="empty-state" *ngIf="filteredAlongsideShips().length === 0 && portFilter() !== 'All'">
+  <div
+    class="empty-state"
+    *ngIf="filteredAlongsideShips().length === 0 && portFilter() !== 'All'"
+  >
     <p>No ships alongside at {{ getFilteredPortName() }}</p>
   </div>
-  
+
   <mat-table
     *ngIf="filteredAlongsideShips().length > 0"
     [dataSource]="filteredAlongsideShips()"
@@ -205,9 +219,10 @@
         class="clickable-cell"
         (click)="openEtaDialog(element)"
         matTooltip="Click to update ETA"
-        [style.color]="isPastDue(getDate(element.date)) ? 'red' : 'inherit'"
+        [style.color]="element.isTimeSet && isPastDue(getDate(element.date)) ? 'red' : 'inherit'"
       >
-        {{ getDate(element.date) | date : "EEE dd, HH:mm" }}
+        <span *ngIf="element.isTimeSet">{{ getDate(element.date) | date : "EEE dd, HH:mm" }}</span>
+        <span *ngIf="!element.isTimeSet" class="not-set">Not Set</span>
       </mat-cell>
     </ng-container>
     <ng-container matColumnDef="port">

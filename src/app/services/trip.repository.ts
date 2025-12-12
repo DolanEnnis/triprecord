@@ -3,6 +3,7 @@ import {
   addDoc,
   collection,
   collectionData,
+  deleteDoc,
   doc,
   Firestore,
   query,
@@ -46,6 +47,20 @@ export class TripRepository {
     return runInInjectionContext(this.injector, async () => {
       const tripDocRef = doc(this.firestore, `trips/${tripId}`);
       await updateDoc(tripDocRef, data);
+    });
+  }
+
+  /**
+   * Deletes a trip from the database.
+   * Used when user removes an additional trip from a visit.
+   * 
+   * @param tripId - ID of the trip to delete
+   */
+  async deleteTrip(tripId: string): Promise<void> {
+    return runInInjectionContext(this.injector, async () => {
+      const tripDocRef = doc(this.firestore, `trips/${tripId}`);
+      await deleteDoc(tripDocRef);
+      console.log('Trip deleted:', tripId);
     });
   }
 

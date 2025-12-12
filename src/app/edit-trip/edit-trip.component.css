@@ -93,6 +93,12 @@
   margin-top: 16px;
 }
 
+/* Tooltip wrapper for disabled button - disabled elements don't show tooltips */
+.add-trip-button-wrapper {
+  display: inline-block;
+  margin-top: 16px;
+}
+
 /* Floating Action Button for Save */
 .fab-save {
   position: fixed;

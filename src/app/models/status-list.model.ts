@@ -9,6 +9,7 @@ export interface StatusListRow {
   // 1. We convert Firestore Timestamps to JS Dates here.
   //    The HTML will ONLY ever see a JS Date.
   date: Date;
+  isTimeSet: boolean;  // True if the date is from trip.boarding, false if fallback to ETA
 
   // 2. These fields are flattened from the joined Trip data
   port: string;

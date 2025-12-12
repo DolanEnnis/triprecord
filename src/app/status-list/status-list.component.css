@@ -36,18 +36,34 @@ mat-header-cell {
   color: #666;
 }
 
-mat-cell, mat-header-cell {
+mat-cell,
+mat-header-cell {
   padding: 0 16px;
 }
 
 /* Specific column widths */
-.mat-column-ship { flex: 2; }
-.mat-column-officeTime { flex: 1.5; }
-.mat-column-port { flex: 1; }
-.mat-column-note { flex: 3; }
-.mat-column-pilot { flex: 1.5; }
-.mat-column-updated { flex: 2.5; }
-.mat-column-actions { flex: 0.5; text-align: center; }
+.mat-column-ship {
+  flex: 2;
+}
+.mat-column-officeTime {
+  flex: 1.5;
+}
+.mat-column-port {
+  flex: 1;
+}
+.mat-column-note {
+  flex: 3;
+}
+.mat-column-pilot {
+  flex: 1.5;
+}
+.mat-column-updated {
+  flex: 2.5;
+}
+.mat-column-actions {
+  flex: 0.5;
+  text-align: center;
+}
 
 .update-info {
   font-size: 11px; /* Explicitly smaller */
@@ -92,4 +108,9 @@ mat-cell, mat-header-cell {
 .empty-state p {
   margin: 0;
   font-size: 1rem;
+}
+
+.not-set {
+  color: #999;
+  font-style: italic;
 }

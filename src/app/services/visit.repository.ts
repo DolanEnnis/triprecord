@@ -200,18 +200,23 @@ export class VisitRepository {
 
                   // Safe Date Conversions:
                   let activeDate: Date;
+                  let isTimeSet = false; // Track if the time is actually set or a fallback
+                  
                   if (
                     tripData?.boarding &&
                     tripData.boarding instanceof Timestamp
                   ) {
                     activeDate = tripData.boarding.toDate();
+                    isTimeSet = true; // Boarding time is explicitly set
                   } else if (
                     visit.initialEta &&
                     visit.initialEta instanceof Timestamp
                   ) {
                     activeDate = visit.initialEta.toDate();
+                    isTimeSet = false; // Fallback to ETA, not the actual boarding time
                   } else {
                     activeDate = new Date(); // Fallback if data is corrupt
+                    isTimeSet = false;
                   }
 
                   const updateDate =
@@ -226,6 +231,7 @@ export class VisitRepository {
                     shipName: visit.shipName,
                     status: visit.currentStatus,
                     date: activeDate,
+                    isTimeSet: isTimeSet, // Flag to indicate if time is set
 
                     // Flattened fields (Handling "No Info" logic)
                     port:

@@ -63,6 +63,24 @@ export class DateTimePickerComponent implements ControlValueAccessor {
       minute: ['', [Validators.required, Validators.min(0), Validators.max(59)]]
     });
 
+    // Auto-fill time to 12:00 when a date is picked and time is empty
+    this.form.get('date')?.valueChanges.pipe(
+      takeUntilDestroyed(),
+    ).subscribe(dateValue => {
+      if (dateValue) {
+        const hourControl = this.form.get('hour');
+        const minuteControl = this.form.get('minute');
+        
+        // Only auto-fill if both hour and minute are empty (not set by user)
+        if (hourControl?.value === '' && minuteControl?.value === '') {
+          this.form.patchValue({
+            hour: '12',
+            minute: '00'
+          });
+        }
+      }
+    });
+
     this.form.valueChanges.pipe(
       takeUntilDestroyed(),
     ).subscribe(value => {

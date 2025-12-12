@@ -258,10 +258,21 @@
           }
         </div>
 
-        <button mat-raised-button color="accent" (click)="addTrip()" type="button" class="add-trip-btn">
-          <mat-icon>add</mat-icon>
-          Add Trip
-        </button>
+        <!-- Tooltip wrapper needed because disabled buttons don't receive mouse events -->
+        <div 
+          class="add-trip-button-wrapper"
+          [matTooltip]="hasUnsavedAdditionalTrip ? 'Please save before adding another trip' : 'Add a new additional trip'">
+          <button 
+            mat-raised-button 
+            color="accent" 
+            (click)="addTrip()" 
+            type="button" 
+            class="add-trip-btn"
+            [disabled]="hasUnsavedAdditionalTrip">
+            <mat-icon>add</mat-icon>
+            Add Trip
+          </button>
+        </div>
 
       </mat-card-content>
     </mat-card>
