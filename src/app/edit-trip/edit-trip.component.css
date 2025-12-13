@@ -32,6 +32,14 @@
 
 .section-card {
   padding: 16px;
+  transition: all 0.3s ease;
+}
+
+/* Subtle highlight for active workflow step */
+.section-card.highlighted {
+  border-left: 4px solid #1976d2; /* Primary blue accent */
+  background-color: #f5f9ff; /* Very light blue tint */
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.15); /* Subtle shadow */
 }
 
 .form-grid {
@@ -106,4 +114,93 @@
   right: 2rem;
   z-index: 100; /* Above other content */
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Pilot's Own Info Section - Card-like styling for pilot-only fields */
+.pilot-own-section {
+  margin: 24px -16px 0 -16px; /* Negative margins to break out of card padding */
+  padding: 16px; /* Add padding back inside */
+  background-color: #f9fafb; /* Subtle gray tint */
+  border-top: 1px solid #e5e7eb; /* Light gray separator */
+  border-bottom: 1px solid #e5e7eb;
+  border-radius: 8px; /* Rounded corners for card effect */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08); /* Subtle shadow for depth */
+  grid-column: 1 / -1; /* CRITICAL: Span all grid columns to break out of parent grid */
+}
+
+.pilot-section-title {
+  margin: 0 0 16px 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #6b7280; /* Muted gray text */
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Ensure full-width fields in pilot section work correctly */
+.pilot-own-section .full-width {
+  width: 100%;
+  display: block;
+}
+
+/* Grid layout specifically for pilot section fields */
+.pilot-own-section .form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  width: 100%;
+}
+
+/* RESPONSIVE: Mobile/Tablet adjustments */
+@media (max-width: 768px) {
+  /* On small screens, reduce margins so section doesn't break out too far */
+  .pilot-own-section {
+    margin: 24px -8px 0 -8px;
+    padding: 12px;
+  }
+  
+  /* Stack all fields vertically on mobile */
+  .pilot-own-section div[style*="grid-template-columns"] {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  
+  /* Ensure form fields take full width on mobile */
+  .pilot-own-section mat-form-field {
+    width: 100% !important;
+  }
+  
+  /* Make Source field full-width on small screens */
+  .source-field {
+    grid-column: 1 / -1;
+  }
+  
+  /* Additional Trips: Make all fields stack vertically and full-width */
+  .additional-trip-card .form-grid {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  
+  .additional-trip-card mat-form-field,
+  .additional-trip-card app-date-time-picker {
+    width: 100% !important;
+    max-width: none !important;
+  }
+  
+  /* Reduce padding on additional trip cards */
+  .additional-trip-card {
+    padding: 12px;
+  }
+}
+
+/* Extra small screens (phones in portrait) */
+@media (max-width: 480px) {
+  .pilot-section-title {
+    font-size: 0.85rem;
+  }
+  
+  .pilot-own-section {
+    margin: 16px -4px 0 -4px;
+    padding: 8px;
+  }
 }

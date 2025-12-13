@@ -25,6 +25,7 @@ import { combineLatest, filter, map, switchMap, of, forkJoin, catchError, tap, t
 import { Timestamp } from '@angular/fire/firestore';
 import { DateTimePickerComponent } from '../date-time-picker/date-time-picker.component';
 import { IFormComponent } from '../guards/form-component.interface';
+import { AuthService } from '../auth/auth';
 
 /**
  * Custom validator to ensure the selected pilot is from the valid pilot list.
@@ -90,6 +91,7 @@ export class EditTripComponent implements OnInit, IFormComponent {
   private snackBar = inject(MatSnackBar);
   private shipIntelligence = inject(ShipIntelligenceService);
   private dialog = inject(MatDialog);
+  private authService = inject(AuthService);
   pilotService = inject(PilotService); // Public so template can access pilotService.pilotNames()
 
   visitId: string | null = null;
@@ -187,13 +189,29 @@ export class EditTripComponent implements OnInit, IFormComponent {
         pilot: ['', pilotValidator(this.pilotService)], // Add custom validator
         boarding: [null],
         port: [null],
-        pilotNotes: ['']
+        pilotNotes: [''],
+        // Pilot-only fields (visible only to assigned pilot)
+        extraChargesNotes: [''],
+        ownNote: [''],
+        pilotNo: [null],
+        monthNo: [null],
+        car: [''],
+        timeOff: [null],
+        good: [null]
       }),
       outwardTrip: this.fb.group({
         pilot: ['', pilotValidator(this.pilotService)], // Add custom validator
         boarding: [null],
         port: [null],
-        pilotNotes: ['']
+        pilotNotes: [''],
+        // Pilot-only fields (visible only to assigned pilot)
+        extraChargesNotes: [''],
+        ownNote: [''],
+        pilotNo: [null],
+        monthNo: [null],
+        car: [''],
+        timeOff: [null],
+        good: [null]
       }),
       additionalTrips: this.fb.array([]) // FormArray for dynamic additional trips
     });
@@ -328,7 +346,15 @@ export class EditTripComponent implements OnInit, IFormComponent {
               pilot: inTrip.pilot,
               boarding: inTrip.boarding instanceof Timestamp ? inTrip.boarding.toDate() : inTrip.boarding,
               port: inTrip.port || visit.berthPort, // Default to visit berth
-              pilotNotes: inTrip.pilotNotes
+              pilotNotes: inTrip.pilotNotes,
+              // Pilot-only fields
+              extraChargesNotes: inTrip.extraChargesNotes,
+              ownNote: inTrip.ownNote,
+              pilotNo: inTrip.pilotNo,
+              monthNo: inTrip.monthNo,
+              car: inTrip.car,
+              timeOff: inTrip.timeOff instanceof Timestamp ? inTrip.timeOff.toDate() : inTrip.timeOff,
+              good: inTrip.good
             }
           });
         } else {
@@ -347,7 +373,15 @@ export class EditTripComponent implements OnInit, IFormComponent {
               pilot: outTrip.pilot,
               boarding: outTrip.boarding instanceof Timestamp ? outTrip.boarding.toDate() : outTrip.boarding,
               port: outTrip.port || visit.berthPort, // Default to visit berth
-              pilotNotes: outTrip.pilotNotes
+              pilotNotes: outTrip.pilotNotes,
+              // Pilot-only fields
+              extraChargesNotes: outTrip.extraChargesNotes,
+              ownNote: outTrip.ownNote,
+              pilotNo: outTrip.pilotNo,
+              monthNo: outTrip.monthNo,
+              car: outTrip.car,
+              timeOff: outTrip.timeOff instanceof Timestamp ? outTrip.timeOff.toDate() : outTrip.timeOff,
+              good: outTrip.good
             }
           });
         } else {
@@ -493,7 +527,15 @@ export class EditTripComponent implements OnInit, IFormComponent {
           pilot: formVal.inwardTrip.pilot ?? null,
           boarding: (formVal.inwardTrip.boarding ? Timestamp.fromDate(formVal.inwardTrip.boarding) : null) as any,
           port: formVal.inwardTrip.port ?? null,
-          pilotNotes: formVal.inwardTrip.pilotNotes ?? null
+          pilotNotes: formVal.inwardTrip.pilotNotes ?? null,
+          // Pilot-only fields
+          extraChargesNotes: formVal.inwardTrip.extraChargesNotes ?? '',
+          ownNote: formVal.inwardTrip.ownNote ?? '',
+          pilotNo: formVal.inwardTrip.pilotNo ?? null,
+          monthNo: formVal.inwardTrip.monthNo ?? null,
+          car: formVal.inwardTrip.car ?? '',
+          timeOff: formVal.inwardTrip.timeOff ? Timestamp.fromDate(formVal.inwardTrip.timeOff) : null,
+          good: formVal.inwardTrip.good ?? null
         });
       } else if (formVal.inwardTrip.pilot || formVal.inwardTrip.boarding) {
         // Create new inward trip if user has entered data but trip doesn't exist
@@ -528,7 +570,15 @@ export class EditTripComponent implements OnInit, IFormComponent {
           pilot: formVal.outwardTrip.pilot ?? null,
           boarding: (formVal.outwardTrip.boarding ? Timestamp.fromDate(formVal.outwardTrip.boarding) : null) as any,
           port: formVal.outwardTrip.port ?? null,
-          pilotNotes: formVal.outwardTrip.pilotNotes ?? null
+          pilotNotes: formVal.outwardTrip.pilotNotes ?? null,
+          // Pilot-only fields
+          extraChargesNotes: formVal.outwardTrip.extraChargesNotes ?? '',
+          ownNote: formVal.outwardTrip.ownNote ?? '',
+          pilotNo: formVal.outwardTrip.pilotNo ?? null,
+          monthNo: formVal.outwardTrip.monthNo ?? null,
+          car: formVal.outwardTrip.car ?? '',
+          timeOff: formVal.outwardTrip.timeOff ? Timestamp.fromDate(formVal.outwardTrip.timeOff) : null,
+          good: formVal.outwardTrip.good ?? null
         });
       } else if (formVal.outwardTrip.pilot || formVal.outwardTrip.boarding) {
         // Create new outward trip if user has entered data but trip doesn't exist
@@ -659,6 +709,73 @@ export class EditTripComponent implements OnInit, IFormComponent {
         this.snackBar.open('Failed to fetch ship info. Check API Key.', 'Close');
       }
     });
+  }
+
+  /**
+   * Determines if the Visit Status card should be highlighted.
+   * Highlighted when ship is "Due" (waiting for ETA/arrival).
+   * 
+   * UX PATTERN: VISUAL WORKFLOW GUIDANCE
+   * We guide the user's attention to the relevant section based on where
+   * they are in the visit workflow: ETA → ETB → ETS
+   */
+  shouldHighlightVisitStatus(): boolean {
+    const status = this.form.get('visit.currentStatus')?.value;
+    return status === 'Due';
+  }
+
+  /**
+   * Determines if the Inward Trip card should be highlighted.
+   * Highlighted when ship is "Awaiting Berth" (ETA passed, waiting for ETB).
+   */
+  shouldHighlightInwardTrip(): boolean {
+    const status = this.form.get('visit.currentStatus')?.value;
+    return status === 'Awaiting Berth';
+  }
+
+  /**
+   * Determines if the Outward Trip card should be highlighted.
+   * Highlighted when ship is "Alongside" (ETB passed, waiting for ETS).
+   */
+  shouldHighlightOutwardTrip(): boolean {
+    const status = this.form.get('visit.currentStatus')?.value;
+    return status === 'Alongside';
+  }
+
+  /**
+   * Checks if the current logged-in user is the pilot assigned to the inward trip.
+   * Used to conditionally show pilot-only fields.
+   * 
+   * PRIVACY PATTERN: ROLE-BASED FIELD VISIBILITY
+   * Some fields are personal to the pilot (like notes, car, time off).
+   * We only show these when the logged-in user IS the assigned pilot.
+   * 
+   * @returns true if current user matches inward trip pilot name
+   */
+  isCurrentUserInwardPilot(): boolean {
+    const currentUser = this.authService.currentUserSig();
+    const inwardPilot = this.form.get('inwardTrip.pilot')?.value;
+    
+    if (!currentUser?.displayName || !inwardPilot) {
+      return false;
+    }
+    
+    // Match display name with pilot name
+    return currentUser.displayName === inwardPilot;
+  }
+
+  /**
+   * Checks if the current logged-in user is the pilot assigned to the outward trip.
+   */
+  isCurrentUserOutwardPilot(): boolean {
+    const currentUser = this.authService.currentUserSig();
+    const outwardPilot = this.form.get('outwardTrip.pilot')?.value;
+    
+    if (!currentUser?.displayName || !outwardPilot) {
+      return false;
+    }
+    
+    return currentUser.displayName === outwardPilot;
   }
 
   /**

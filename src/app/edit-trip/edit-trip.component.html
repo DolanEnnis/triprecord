@@ -56,7 +56,7 @@
     </mat-card>
 
     <!-- VISIT INFO -->
-    <mat-card class="section-card" formGroupName="visit">
+    <mat-card class="section-card" [class.highlighted]="shouldHighlightVisitStatus()" formGroupName="visit">
       <mat-card-header>
         <mat-card-title>Visit Status</mat-card-title>
       </mat-card-header>
@@ -82,7 +82,7 @@
           </mat-select>
         </mat-form-field>
 
-        <mat-form-field appearance="outline">
+        <mat-form-field appearance="outline" class="source-field">
           <mat-label>Source</mat-label>
           <mat-select formControlName="source">
             <mat-option *ngFor="let src of sources" [value]="src">
@@ -99,7 +99,7 @@
     </mat-card>
 
     <!-- INWARD TRIP -->
-    <mat-card class="section-card" formGroupName="inwardTrip">
+    <mat-card class="section-card" [class.highlighted]="shouldHighlightInwardTrip()" formGroupName="inwardTrip">
       <mat-card-header>
         <mat-card-title>Inward Trip</mat-card-title>
       </mat-card-header>
@@ -138,11 +138,55 @@
           <mat-label>Pilot Notes</mat-label>
           <textarea matInput formControlName="pilotNotes" rows="2"></textarea>
         </mat-form-field>
+
+        <!-- PILOT'S OWN INFO - Only visible to assigned pilot -->
+        <div *ngIf="isCurrentUserInwardPilot()" class="pilot-own-section">
+          <h4 class="pilot-section-title">Pilot's Own Info</h4>
+          
+          <!-- Extra and Own Note - Full width, NOT in grid -->
+          <mat-form-field appearance="outline" style="width: 100% !important; max-width: none !important; display: block; margin-bottom: 16px;">
+            <mat-label>Extra</mat-label>
+            <textarea matInput formControlName="extraChargesNotes" rows="2"></textarea>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" style="width: 100% !important; max-width: none !important; display: block; margin-bottom: 16px;">
+            <mat-label>Own Note</mat-label>
+            <textarea matInput formControlName="ownNote" rows="2"></textarea>
+          </mat-form-field>
+
+          <!-- Pilot No, Month No, Good on one line -->
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px;">
+            <mat-form-field appearance="outline">
+              <mat-label>Pilot No</mat-label>
+              <input matInput type="number" formControlName="pilotNo">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Month No</mat-label>
+              <input matInput type="number" formControlName="monthNo">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Good (1-6)</mat-label>
+              <input matInput type="number" formControlName="good" min="1" max="6">
+            </mat-form-field>
+          </div>
+
+          <!-- Car and Time Off on one line -->
+          <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 16px;">
+            <mat-form-field appearance="outline">
+              <mat-label>Car</mat-label>
+              <input matInput formControlName="car">
+            </mat-form-field>
+
+            <app-date-time-picker formControlName="timeOff" label="Time Off"></app-date-time-picker>
+          </div>
+        </div>
       </mat-card-content>
     </mat-card>
 
     <!-- OUTWARD TRIP -->
-    <mat-card class="section-card" formGroupName="outwardTrip">
+    <mat-card class="section-card" [class.highlighted]="shouldHighlightOutwardTrip()" formGroupName="outwardTrip">
       <mat-card-header>
         <mat-card-title>Outward Trip</mat-card-title>
       </mat-card-header>
@@ -181,6 +225,50 @@
           <mat-label>Pilot Notes</mat-label>
           <textarea matInput formControlName="pilotNotes" rows="2"></textarea>
         </mat-form-field>
+
+        <!-- PILOT'S OWN INFO - Only visible to assigned pilot -->
+        <div *ngIf="isCurrentUserOutwardPilot()" class="pilot-own-section">
+          <h4 class="pilot-section-title">Pilot's Own Info</h4>
+          
+          <!-- Extra and Own Note - Full width, NOT in grid -->
+          <mat-form-field appearance="outline" style="width: 100% !important; max-width: none !important; display: block; margin-bottom: 16px;">
+            <mat-label>Extra</mat-label>
+            <textarea matInput formControlName="extraChargesNotes" rows="2"></textarea>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" style="width: 100% !important; max-width: none !important; display: block; margin-bottom: 16px;">
+            <mat-label>Own Note</mat-label>
+            <textarea matInput formControlName="ownNote" rows="2"></textarea>
+          </mat-form-field>
+
+          <!-- Pilot No, Month No, Good on one line -->
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px;">
+            <mat-form-field appearance="outline">
+              <mat-label>Pilot No</mat-label>
+              <input matInput type="number" formControlName="pilotNo">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Month No</mat-label>
+              <input matInput type="number" formControlName="monthNo">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Good (1-6)</mat-label>
+              <input matInput type="number" formControlName="good" min="1" max="6">
+            </mat-form-field>
+          </div>
+
+          <!-- Car and Time Off on one line -->
+          <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 16px;">
+            <mat-form-field appearance="outline">
+              <mat-label>Car</mat-label>
+              <input matInput formControlName="car">
+            </mat-form-field>
+
+            <app-date-time-picker formControlName="timeOff" label="Time Off"></app-date-time-picker>
+          </div>
+        </div>
       </mat-card-content>
     </mat-card>
 
