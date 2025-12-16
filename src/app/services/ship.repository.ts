@@ -151,7 +151,7 @@ export class ShipRepository {
 
   /**
    * Searches for ships by name (prefix match, case-insensitive).
-   * Used by port-reconciliation component.
+   * Used by sheet-info component.
    * @param search The search string.
    * @returns Observable array of matching Ship objects.
    */

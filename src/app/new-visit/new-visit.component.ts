@@ -15,6 +15,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatAutocompleteModule, MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
 import { MatTableModule } from '@angular/material/table';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router, RouterLink } from '@angular/router';
 
 // --- Custom Components ---
@@ -42,7 +43,7 @@ import { IFormComponent } from '../guards/form-component.interface';
     // Material
     MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule, MatDatepickerModule,
     MatNativeDateModule, MatSelectModule, MatProgressSpinnerModule, MatAutocompleteModule, MatSnackBarModule,
-    MatTableModule,
+    MatTableModule, MatTooltipModule,
   ],
   templateUrl: './new-visit.component.html',
   styleUrl: './new-visit.component.css',
@@ -254,5 +255,61 @@ export class NewVisitComponent implements OnInit, IFormComponent {
    */
   canDeactivate(): boolean {
     return this.visitForm.pristine || this.formSubmitted;
+  }
+
+  /**
+   * WHY THIS METHOD EXISTS:
+   * - Disabled buttons don't receive mouse events, so matTooltip won't work on them
+   * - We need to wrap the button and put the tooltip on the wrapper
+   * - This method generates user-friendly error messages for the tooltip
+   * 
+   * LEARNING: ACCESSIBILITY + UX PATTERN
+   * - Users deserve to know WHY they can't submit
+   * - Instead of just a disabled button, we guide them to fix the issues
+   * - This reduces frustration and improves form completion rates
+   * 
+   * @returns Tooltip text explaining form errors, or empty string if form is valid
+   */
+  getFormErrorTooltip(): string {
+    if (this.visitForm.valid) {
+      return 'Create a new visit';
+    }
+
+    const errors: string[] = [];
+
+    // Check ship name
+    if (this.shipNameControl.hasError('required')) {
+      errors.push('Ship name is required');
+    }
+
+    // Check gross tonnage
+    if (this.grossTonnageControl.hasError('required')) {
+      errors.push('Gross tonnage is required');
+    } else if (this.grossTonnageControl.hasError('min')) {
+      errors.push('Gross tonnage must be at least 1');
+    }
+
+    // Check initial ETA
+    const etaControl = this.visitForm.get('initialEta');
+    if (etaControl?.hasError('required')) {
+      errors.push('Initial ETA is required');
+    }
+
+    // Check berth port
+    const berthPortControl = this.visitForm.get('berthPort');
+    if (berthPortControl?.hasError('required')) {
+      errors.push('Destination port is required');
+    }
+
+    // Check source
+    const sourceControl = this.visitForm.get('source');
+    if (sourceControl?.hasError('required')) {
+      errors.push('Source is required');
+    }
+
+    // Return formatted error message
+    return errors.length > 0 
+      ? `Please fix:\n• ${errors.join('\n• ')}`
+      : 'Please complete all required fields';
   }
 }

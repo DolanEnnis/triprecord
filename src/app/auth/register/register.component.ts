@@ -42,12 +42,37 @@ export class RegisterComponent {
     }
 
     const { email, password, displayName } = this.form.getRawValue();
+    
+    // First attempt to register the user
     this.authService.register(email!, password!, displayName!).subscribe({
       next: () => {
         this.router.navigate(['/']);
       },
       error: (err) => {
-        this.snackBar.open(err.message, 'Close', { duration: 5000 });
+        // Forgiving authentication: If the email is already in use, check if they meant to login
+        if (err.code === 'auth/email-already-in-use') {
+          // Attempt to login with the provided credentials
+          this.authService.login(email!, password!).subscribe({
+            next: () => {
+              // Login succeeded - they provided the correct password, so log them in
+              this.snackBar.open('Welcome back! You were already registered, so we logged you in.', 'Close', { 
+                duration: 5000 
+              });
+              this.router.navigate(['/']);
+            },
+            error: (loginErr) => {
+              // Login failed - email exists but wrong password
+              this.snackBar.open(
+                'This email is already registered. Please use the login page or check your password.', 
+                'Close', 
+                { duration: 7000 }
+              );
+            }
+          });
+        } else {
+          // Other registration errors (weak password, invalid email, etc.)
+          this.snackBar.open(err.message, 'Close', { duration: 5000 });
+        }
       }
     });
   }

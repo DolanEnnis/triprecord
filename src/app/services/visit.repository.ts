@@ -322,7 +322,7 @@ export class VisitRepository {
 
   /**
    * Get all active visits (Due, Awaiting Berth, Alongside)
-   * Used for port reconciliation and active ship tracking
+   * Used for sheet info and active ship tracking
    */
   getActiveVisits(): Observable<Visit[]> {
     return runInInjectionContext(this.injector, () => {

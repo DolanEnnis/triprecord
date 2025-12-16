@@ -132,13 +132,21 @@
 
     <mat-card-actions align="end">
       <a mat-button color="accent" routerLink="/trip-confirmation">Cancel</a>
-      <button mat-flat-button color="primary" (click)="onSubmit()" [disabled]="visitForm.invalid || isLoading">
-        @if (isLoading) {
-          <mat-progress-spinner mode="indeterminate" diameter="20"></mat-progress-spinner>
-        } @else {
-          <span>Create Visit</span>
-        }
-      </button>
+      <!-- 
+        TOOLTIP WRAPPER PATTERN for disabled buttons:
+        - Disabled buttons don't receive mouse events
+        - Put matTooltip on a wrapper div instead
+        - Tooltip dynamically shows what's wrong with the form
+      -->
+      <div [matTooltip]="getFormErrorTooltip()" class="button-wrapper">
+        <button mat-flat-button color="primary" (click)="onSubmit()" [disabled]="visitForm.invalid || isLoading">
+          @if (isLoading) {
+            <mat-progress-spinner mode="indeterminate" diameter="20"></mat-progress-spinner>
+          } @else {
+            <span>Create Visit</span>
+          }
+        </button>
+      </div>
     </mat-card-actions>
   </mat-card>
 </div>

@@ -16,6 +16,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { DateAdapter, MatNativeDateModule } from '@angular/material/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { Observable, of } from 'rxjs';
 import { debounceTime, distinctUntilChanged, startWith, switchMap, tap } from 'rxjs/operators';
 import { ConfirmationDialogComponent } from '../shared/confirmation-dialog/confirmation-dialog.component';
@@ -54,6 +55,7 @@ export type ChargeDialogData = { mode: 'fromVisit', event: ChargeableEvent } | {
     MatAutocompleteModule,
     MatSnackBarModule,
     MatSelectModule,
+    MatTooltipModule,
   ],
   templateUrl: './create-charge-dialog.html',
   styleUrl: './create-charge-dialog.css',
@@ -246,8 +248,31 @@ export class CreateChargeDialogComponent implements OnInit {
     this.dialogRef.close();
   }
 
-  // This function is required by MatAutocomplete to display the correct value in the input field.
-  displayShip(ship: { ship: string, gt: number }): string {
+  /**
+   * Display function for ship autocomplete.
+   * 
+   * LEARNING: HANDLING MIXED DATA TYPES IN AUTOCOMPLETE
+   * 
+   * THE PROBLEM:
+   * - When user selects from autocomplete: value is an object { ship: string, gt: number }
+   * - When form is pre-filled from existing data: value is just a string (ship name)
+   * - displayWith needs to handle BOTH cases
+   * 
+   * THE SOLUTION:
+   * - Check if value is a string (typeof value === 'string')
+   * - If string, return it directly
+   * - If object, extract the ship property
+   * - This makes the autocomplete work for both new entries and editing
+   * 
+   * @param ship - Can be a string (ship name) or object { ship, gt }
+   * @returns The ship name to display in the input field
+   */
+  displayShip(ship: string | { ship: string, gt: number }): string {
+    // If it's already a string (existing data), return it
+    if (typeof ship === 'string') {
+      return ship;
+    }
+    // If it's an object (autocomplete selection), extract the ship name
     return ship?.ship || '';
   }
 
@@ -290,5 +315,65 @@ export class CreateChargeDialogComponent implements OnInit {
         }
       }
     });
+  }
+
+  /**
+   * LEARNING: REUSABLE TOOLTIP PATTERN for Dialog Forms
+   * 
+   * WHY THIS EXISTS:
+   * - Dialog forms have the same UX issue as page forms
+   * - Users need to know why "Save" is disabled
+   * - Disabled buttons don't receive mouse events (wrapper pattern needed)
+   * 
+   * PATTERN: Validation Error Collection
+   * - Check each required field individually
+   * - Build user-friendly error messages
+   * - Return formatted tooltip text
+   * 
+   * @returns Tooltip text for the Save button
+   */
+  getSaveButtonTooltip(): string {
+    // Form is valid - show positive message
+    if (this.form.valid && !this.isSaving) {
+      return this.mode === 'editCharge' ? 'Update charge' : 'Save charge';
+    }
+
+    // Currently saving - show status
+    if (this.isSaving) {
+      return 'Saving...';
+    }
+
+    // Form is invalid - collect and display errors
+    const errors: string[] = [];
+
+    if (this.form.get('ship')?.hasError('required')) {
+      errors.push('Ship is required');
+    }
+
+    if (this.form.get('gt')?.hasError('required')) {
+      errors.push('Gross tonnage is required');
+    }
+
+    if (this.form.get('boarding')?.hasError('required')) {
+      errors.push('Boarding date is required');
+    }
+
+    if (this.form.get('port')?.hasError('required')) {
+      errors.push('Port is required');
+    }
+
+    if (this.form.get('pilot')?.hasError('required')) {
+      errors.push('Pilot is required');
+    } else if (this.form.get('pilot')?.hasError('invalidPilot')) {
+      errors.push('Please select a valid pilot from the list');
+    }
+
+    if (this.form.get('typeTrip')?.hasError('required')) {
+      errors.push('Trip type is required');
+    }
+
+    return errors.length > 0
+      ? `Please fix:\n• ${errors.join('\n• ')}`
+      : 'Please fix the validation errors';
   }
 }

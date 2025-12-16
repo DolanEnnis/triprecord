@@ -58,6 +58,14 @@ button[mat-flat-button] {
   font-weight: 500;
 }
 
+/* 
+  Wrapper for disabled button tooltip pattern.
+  Must be inline-block so the tooltip wrapper doesn't stretch full width.
+*/
+.button-wrapper {
+  display: inline-block;
+}
+
 button mat-progress-spinner {
   display: inline-block;
   margin: 0 18px;

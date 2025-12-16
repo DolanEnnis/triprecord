@@ -367,17 +367,25 @@
 
   </form>
 
-  <!-- Floating Save Button -->
-  <button 
-    mat-extended-fab 
-    color="primary" 
-    class="fab-save" 
-    (click)="save()" 
-    [disabled]="saving()"
-    matTooltip="Save all changes">
-    <mat-icon>save</mat-icon>
-    <span>{{ saving() ? 'Saving...' : 'Save Changes' }}</span>
-  </button>
+  <!-- 
+    Floating Save Button with Tooltip Wrapper 
+    
+    DESIGN PATTERN: Wrapper-based tooltip for disabled buttons
+    - matTooltip on wrapper instead of button (disabled buttons don't receive mouse events)
+    - Dynamic tooltip shows validation errors or save status
+    - Maintains FAB (Floating Action Button) position and styling
+  -->
+  <div [matTooltip]="getSaveButtonTooltip()" class="fab-wrapper">
+    <button 
+      mat-extended-fab 
+      color="primary" 
+      class="fab-save" 
+      (click)="save()" 
+      [disabled]="saving()">
+      <mat-icon>save</mat-icon>
+      <span>{{ saving() ? 'Saving...' : 'Save Changes' }}</span>
+    </button>
+  </div>
 </div>
 
 <ng-template #loader>

@@ -154,7 +154,7 @@ export class DataService {
   }
 
   /**
-   * Alias for createNewVisit - used by port-reconciliation component.
+   * Alias for createNewVisit - used by sheet-info component.
    * @param data The new visit data
    */
   async addNewVisitFromPaste(data: NewVisitData): Promise<string> {

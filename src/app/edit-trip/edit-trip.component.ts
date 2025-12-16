@@ -447,35 +447,8 @@ export class EditTripComponent implements OnInit, IFormComponent {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       
-      // Collect all validation errors
-      const errors: string[] = [];
-      
-      // Check ship errors
-      const shipGroup = this.form.get('ship');
-      if (shipGroup?.invalid) {
-        if (shipGroup.get('shipName')?.hasError('required')) errors.push('Ship name is required');
-        if (shipGroup.get('grossTonnage')?.hasError('required')) errors.push('Gross tonnage is required');
-        if (shipGroup.get('grossTonnage')?.hasError('min')) errors.push('Gross tonnage must be at least 50');
-        if (shipGroup.get('grossTonnage')?.hasError('max')) errors.push('Gross tonnage cannot exceed 200,000');
-      }
-
-      // Check visit errors
-      const visitGroup = this.form.get('visit');
-      if (visitGroup?.invalid) {
-        if (visitGroup.get('initialEta')?.hasError('required')) errors.push('Initial ETA is required');
-        if (visitGroup.get('currentStatus')?.hasError('required')) errors.push('Visit status is required');
-      }
-
-      // Check additional trips errors
-      const additionalTrips = this.additionalTripsArray;
-      additionalTrips.controls.forEach((trip, index) => {
-        if (trip.invalid) {
-          if (trip.get('typeTrip')?.hasError('required')) errors.push(`Trip ${index + 1}: Type is required`);
-          if (trip.get('pilot')?.hasError('required')) errors.push(`Trip ${index + 1}: Pilot is required`);
-          if (trip.get('pilot')?.hasError('invalidPilot')) errors.push(`Trip ${index + 1}: Invalid pilot selected`);
-          if (trip.get('boarding')?.hasError('required')) errors.push(`Trip ${index + 1}: Boarding time is required`);
-        }
-      });
+      // Use the extracted error collection method (DRY principle!)
+      const errors = this.collectFormErrors();
 
       // Show snackbar with errors
       const errorMessage = errors.length > 0 
@@ -794,5 +767,95 @@ export class EditTripComponent implements OnInit, IFormComponent {
    */
   canDeactivate(): boolean {
     return this.form.pristine || this.formSubmitted;
+  }
+
+  /**
+   * LEARNING: EXTRACTING REUSABLE VALIDATION LOGIC
+   * 
+   * WHY THIS METHOD EXISTS:
+   * - The save() method already has excellent error collection logic
+   * - Instead of duplicating that code, we extract it into a reusable method
+   * - Both the tooltip AND the save() snackbar can use the same validation messages
+   * 
+   * PATTERN: DRY (Don't Repeat Yourself) PRINCIPLE
+   * - One source of truth for error messages
+   * - If we add new validations, only update in one place
+   * - Tooltip and snackbar always show identical messages
+   * 
+   * @returns Array of user-friendly error messages
+   */
+  private collectFormErrors(): string[] {
+    const errors: string[] = [];
+    
+    // Check ship errors
+    const shipGroup = this.form.get('ship');
+    if (shipGroup?.invalid) {
+      if (shipGroup.get('shipName')?.hasError('required')) errors.push('Ship name is required');
+      if (shipGroup.get('grossTonnage')?.hasError('required')) errors.push('Gross tonnage is required');
+      if (shipGroup.get('grossTonnage')?.hasError('min')) errors.push('Gross tonnage must be at least 50');
+      if (shipGroup.get('grossTonnage')?.hasError('max')) errors.push('Gross tonnage cannot exceed 200,000');
+    }
+
+    // Check visit errors
+    const visitGroup = this.form.get('visit');
+    if (visitGroup?.invalid) {
+      if (visitGroup.get('initialEta')?.hasError('required')) errors.push('Initial ETA is required');
+      if (visitGroup.get('currentStatus')?.hasError('required')) errors.push('Visit status is required');
+    }
+
+    // Check inward trip pilot validation
+    const inwardTrip = this.form.get('inwardTrip');
+    if (inwardTrip?.get('pilot')?.hasError('invalidPilot')) {
+      errors.push('Inward trip: Invalid pilot selected');
+    }
+
+    // Check outward trip pilot validation
+    const outwardTrip = this.form.get('outwardTrip');
+    if (outwardTrip?.get('pilot')?.hasError('invalidPilot')) {
+      errors.push('Outward trip: Invalid pilot selected');
+    }
+
+    // Check additional trips errors
+    const additionalTrips = this.additionalTripsArray;
+    additionalTrips.controls.forEach((trip, index) => {
+      if (trip.invalid) {
+        if (trip.get('typeTrip')?.hasError('required')) errors.push(`Trip ${index + 1}: Type is required`);
+        if (trip.get('pilot')?.hasError('required')) errors.push(`Trip ${index + 1}: Pilot is required`);
+        if (trip.get('pilot')?.hasError('invalidPilot')) errors.push(`Trip ${index + 1}: Invalid pilot selected`);
+        if (trip.get('boarding')?.hasError('required')) errors.push(`Trip ${index + 1}: Boarding time is required`);
+      }
+    });
+
+    return errors;
+  }
+
+  /**
+   * TOOLTIP WRAPPER PATTERN for the disabled Save button
+   * 
+   * WHY THIS IS DIFFERENT FROM NEW-VISIT:
+   * - Edit Trip form is more complex (ship + visit + multiple trips)
+   * - We already had error collection logic in save()
+   * - We extracted that logic into collectFormErrors() for reuse
+   * - This makes the code more maintainable and DRY
+   * 
+   * @returns Tooltip text explaining what's wrong, or success message if valid
+   */
+  getSaveButtonTooltip(): string {
+    // Form is valid - show positive message
+    if (this.form.valid && !this.saving()) {
+      return 'Save all changes';
+    }
+
+    // Currently saving - show status
+    if (this.saving()) {
+      return 'Saving changes...';
+    }
+
+    // Form is invalid - collect and display errors
+    const errors = this.collectFormErrors();
+
+    return errors.length > 0 
+      ? `Please fix:\n• ${errors.join('\n• ')}`
+      : 'Please fix the validation errors highlighted in red';
   }
 }

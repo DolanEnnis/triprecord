@@ -14,3 +14,12 @@ button mat-progress-spinner {
   display: inline-block;
   margin: 0 18px; /* Centers spinner when text is hidden */
 }
+
+/* 
+  Tooltip wrapper for disabled button pattern
+  - Must be inline-block to not disrupt dialog actions layout
+  - Allows tooltip to show even when button inside is disabled
+*/
+.save-button-wrapper {
+  display: inline-block;
+}

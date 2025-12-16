@@ -51,8 +51,12 @@ export class DataQualityService {
         }
 
         // Possible Spelling mistake
-        const shipAWords = shipAName.split(' ');
-        const shipBWords = shipBName.split(' ');
+        // Convert to lowercase for case-insensitive comparison
+        const shipANameLower = shipAName.toLowerCase();
+        const shipBNameLower = shipBName.toLowerCase();
+        
+        const shipAWords = shipANameLower.split(' ');
+        const shipBWords = shipBNameLower.split(' ');
 
         // Heuristic: If the first word is the same and there's more than one word,
         // assume it's a fleet naming convention (e.g., 'Arklow Wind', 'Arklow Wave'), not a spelling mistake.
@@ -60,7 +64,8 @@ export class DataQualityService {
           shipBWords.length > 1 &&
           shipAWords[0] === shipBWords[0];
 
-        if (!isFleetNaming && tripA.gt === tripB.gt && shipAName && shipBName && shipAName !== shipBName && this.levenshteinDistance(shipAName, shipBName) <= this.SPELLING_MISTAKE_THRESHOLD) {
+        // Only flag as spelling mistake if names differ (case-insensitive) and have small edit distance
+        if (!isFleetNaming && tripA.gt === tripB.gt && shipAName && shipBName && shipANameLower !== shipBNameLower && this.levenshteinDistance(shipANameLower, shipBNameLower) <= this.SPELLING_MISTAKE_THRESHOLD) {
           const warningId = `E${this.warningIdCounter++}`;
           tripA.dataWarnings.push(`(${warningId}) Possible Spelling mistake`);
           tripB.dataWarnings.push(`(${warningId}) Possible Spelling mistake`);

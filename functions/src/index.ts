@@ -2,6 +2,8 @@ import * as admin from "firebase-admin";
 import { defineSecret } from "firebase-functions/params";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { setGlobalOptions } from "firebase-functions/v2";
+import * as functionsV1 from "firebase-functions/v1"; // v1 for auth triggers
+import * as nodemailer from "nodemailer";
 
 admin.initializeApp();
 
@@ -93,3 +95,140 @@ Return ONLY a valid JSON object, no markdown formatting.`;
     throw new HttpsError("internal", `Failed to fetch ship details from AI: ${error?.message || error}`);
   }
 });
+
+// Email configuration secrets
+const emailUser = defineSecret("EMAIL_USER");
+const emailPassword = defineSecret("EMAIL_PASSWORD");
+
+/**
+ * Cloud Function that sends email notifications to admins when a new user registers.
+ * 
+ * IMPORTANT: This uses Firebase Functions v1 because v2 doesn't support Auth triggers yet.
+ * 
+ * How it works:
+ * 1. Firebase Auth automatically triggers this function when a user is created
+ * 2. We extract the user's email, displayName, and UID from the Auth object
+ * 3. Using Nodemailer, we send an email via SMTP (Gmail) to the admin addresses
+ * 4. The admin can then assign proper roles (Pilot, SFPC, Admin) in Firebase Console
+ * 
+ * Required Secrets (set via Firebase CLI):
+ * - EMAIL_USER: Your Gmail address (e.g., admin@shannonpilots.ie)
+ * - EMAIL_PASSWORD: Your Gmail App Password (NOT your regular password!)
+ *   Generate at: https://myaccount.google.com/apppasswords
+ * 
+ * To set secrets:
+ * firebase functions:secrets:set EMAIL_USER
+ * firebase functions:secrets:set EMAIL_PASSWORD
+ */
+export const onNewUserRegistration = functionsV1
+  .runWith({
+    secrets: [emailUser, emailPassword] as any // Type assertion needed for secrets in v1
+  })
+  .auth.user()
+  .onCreate(async (user: any) => {
+    try {
+      // Extract user information from the Auth trigger
+      const { email, displayName, uid, metadata } = user;
+      const creationTime = metadata.creationTime || new Date().toISOString();
+
+      console.log("New user registered:", { email, displayName, uid });
+
+      // Configure the SMTP transport using Gmail
+      // Why Gmail? It's free, reliable, and most orgs already have it
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: emailUser.value(),
+          pass: emailPassword.value()
+        }
+      });
+
+      // Fetch admin email addresses from Firestore
+      // This is more secure than hardcoding and easier to manage
+      // Simply set userType to 'admin' in Firestore for any admin users
+      let adminEmails: string[] = [];
+      
+      try {
+        const adminsSnapshot = await admin.firestore()
+          .collection('users')
+          .where('userType', '==', 'admin')
+          .get();
+        
+        adminEmails = adminsSnapshot.docs
+          .map(doc => doc.data().email as string)
+          .filter(email => email); // Filter out any null/undefined emails
+        
+        console.log(`Found ${adminEmails.length} admin(s) to notify`);
+      } catch (error) {
+        console.error("Error fetching admin emails from Firestore:", error);
+        // Fallback: use the EMAIL_USER secret as a single admin
+        adminEmails = [emailUser.value()];
+      }
+      
+      // If no admins found, use EMAIL_USER as fallback
+      if (adminEmails.length === 0) {
+        console.log("No admin users found in Firestore, using EMAIL_USER as fallback");
+        adminEmails = [emailUser.value()];
+      }
+
+      // Compose the email
+      const mailOptions = {
+        from: `TripRecord System <${emailUser.value()}>`,
+        to: adminEmails.join(", "),
+        subject: `🚢 New User Registration: ${email}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #1976d2;">New User Registered</h2>
+            <p>A new user has registered for the TripRecord system:</p>
+            
+            <table style="border-collapse: collapse; width: 100%; margin: 20px 0;">
+              <tr style="background-color: #f5f5f5;">
+                <td style="padding: 10px; border: 1px solid #ddd;"><strong>Email:</strong></td>
+                <td style="padding: 10px; border: 1px solid #ddd;">${email}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px; border: 1px solid #ddd;"><strong>Display Name:</strong></td>
+                <td style="padding: 10px; border: 1px solid #ddd;">${displayName || "Not provided"}</td>
+              </tr>
+              <tr style="background-color: #f5f5f5;">
+                <td style="padding: 10px; border: 1px solid #ddd;"><strong>User ID:</strong></td>
+                <td style="padding: 10px; border: 1px solid #ddd;">${uid}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px; border: 1px solid #ddd;"><strong>Registration Time:</strong></td>
+                <td style="padding: 10px; border: 1px solid #ddd;">${new Date(creationTime).toLocaleString()}</td>
+              </tr>
+            </table>
+            
+            <p><strong>Next Steps:</strong></p>
+            <ol>
+              <li>Review the user's information</li>
+              <li>Assign appropriate role (Pilot, SFPC, Admin, or Viewer)</li>
+              <li>Update user type in <a href="https://console.firebase.google.com/project/shannonpilots-6fedd/firestore/databases/-default-/data/~2Fusers~2F${uid}">Firestore</a></li>
+            </ol>
+            
+            <p style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 12px;">
+              This is an automated message from the TripRecord system.
+            </p>
+          </div>
+        `
+      };
+
+      // Send the email
+      await transporter.sendMail(mailOptions);
+
+      console.log(`Admin notification email sent successfully for user: ${email}`);
+      
+    } catch (error: any) {
+      // Log the error but don't throw - we don't want to block user registration
+      // if email sending fails
+      console.error("Error sending admin notification email:", {
+        message: error?.message,
+        stack: error?.stack
+      });
+      
+      // Note: We're intentionally NOT throwing here because:
+      // 1. User registration should succeed even if email fails
+      // 2. This is a notification feature, not critical to auth flow
+    }
+  });

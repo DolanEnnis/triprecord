@@ -82,8 +82,8 @@ export const routes: Routes = [
   },
 
   {
-    path: 'port-reconciliation',
-    loadComponent: () => import('./port-reconciliation/port-reconciliation').then(c => c.PortReconciliationComponent),
+    path: 'sheet-info',
+    loadComponent: () => import('./sheet-info/sheet-info').then(c => c.SheetInfoComponent),
     canActivate: [roleGuard],
     data: { roles: ['pilot', 'admin', 'sfpc'] }
   },

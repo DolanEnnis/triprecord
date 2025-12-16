@@ -80,11 +80,20 @@
     </button>
   }
   <button mat-button (click)="onCancel()" [disabled]="isSaving">Cancel</button>
-  <button mat-flat-button color="primary" (click)="onSave()" [disabled]="form.invalid || isSaving">
-    @if (isSaving) {
-      <mat-progress-spinner mode="indeterminate" diameter="20"></mat-progress-spinner>
-    } @else {
-      <span>Save Charge</span>
-    }
-  </button>
+  
+  <!-- 
+    Tooltip wrapper for disabled button pattern
+    - Disabled buttons don't receive mouse events
+    - Wrapper receives hover and displays tooltip
+    - Dynamic tooltip shows validation errors or save status
+  -->
+  <div [matTooltip]="getSaveButtonTooltip()" class="save-button-wrapper">
+    <button mat-flat-button color="primary" (click)="onSave()" [disabled]="form.invalid || isSaving">
+      @if (isSaving) {
+        <mat-progress-spinner mode="indeterminate" diameter="20"></mat-progress-spinner>
+      } @else {
+        <span>Save Charge</span>
+      }
+    </button>
+  </div>
 </div>

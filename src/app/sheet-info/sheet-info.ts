@@ -15,7 +15,7 @@ import { Ship, Visit } from '../models/data.model';
 import { Timestamp, serverTimestamp } from '@angular/fire/firestore';
 
 @Component({
-  selector: 'app-port-reconciliation',
+  selector: 'app-sheet-info',
   standalone: true,
   imports: [
     CommonModule,
@@ -27,10 +27,10 @@ import { Timestamp, serverTimestamp } from '@angular/fire/firestore';
     MatProgressSpinnerModule,
     MatIconModule
   ],
-  templateUrl: './port-reconciliation.html',
-  styleUrls: ['./port-reconciliation.css']
+  templateUrl: './sheet-info.html',
+  styleUrls: ['./sheet-info.css']
 })
-export class PortReconciliationComponent {
+export class SheetInfoComponent {
   private parser = inject(ShipPasteParserService);
   private shipRepository = inject(ShipRepository);
   private visitRepository = inject(VisitRepository);
