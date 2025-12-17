@@ -23,7 +23,8 @@ import {
 import { combineLatest, from, Observable, of } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
 import { Trip, Visit, VisitStatus } from '../models/data.model';
-import { StatusListRow } from '../models/status-list.model'; // 1. Make sure this is imported
+import { StatusListRow } from '../models/status-list.model';
+import { EnrichedVisit } from '../models/enriched-visit.model';
 
 @Injectable({
   providedIn: 'root',
@@ -344,7 +345,7 @@ export class VisitRepository {
   }
 
 
-  getAllCompletedVisits(startDate?: Date, endDate?: Date): Observable<any[]> {
+  getAllCompletedVisits(startDate?: Date, endDate?: Date): Observable<EnrichedVisit[]> {
     return runInInjectionContext(this.injector, () => {
       const visitsCollection = collection(
         this.firestore,
@@ -379,7 +380,7 @@ export class VisitRepository {
     });
   }
 
-  searchVisitsByShip(shipName: string): Observable<any[]> {
+  searchVisitsByShip(shipName: string): Observable<EnrichedVisit[]> {
     return runInInjectionContext(this.injector, () => {
       const visitsCollection = collection(
         this.firestore,
@@ -404,7 +405,7 @@ export class VisitRepository {
     });
   }
 
-  searchVisitsByGT(grossTonnage: number): Observable<any[]> {
+  searchVisitsByGT(grossTonnage: number): Observable<EnrichedVisit[]> {
     return runInInjectionContext(this.injector, () => {
       const visitsCollection = collection(
         this.firestore,
@@ -423,7 +424,7 @@ export class VisitRepository {
     });
   }
 
-  private executeVisitsQuery(visitsQuery: any): Observable<any[]> {
+  private executeVisitsQuery(visitsQuery: any): Observable<EnrichedVisit[]> {
     return runInInjectionContext(this.injector, () => {
       return (
         collectionData(visitsQuery, { idField: 'id' }) as Observable<Visit[]>
@@ -491,9 +492,11 @@ export class VisitRepository {
 
                   return {
                     visitId: visit.id!,
+                    shipId: visit.shipId,
                     shipName: visit.shipName,
                     grossTonnage: visit.grossTonnage,
                     status: visit.currentStatus,
+                    initialEta: visit.initialEta instanceof Timestamp ? visit.initialEta.toDate() : null,
                     displayDate: displayDate,
                     
                     // Inward trip details
@@ -521,6 +524,25 @@ export class VisitRepository {
             catchError((error) => {
               console.error('Error combining visit data:', error);
               return of([]);
+            }),
+            map((visits: EnrichedVisit[]) => {
+              // Filter out cancelled visits
+              const filteredVisits = visits.filter(v => v.status !== 'Cancelled');
+              
+              // Sort: visits without ETA first (in any order), then by displayDate descending
+              return filteredVisits.sort((a, b) => {
+                // If both have no ETA, maintain any order (return 0)
+                if (!a.initialEta && !b.initialEta) return 0;
+                
+                // If only 'a' has no ETA, it goes first (before b)
+                if (!a.initialEta) return -1;
+                
+                // If only 'b' has no ETA, it goes first (before a)
+                if (!b.initialEta) return 1;
+                
+                // Both have ETA, sort by displayDate descending (most recent first)
+                return b.displayDate.getTime() - a.displayDate.getTime();
+              });
             })
           );
         })

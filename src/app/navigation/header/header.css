@@ -19,6 +19,20 @@ a:active,
   color: lightgray;
 }
 
+/* Active page highlighting - subtle and professional */
+.nav-links a.active-link {
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 2px;
+}
+
+/* Smooth transition for active state */
+.nav-links a {
+  transition: all 0.2s ease-in-out;
+  display: inline-block;
+}
+
 .spacer {
   flex: 1 1 auto; /* Pushes content to the sides */
 }
@@ -28,7 +42,16 @@ a:active,
   padding: 0;
   margin: 0;
   display: flex;
-  gap: 15px;
+  gap: 0;
+}
+
+.nav-links li {
+  padding: 0 12px;
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.nav-links li:last-child {
+  border-right: none;
 }
 
 .logout-link {

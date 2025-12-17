@@ -1,47 +1,51 @@
-.container {
-  padding: 10px;
-}
-
-.search-section {
-  background: #f5f5f5;
-  padding: 20px;
-  margin-bottom: 20px;
-  border-radius: 4px;
-}
-
-.search-section h3 {
-  margin-top: 0;
-  margin-bottom: 15px;
-  color: #333;
+.controls-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 .date-filter-form {
   display: flex;
-  gap: 15px;
   align-items: center;
+  gap: 1rem;
   flex-wrap: wrap;
-  margin-bottom: 10px;
 }
 
-.date-filter-form mat-form-field {
-  flex: 0 1 200px;
+.right-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-end;
 }
 
-.date-filter-form button {
-  height: 40px;
+.highlight-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
 }
 
-.hint {
-  margin: 10px 0 0 0;
-  font-size: 13px;
-  color: #666;
+.highlight-controls label {
+  font-weight: 500;
+  margin-right: 0.25rem;
+  font-size: 0.9rem;
 }
 
-.hint a {
-  color: #3f51b5;
-  text-decoration: none;
+.highlight-controls mat-radio-button {
+  margin-right: 0.75rem;
 }
 
-.hint a:hover {
-  text-decoration: underline;
+.filter-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.filter-field {
+  width: 400px;
 }

@@ -18,22 +18,22 @@
 
         @if (authService.isAuthenticated()) {
           @if(authService.canCreateVisit()) {
-            <li><a routerLink="/new-visit">New Visit</a></li>
-            <li><a routerLink="/previous">Previous</a></li>
-             <li><a routerLink="/ships">Ships</a></li>
-             <li><a routerLink="/dist2shannon">Dist2Shannon</a></li>
-             <li><a routerLink="/sheet-info">Sheet-Info</a></li>
+            <li><a routerLink="/new-visit" routerLinkActive="active-link">New Visit</a></li>
+            <li><a routerLink="/previous" routerLinkActive="active-link">Previous</a></li>
+             <li><a routerLink="/ships" routerLinkActive="active-link">Ships</a></li>
+             <li><a routerLink="/dist2shannon" routerLinkActive="active-link">Dist2Shannon</a></li>
+             <li><a routerLink="/sheet-info" routerLinkActive="active-link">Sheet-Info</a></li>
           }
           @if(authService.isAdmin()){
-            <li><a routerLink="/admin">Admin</a></li>
+            <li><a routerLink="/admin" routerLinkActive="active-link">Admin</a></li>
           }
           @if(authService.canConfirmTrips()) {
-            <li><a routerLink="/trip-confirmation">Trip Confirmation</a></li>
+            <li><a routerLink="/trip-confirmation" routerLinkActive="active-link">Trip Confirmation</a></li>
           }
           <li><a class="logout-link" (click)="onLogout()">Logout</a></li>
         } @else {
-          <li><a routerLink="/auth/login">Login</a></li>
-          <li><a routerLink="/auth/register">Register</a></li>
+          <li><a routerLink="/auth/login" routerLinkActive="active-link">Login</a></li>
+          <li><a routerLink="/auth/register" routerLinkActive="active-link">Register</a></li>
         }
       </ul>
     </nav>
