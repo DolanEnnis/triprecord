@@ -1,22 +1,47 @@
-.filter-container {
-  padding: 20px;
-  display: flex;
-  justify-content: center;
+/* Row highlighting styles - subtle but noticeable */
+
+/* 2-line mode - blue-gray and yellow-green */
+.row-even {
+  background-color: #f0f4f8;
 }
 
-mat-form-field {
-  width: 100%;
-  max-width: 400px;
+.row-odd {
+  background-color: #f8faf0;
 }
 
-table {
-  width: 100%;
+/* 3-line mode */
+.row-color-1 {
+  background-color: #f0f4f8;
 }
 
-.clickable-row {
+.row-color-2 {
+  background-color: #f8faf0;
+}
+
+.row-color-3 {
+  background-color: #f4f0f8;
+}
+
+/* Ensure hover state still works */
+.clickable-row:hover {
+  background-color: #e3f2fd !important;
   cursor: pointer;
 }
 
-.clickable-row:hover {
-  background-color: #f5f5f5;
+/* Current time boundary - thin red line marking "now" */
+.current-time-boundary {
+  border-bottom: 1px solid #d32f2f !important;
+  box-shadow: 0 1px 3px rgba(211, 47, 47, 0.4) !important;
+  position: relative !important;
+}
+
+.current-time-boundary::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #d32f2f;
+  z-index: 10;
 }
