@@ -1,10 +1,11 @@
 import { Timestamp } from '@angular/fire/firestore';
+import { VisitStatus } from './data.model';
 
 export interface StatusListRow {
   visitId: string;
   tripId?: string;     // Added for updating trip-specific data
   shipName: string;
-  status: string;      // 'Due', 'Alongside', etc.
+  status: VisitStatus; // Properly typed status field instead of generic string
 
   // 1. We convert Firestore Timestamps to JS Dates here.
   //    The HTML will ONLY ever see a JS Date.

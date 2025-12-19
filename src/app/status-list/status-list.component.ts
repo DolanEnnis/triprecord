@@ -9,6 +9,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { Router } from '@angular/router';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { RiverStateService } from '../services/river-state.service';
 import { TimeAgoPipe } from '../shared/pipes/time-ago.pipe';
 import { Visit } from '../models/data.model';
@@ -17,6 +18,8 @@ import { Timestamp } from '@angular/fire/firestore';
 import { UpdateEtaDialogComponent } from '../dialogs/update-eta-dialog/update-eta-dialog.component';
 import { AuthService } from '../auth/auth';
 import { VisitRepository } from '../services/visit.repository';
+import { PortFilter, isValidPortFilter } from '../models/port-filter.types';
+
 
 @Component({
   selector: 'app-status-list',
@@ -30,6 +33,7 @@ import { VisitRepository } from '../services/visit.repository';
     MatTooltipModule,
     MatButtonToggleModule,
     MatDialogModule,
+    MatSnackBarModule,
     DatePipe,
     TimeAgoPipe
   ],
@@ -40,12 +44,16 @@ export class StatusListComponent {
   private readonly riverState = inject(RiverStateService);
   private readonly router = inject(Router);
   private readonly dialog = inject(MatDialog);
+  private readonly snackBar = inject(MatSnackBar);
   private readonly authService = inject(AuthService);
   private readonly visitRepository = inject(VisitRepository);
 
-  // Filter Signal - Persisted in localStorage
-  readonly portFilter = signal<'All' | 'Aughinish' | 'Foynes' | 'Limerick' | 'Other'>(
-    (localStorage.getItem('statusListPortFilter') as any) || 'All'
+  // Filter Signal - Persisted in localStorage with type-safe validation
+  readonly portFilter = signal<PortFilter>(
+    (() => {
+      const stored = localStorage.getItem('statusListPortFilter');
+      return isValidPortFilter(stored) ? stored : 'All';
+    })()
   );
 
   // Data Signals (using toSignal to convert Observables to Signals)
@@ -57,6 +65,29 @@ export class StatusListComponent {
   readonly filteredDueShips = computed(() => this.filterShips(this.dueShips()));
   readonly filteredAwaitingBerthShips = computed(() => this.filterShips(this.awaitingBerthShips()));
   readonly filteredAlongsideShips = computed(() => this.filterShips(this.alongsideShips()));
+
+  // Sections array - drives the template with a single *ngFor loop instead of 3 duplicate tables
+  // This reduces code duplication and makes it easier to add/modify columns in one place
+  readonly sections = computed(() => [
+    {
+      title: 'Due',
+      data: this.filteredDueShips(),
+      timeLabel: 'ETA', // Column header for the time field
+      portFilterName: this.getFilteredPortName(),
+    },
+    {
+      title: 'Awaiting Berth',
+      data: this.filteredAwaitingBerthShips(),
+      timeLabel: 'ETB',
+      portFilterName: this.getFilteredPortName(),
+    },
+    {
+      title: 'Alongside',
+      data: this.filteredAlongsideShips(),
+      timeLabel: 'ETS',
+      portFilterName: this.getFilteredPortName(),
+    }
+  ]);
 
   // Columns: Ship, Date (ETA/ETD), Port, Note, Pilot, Updated, Actions
   displayedColumns: string[] = ['ship', 'officeTime', 'port', 'note', 'pilot', 'updated', 'actions'];
@@ -76,17 +107,40 @@ export class StatusListComponent {
       if (newDate) {
         const currentUser = this.authService.currentUserSig()?.displayName || 'Unknown';
         try {
-          // StatusListRow now has tripId (optional) and visitId
+          // StatusListRow now has properly typed status field (VisitStatus)
           await this.visitRepository.updateVisitDate(
             row.visitId,
             row.tripId,
-            row.status as any, // Cast to VisitStatus if needed
+            row.status, // No cast needed - status is already VisitStatus
             newDate,
             currentUser
           );
+          
+          // Show success message to user
+          this.snackBar.open(
+            `✓ ${row.shipName} time updated successfully`,
+            'Close',
+            {
+              duration: 3000, // Auto-dismiss after 3 seconds
+              horizontalPosition: 'center',
+              verticalPosition: 'bottom',
+              panelClass: ['success-snackbar']
+            }
+          );
         } catch (error) {
           console.error('Failed to update ETA:', error);
-          // Ideally show a snackbar here
+          
+          // Show error message to user with more detailed feedback
+          this.snackBar.open(
+            `✗ Failed to update ${row.shipName} time. Please try again.`,
+            'Close',
+            {
+              duration: 5000, // Show errors a bit longer
+              horizontalPosition: 'center',
+              verticalPosition: 'bottom',
+              panelClass: ['error-snackbar']
+            }
+          );
         }
       }
     });
@@ -111,7 +165,7 @@ export class StatusListComponent {
     });
   }
 
-  onPortFilterChange(newFilter: 'All' | 'Aughinish' | 'Foynes' | 'Limerick' | 'Other') {
+  onPortFilterChange(newFilter: PortFilter) {
     this.portFilter.set(newFilter);
     // Persist the filter selection to localStorage
     localStorage.setItem('statusListPortFilter', newFilter);

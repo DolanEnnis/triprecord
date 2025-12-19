@@ -1,18 +1,31 @@
 .container {
   padding: 20px;
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
+/* SEARCH SECTION */
 .search-section {
   background: #f5f5f5;
   padding: 30px;
   border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.search-section.minimized {
+  padding: 20px;
+  background: #fafafa;
+}
+
+.search-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
 }
 
 .search-section h3 {
-  margin-top: 0;
-  margin-bottom: 10px;
+  margin: 0;
   color: #333;
 }
 
@@ -38,6 +51,7 @@
 
 .clickable-row {
   cursor: pointer;
+  transition: background-color 0.2s ease;
 }
 
 .clickable-row:hover {
@@ -49,4 +63,55 @@
   padding: 40px 20px;
   color: #999;
   font-style: italic;
+}
+
+/* DETAILS SECTION */
+.details-section {
+  margin-top: 30px;
+}
+
+.ship-name-header {
+  color: #1976d2;
+  margin-bottom: 20px;
+  font-size: 28px;
+  font-weight: 500;
+}
+
+.visits-section {
+  margin-top: 30px;
+}
+
+.visits-section h3 {
+  color: #333;
+  margin-bottom: 16px;
+  font-size: 20px;
+}
+
+.no-visits-card {
+  background: #f9f9f9;
+  margin-top: 16px;
+}
+
+.no-visits-message {
+  text-align: center;
+  color: #999;
+  font-style: italic;
+  padding: 20px;
+  margin: 0;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .container {
+    padding: 10px;
+  }
+
+  .search-section,
+  .search-section.minimized {
+    padding: 15px;
+  }
+
+  .ship-name-header {
+    font-size: 22px;
+  }
 }

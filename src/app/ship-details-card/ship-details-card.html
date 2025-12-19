@@ -1,0 +1,91 @@
+<mat-card class="ship-card">
+  <mat-card-header>
+    <mat-card-title>Ship Details</mat-card-title>
+  </mat-card-header>
+
+  <!-- Loading Spinner -->
+  @if (loading()) {
+    <mat-card-content class="loading-container">
+      <mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner>
+      <p>Loading ship details...</p>
+    </mat-card-content>
+  }
+
+  <!-- Ship Form -->
+  @if (!loading()) {
+    <mat-card-content>
+      <form [formGroup]="shipForm" class="ship-form">
+        <div class="form-grid">
+          <!-- Ship Name -->
+          <mat-form-field appearance="outline">
+            <mat-label>Ship Name</mat-label>
+            <input matInput formControlName="shipName" placeholder="e.g. MAERSK SHANNON">
+            @if (shipForm.get('shipName')?.hasError('required') && shipForm.get('shipName')?.touched) {
+              <mat-error>Ship Name is required</mat-error>
+            }
+          </mat-form-field>
+
+          <!-- Gross Tonnage -->
+          <mat-form-field appearance="outline">
+            <mat-label>Gross Tonnage (GT)</mat-label>
+            <input matInput type="number" formControlName="grossTonnage">
+            @if (shipForm.get('grossTonnage')?.hasError('required') && shipForm.get('grossTonnage')?.touched) {
+              <mat-error>Gross Tonnage is required</mat-error>
+            }
+            @if (shipForm.get('grossTonnage')?.hasError('min')) {
+              <mat-error>Min value is 50</mat-error>
+            }
+            @if (shipForm.get('grossTonnage')?.hasError('max')) {
+              <mat-error>Max value is 200,000</mat-error>
+            }
+          </mat-form-field>
+
+          <!-- IMO Number -->
+          <mat-form-field appearance="outline">
+            <mat-label>IMO Number</mat-label>
+            <input matInput type="number" formControlName="imoNumber">
+            @if (shipForm.get('imoNumber')?.hasError('min') || shipForm.get('imoNumber')?.hasError('max')) {
+              <mat-error>IMO must be 7 digits</mat-error>
+            }
+          </mat-form-field>
+
+          <!-- Marine Traffic Link -->
+          <mat-form-field appearance="outline">
+            <mat-label>Marine Traffic Link</mat-label>
+            <input matInput formControlName="marineTrafficLink" #mtLink>
+            @if (mtLink.value) {
+              <a mat-icon-button matSuffix [href]="mtLink.value" target="_blank" title="Open Link">
+                <mat-icon>open_in_new</mat-icon>
+              </a>
+            }
+          </mat-form-field>
+
+          <!-- Ship Notes - Full Width -->
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Ship Notes</mat-label>
+            <textarea matInput formControlName="shipNotes" rows="3"></textarea>
+          </mat-form-field>
+        </div>
+      </form>
+    </mat-card-content>
+
+    <!-- Save Button - Only shown when form has changes -->
+    @if (hasChanges) {
+      <mat-card-actions align="end">
+        <button 
+          mat-raised-button 
+          color="primary" 
+          (click)="save()" 
+          [disabled]="saving() || shipForm.invalid">
+          @if (saving()) {
+            <mat-icon>sync</mat-icon>
+            <span>Saving...</span>
+          } @else {
+            <mat-icon>save</mat-icon>
+            <span>Save Changes</span>
+          }
+        </button>
+      </mat-card-actions>
+    }
+  }
+</mat-card>

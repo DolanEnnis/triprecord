@@ -199,26 +199,35 @@ export class VisitRepository {
 
                   // 3. Map to the clean View Model (StatusListRow)
 
-                  // Safe Date Conversions:
-                  let activeDate: Date;
-                  let isTimeSet = false; // Track if the time is actually set or a fallback
-                  
-                  if (
-                    tripData?.boarding &&
-                    tripData.boarding instanceof Timestamp
-                  ) {
-                    activeDate = tripData.boarding.toDate();
-                    isTimeSet = true; // Boarding time is explicitly set
-                  } else if (
-                    visit.initialEta &&
-                    visit.initialEta instanceof Timestamp
-                  ) {
+                // Safe Date Conversions - Status-specific logic:
+                // - 'Due' vessels should show ETA (when ship arrives at port)
+                // - 'Awaiting Berth' vessels should show ETB (pilot boarding time)
+                // - 'Alongside' vessels should show ETS (sailing time, from outward trip)
+                let activeDate: Date;
+                let isTimeSet = false; // Track if the time is actually set or a fallback
+                
+                if (status === 'Due') {
+                  // For 'Due' status, always use the visit's initialEta
+                  if (visit.initialEta && visit.initialEta instanceof Timestamp) {
                     activeDate = visit.initialEta.toDate();
-                    isTimeSet = false; // Fallback to ETA, not the actual boarding time
+                    isTimeSet = true; // ETA is the primary field for Due vessels
+                  } else {
+                    activeDate = new Date(); // Fallback if ETA is missing
+                    isTimeSet = false;
+                  }
+                } else {
+                  // For 'Awaiting Berth' and 'Alongside', use the trip's boarding time
+                  if (tripData?.boarding && tripData.boarding instanceof Timestamp) {
+                    activeDate = tripData.boarding.toDate();
+                    isTimeSet = true; // Boarding time (ETB/ETS) is explicitly set
+                  } else if (visit.initialEta && visit.initialEta instanceof Timestamp) {
+                    activeDate = visit.initialEta.toDate();
+                    isTimeSet = false; // Fallback to ETA if boarding time not set
                   } else {
                     activeDate = new Date(); // Fallback if data is corrupt
                     isTimeSet = false;
                   }
+                }  
 
                   const updateDate =
                     visit.statusLastUpdated instanceof Timestamp
@@ -418,6 +427,30 @@ export class VisitRepository {
         where('grossTonnage', '==', grossTonnage),
         orderBy('initialEta', 'desc'),
         limit(100)
+      );
+
+      return this.executeVisitsQuery(visitsQuery);
+    });
+  }
+
+  /**
+   * Get enriched visits for a specific ship by shipId.
+   * This includes full trip data (inward and outward trips) for complete visit history.
+   * Used by the Ships page to show full visit details including berthed/sailed dates and pilots.
+   */
+  getEnrichedVisitsByShipId(shipId: string): Observable<EnrichedVisit[]> {
+    return runInInjectionContext(this.injector, () => {
+      const visitsCollection = collection(
+        this.firestore,
+        this.VISITS_COLLECTION
+      );
+
+      // Query for all visits for this ship, ordered by most recent first
+      const visitsQuery = query(
+        visitsCollection,
+        where('shipId', '==', shipId),
+        orderBy('initialEta', 'desc'),
+        limit(100) // Limit to prevent excessive queries
       );
 
       return this.executeVisitsQuery(visitsQuery);

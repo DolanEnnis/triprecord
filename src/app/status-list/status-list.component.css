@@ -114,3 +114,22 @@ mat-header-cell {
   color: #999;
   font-style: italic;
 }
+
+/* Snackbar Styling */
+::ng-deep .success-snackbar {
+  background-color: #4caf50 !important; /* Green for success */
+  color: white !important;
+}
+
+::ng-deep .success-snackbar .mat-mdc-button {
+  color: white !important;
+}
+
+::ng-deep .error-snackbar {
+  background-color: #f44336 !important; /* Red for errors */
+  color: white !important;
+}
+
+::ng-deep .error-snackbar .mat-mdc-button {
+  color: white !important;
+}

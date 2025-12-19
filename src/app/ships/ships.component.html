@@ -1,6 +1,15 @@
 <div class="container">
-  <div class="search-section">
-    <h3>Search Ships</h3>
+  <!-- SEARCH SECTION - Always visible -->
+  <div class="search-section" [class.minimized]="selectedShipId()">
+    <div class="search-header">
+      <h3>Search Ships</h3>
+      @if (selectedShipId()) {
+        <button mat-raised-button color="accent" (click)="clearSelection()">
+          <mat-icon>arrow_back</mat-icon>
+          Back to Search
+        </button>
+      }
+    </div>
     <p class="instruction">Enter at least 3 characters to search for a ship</p>
     
     <mat-form-field appearance="outline" class="search-field">
@@ -9,38 +18,71 @@
       <mat-icon matIconSuffix>search</mat-icon>
     </mat-form-field>
 
-    <div class="results-section">
-      <table mat-table [dataSource]="(ships$ | async) || []" class="ships-table">
-        
-        <ng-container matColumnDef="shipName">
-          <th mat-header-cell *matHeaderCellDef>Vessel Name</th>
-          <td mat-cell *matCellDef="let ship">
-            <b>{{ship.ship}}</b>
-          </td>
-        </ng-container>
+    <!-- SEARCH RESULTS TABLE - Only shown when no ship is selected -->
+    @if (!selectedShipId()) {
+      <div class="results-section">
+        <table mat-table [dataSource]="(ships$ | async) || []" class="ships-table">
+          
+          <ng-container matColumnDef="shipName">
+            <th mat-header-cell *matHeaderCellDef>Vessel Name</th>
+            <td mat-cell *matCellDef="let ship">
+              <b>{{ship.ship}}</b>
+            </td>
+          </ng-container>
 
-        <ng-container matColumnDef="grossTonnage">
-          <th mat-header-cell *matHeaderCellDef>GT</th>
-          <td mat-cell *matCellDef="let ship">{{ship.gt}}</td>
-        </ng-container>
+          <ng-container matColumnDef="grossTonnage">
+            <th mat-header-cell *matHeaderCellDef>GT</th>
+            <td mat-cell *matCellDef="let ship">{{ship.gt}}</td>
+          </ng-container>
 
-        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let ship; columns: displayedColumns;" 
-            (click)="viewShipVisits(ship.id, ship.ship)"
-            class="clickable-row">
-        </tr>
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let ship; columns: displayedColumns;" 
+              (click)="viewShipVisits(ship.id, ship.ship)"
+              class="clickable-row">
+          </tr>
 
-        <tr class="mat-row" *matNoDataRow>
-          <td class="mat-cell no-results" [attr.colspan]="displayedColumns.length">
-            <ng-container *ngIf="searchControl.value && searchControl.value.length >= 3; else hint">
-              No ships found matching "{{searchControl.value}}"
-            </ng-container>
-            <ng-template #hint>
-              Enter at least 3 characters to search
-            </ng-template>
-          </td>
-        </tr>
-      </table>
-    </div>
+          <tr class="mat-row" *matNoDataRow>
+            <td class="mat-cell no-results" [attr.colspan]="displayedColumns.length">
+              <ng-container *ngIf="searchControl.value && searchControl.value.length >= 3; else hint">
+                No ships found matching "{{searchControl.value}}"
+              </ng-container>
+              <ng-template #hint>
+                Enter at least 3 characters to search
+              </ng-template>
+            </td>
+          </tr>
+        </table>
+      </div>
+    }
   </div>
+
+  <!-- SHIP DETAILS SECTION - Only shown when a ship is selected -->
+  @if (selectedShipId()) {
+    <div class="details-section">
+      <h2 class="ship-name-header">{{selectedShipName()}}</h2>
+      
+      <!-- Ship Details Card Component -->
+      <app-ship-details-card [shipId]="selectedShipId()!"></app-ship-details-card>
+
+      <!-- Previous Visits Section -->
+      <div class="visits-section">
+        <h3>Visit History ({{shipVisits().length}} Total)</h3>
+        
+        @if (shipVisits().length > 0) {
+          <app-previous-visits-list 
+            [data]="shipVisits()" 
+            [filterValue]="''"
+            [sortOrder]="'inward'"
+            [highlightMode]="'2'">
+          </app-previous-visits-list>
+        } @else {
+          <mat-card class="no-visits-card">
+            <mat-card-content>
+              <p class="no-visits-message">No previous visits found for this ship.</p>
+            </mat-card-content>
+          </mat-card>
+        }
+      </div>
+    </div>
+  }
 </div>
