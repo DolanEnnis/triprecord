@@ -1,6 +1,18 @@
 <div class="container" *ngIf="!loading(); else loader">
   <div class="header">
+    <button mat-icon-button (click)="cancel()" matTooltip="Go back">
+      <mat-icon>arrow_back</mat-icon>
+    </button>
     <h2>Edit Visit</h2>
+  </div>
+
+  <!-- OLD TRIP WARNING BANNER -->
+  <div *ngIf="isOldTrip()" class="old-trip-warning">
+    <mat-icon>warning</mat-icon>
+    <div class="warning-content">
+      <strong>Warning: This trip is {{ tripAgeDays() }} days old</strong>
+      <p>Editing trips older than 60 days is discouraged. Historical records should generally remain unchanged.</p>
+    </div>
   </div>
 
   <form [formGroup]="form" class="edit-form">
@@ -368,23 +380,41 @@
   </form>
 
   <!-- 
-    Floating Save Button with Tooltip Wrapper 
+    Floating Action Buttons with Tooltip Wrapper 
     
     DESIGN PATTERN: Wrapper-based tooltip for disabled buttons
     - matTooltip on wrapper instead of button (disabled buttons don't receive mouse events)
     - Dynamic tooltip shows validation errors or save status
     - Maintains FAB (Floating Action Button) position and styling
+    
+    UX IMPROVEMENT: Cancel button added
+    - Users can easily exit without saving
+    - Natural navigation pattern (back to where they came from)
+    - Reduces confusion when "Save Changes" is the only option
   -->
-  <div [matTooltip]="getSaveButtonTooltip()" class="fab-wrapper">
+  <div class="fab-buttons">
+    <!-- Cancel Button -->
     <button 
-      mat-extended-fab 
-      color="primary" 
-      class="fab-save" 
-      (click)="save()" 
-      [disabled]="saving()">
-      <mat-icon>save</mat-icon>
-      <span>{{ saving() ? 'Saving...' : 'Save Changes' }}</span>
+      mat-fab 
+      color="basic" 
+      class="fab-cancel" 
+      (click)="cancel()"
+      matTooltip="Go back without saving">
+      <mat-icon>close</mat-icon>
     </button>
+    
+    <!-- Save Button -->
+    <div [matTooltip]="getSaveButtonTooltip()" class="fab-wrapper">
+      <button 
+        mat-extended-fab 
+        color="primary" 
+        class="fab-save" 
+        (click)="save()" 
+        [disabled]="saving()">
+        <mat-icon>save</mat-icon>
+        <span>{{ saving() ? 'Saving...' : 'Save Changes' }}</span>
+      </button>
+    </div>
   </div>
 </div>
 

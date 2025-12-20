@@ -20,30 +20,44 @@ import { PilotService } from '../services/pilot.service';
 import { ShipIntelligenceService } from '../services/ship-intelligence.service';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ShipIntelligenceDialogComponent } from '../dialogs/ship-intelligence-dialog.component';
+import { OldTripWarningDialogComponent } from '../dialogs/old-trip-warning-dialog.component';
 import { Trip, Visit, Ship, Port, VisitStatus, TripType, Source } from '../models/data.model';
 import { combineLatest, filter, map, switchMap, of, forkJoin, catchError, tap, take, Observable } from 'rxjs';
 import { Timestamp } from '@angular/fire/firestore';
 import { DateTimePickerComponent } from '../date-time-picker/date-time-picker.component';
 import { IFormComponent } from '../guards/form-component.interface';
 import { AuthService } from '../auth/auth';
+import { Location } from '@angular/common';
 
 /**
  * Custom validator to ensure the selected pilot is from the valid pilot list.
  * 
+ * LEARNING: VALIDATING HISTORICAL DATA vs NEW DATA
+ * - Retired pilots may not have logins but exist in historical trip data
+ * - We need to accept the original pilot name even if they're retired
+ * - But still validate newly selected pilots against active pilot list
+ * 
  * WHY A VALIDATOR FACTORY?
- * - We need to pass the PilotService to the validator
+ * - We need to pass the PilotService AND original pilot name to the validator
  * - Angular validators are just functions, so we use a factory pattern
- * - This returns a ValidatorFn that has access to pilotService via closure
+ * - This returns a ValidatorFn that has access to both via closure
  * 
  * @param pilotService - The injected PilotService to validate against
+ * @param originalPilotName - The pilot name loaded from the database (may be retired)
  * @returns A ValidatorFn that checks if the pilot name is valid
  */
-function pilotValidator(pilotService: PilotService): ValidatorFn {
+function pilotValidator(pilotService: PilotService, originalPilotName?: string | null): ValidatorFn {
   return (control: AbstractControl): ValidationErrors | null => {
     const value = control.value;
     
     // Allow empty values (handled by required validator if needed)
     if (!value || value.trim() === '') {
+      return null;
+    }
+    
+    // CRITICAL FIX: Allow the original pilot name even if retired
+    // This preserves historical data integrity
+    if (originalPilotName && value === originalPilotName) {
       return null;
     }
     
@@ -92,11 +106,33 @@ export class EditTripComponent implements OnInit, IFormComponent {
   private shipIntelligence = inject(ShipIntelligenceService);
   private dialog = inject(MatDialog);
   private authService = inject(AuthService);
+  private location = inject(Location);
   pilotService = inject(PilotService); // Public so template can access pilotService.pilotNames()
 
   visitId: string | null = null;
   form!: FormGroup;
   loading = signal(true);
+  
+  // Track original pilot names for retired pilot validation
+  // These capture the pilot names when the trip is loaded,
+  // allowing us to save trips with retired pilots without validation errors
+  originalInwardPilot = signal<string | null>(null);
+  originalOutwardPilot = signal<string | null>(null);
+  
+  // Trip age calculation for old trip warning
+  initialEta = signal<Date | null>(null);
+  tripAgeDays = computed(() => {
+    const eta = this.initialEta();
+    if (!eta) return 0;
+    
+    const now = new Date();
+    const diffMs = now.getTime() - eta.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    return diffDays;
+  });
+  
+  isOldTrip = computed(() => this.tripAgeDays() >= 60);
+  userAcknowledgedOldTrip = signal(false);
   
   // Enums/Options for template
   ports: Port[] = ['Anchorage', 'Cappa', 'Moneypoint', 'Tarbert', 'Foynes', 'Aughinish', 'Shannon', 'Limerick'];
@@ -334,6 +370,10 @@ export class EditTripComponent implements OnInit, IFormComponent {
             source: visit.source
           }
         });
+        
+        // Capture initial ETA for trip age calculation
+        const eta = visit.initialEta instanceof Timestamp ? visit.initialEta.toDate() : visit.initialEta;
+        this.initialEta.set(eta);
 
         // Handle Trips
         const inTrip = trips.find((t: Trip) => t.typeTrip === 'In');
@@ -341,6 +381,9 @@ export class EditTripComponent implements OnInit, IFormComponent {
 
         if (inTrip) {
           this.inwardTripId = inTrip.id!;
+          // Capture original pilot name for validation
+          this.originalInwardPilot.set(inTrip.pilot || null);
+          
           this.form.patchValue({
             inwardTrip: {
               pilot: inTrip.pilot,
@@ -357,6 +400,12 @@ export class EditTripComponent implements OnInit, IFormComponent {
               good: inTrip.good
             }
           });
+          
+          // Update validator to accept the original (potentially retired) pilot name
+          const inwardPilotControl = this.form.get('inwardTrip.pilot');
+          inwardPilotControl?.clearValidators();
+          inwardPilotControl?.setValidators(pilotValidator(this.pilotService, inTrip.pilot));
+          inwardPilotControl?.updateValueAndValidity();
         } else {
           // No inward trip yet - set default port to berth
           this.form.patchValue({
@@ -368,6 +417,9 @@ export class EditTripComponent implements OnInit, IFormComponent {
 
         if (outTrip) {
           this.outwardTripId = outTrip.id!;
+          // Capture original pilot name for validation
+          this.originalOutwardPilot.set(outTrip.pilot || null);
+          
           this.form.patchValue({
             outwardTrip: {
               pilot: outTrip.pilot,
@@ -384,6 +436,12 @@ export class EditTripComponent implements OnInit, IFormComponent {
               good: outTrip.good
             }
           });
+          
+          // Update validator to accept the original (potentially retired) pilot name
+          const outwardPilotControl = this.form.get('outwardTrip.pilot');
+          outwardPilotControl?.clearValidators();
+          outwardPilotControl?.setValidators(pilotValidator(this.pilotService, outTrip.pilot));
+          outwardPilotControl?.updateValueAndValidity();
         } else {
           // No outward trip yet - set default port to berth
           this.form.patchValue({
@@ -443,6 +501,26 @@ export class EditTripComponent implements OnInit, IFormComponent {
   hasUnsavedAdditionalTrip = false;
 
   async save() {
+    // FEATURE: Old Trip Warning
+    // Check if this is an old trip (60+ days) and user hasn't acknowledged
+    if (this.isOldTrip() && !this.userAcknowledgedOldTrip()) {
+      const dialogRef = this.dialog.open(OldTripWarningDialogComponent, {
+        width: '500px',
+        disableClose: true, // Force user to make a choice
+        data: { tripAgeDays: this.tripAgeDays() }
+      });
+      
+      const userConfirmed = await dialogRef.afterClosed().toPromise();
+      
+      if (!userConfirmed) {
+        // User clicked "Cancel" - don't save
+        return;
+      }
+      
+      // User clicked "Edit Anyway" - remember this so we don't show again
+      this.userAcknowledgedOldTrip.set(true);
+    }
+    
     // If form is invalid, mark all fields as touched to show validation errors
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -827,6 +905,18 @@ export class EditTripComponent implements OnInit, IFormComponent {
     });
 
     return errors;
+  }
+
+  /**
+   * Navigates back to the previous page without saving.
+   * 
+   * WHY USE Location.back() instead of Router.navigate()?
+   * - Preserves the user's navigation history
+   * - Goes back to wherever they came from (could be status list, ships page, etc.)
+   * - Provides more intuitive UX than a hardcoded destination
+   */
+  cancel(): void {
+    this.location.back();
   }
 
   /**

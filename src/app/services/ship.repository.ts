@@ -150,6 +150,34 @@ export class ShipRepository {
   }
 
   /**
+   * Gets ALL ships from the master '/ships' collection.
+   * Used for client-side cached searching to enable "contains" matching.
+   * Results are cached in the calling component to minimize Firebase reads.
+   * @returns Observable array of all ships with name, GT, and ID
+   */
+  getAllShips(): Observable<{ ship: string; gt: number; id: string }[]> {
+    return runInInjectionContext(this.injector, () => {
+      const shipsCollection = collection(this.firestore, 'ships');
+      
+      // Fetch ALL ships, ordered by name
+      const shipsQuery = query(
+        shipsCollection,
+        orderBy('shipName', 'asc')
+      );
+
+      return (collectionData(shipsQuery, { idField: 'id' }) as Observable<Ship[]>).pipe(
+        map((ships: Ship[]) =>
+          ships.map((ship: Ship) => ({
+            ship: ship.shipName,
+            gt: ship.grossTonnage,
+            id: ship.id!
+          }))
+        )
+      );
+    });
+  }
+
+  /**
    * Searches for ships by name (prefix match, case-insensitive).
    * Used by sheet-info component.
    * @param search The search string.

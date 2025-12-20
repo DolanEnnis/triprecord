@@ -1,4 +1,12 @@
 <div class="container">
+  <!-- LOADING INDICATOR - Shown while ships database loads -->
+  @if (loadingShips()) {
+    <div class="loading-banner">
+      <mat-progress-spinner mode="indeterminate" diameter="30"></mat-progress-spinner>
+      <span>Loading ships database... ({{allShipsCache?.length || 0}} ships loaded so far)</span>
+    </div>
+  }
+
   <!-- SEARCH SECTION - Always visible -->
   <div class="search-section" [class.minimized]="selectedShipId()">
     <div class="search-header">

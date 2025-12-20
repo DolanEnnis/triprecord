@@ -4,6 +4,24 @@
   margin: 0 auto;
 }
 
+/* LOADING BANNER */
+.loading-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 24px;
+  background: #e3f2fd;
+  border-left: 4px solid #2196f3;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  color: #1565c0;
+}
+
+.loading-banner mat-progress-spinner {
+  flex-shrink: 0;
+}
+
 /* SEARCH SECTION */
 .search-section {
   background: #f5f5f5;

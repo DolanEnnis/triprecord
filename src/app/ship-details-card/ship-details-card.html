@@ -78,11 +78,15 @@
           (click)="save()" 
           [disabled]="saving() || shipForm.invalid">
           @if (saving()) {
-            <mat-icon>sync</mat-icon>
-            <span>Saving...</span>
+            <ng-container>
+              <mat-icon>sync</mat-icon>
+              <span>Saving...</span>
+            </ng-container>
           } @else {
-            <mat-icon>save</mat-icon>
-            <span>Save Changes</span>
+            <ng-container>
+              <mat-icon>save</mat-icon>
+              <span>Save Changes</span>
+            </ng-container>
           }
         </button>
       </mat-card-actions>

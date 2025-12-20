@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatInputModule } from '@angular/material/input';
@@ -7,11 +7,12 @@ import { MatTableModule } from '@angular/material/table';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Router } from '@angular/router';
 import { ShipRepository } from '../services/ship.repository';
 import { VisitRepository } from '../services/visit.repository';
 import { Observable, of } from 'rxjs';
-import { debounceTime, distinctUntilChanged, switchMap, finalize } from 'rxjs/operators';
+import { debounceTime, distinctUntilChanged, switchMap, finalize, map } from 'rxjs/operators';
 import { ShipDetailsCard } from '../ship-details-card/ship-details-card';
 import { PreviousVisitsListComponent } from '../previous-visits/previous-visits-list/previous-visits-list.component';
 import { EnrichedVisit } from '../models/enriched-visit.model';
@@ -41,13 +42,14 @@ import { EnrichedVisit } from '../models/enriched-visit.model';
     MatIconModule,
     MatButtonModule,
     MatCardModule,
+    MatProgressSpinnerModule,
     ShipDetailsCard,
     PreviousVisitsListComponent
   ],
   templateUrl: './ships.component.html',
   styleUrls: ['./ships.component.css']
 })
-export class ShipsComponent {
+export class ShipsComponent implements OnInit {
   private readonly shipRepository = inject(ShipRepository);
   private readonly visitRepository = inject(VisitRepository);
   private readonly router = inject(Router);
@@ -74,27 +76,65 @@ export class ShipsComponent {
   // Observable for visit history of the selected ship
   shipVisits = signal<EnrichedVisit[]>([]);
 
+  // Cache for all ships - loaded eagerly on page load
+  allShipsCache: { ship: string; gt: number; id: string }[] | null = null;
+  
+  // Signal to show loading indicator at top of page
+  loadingShips = signal(true);
+
   constructor() {
-    // LEARNING: REACTIVE SEARCH with RxJS
-    // This pattern is common for implementing type-ahead search:
-    // 1. Listen to form control changes
-    // 2. Debounce to avoid too many API calls (wait 300ms after typing stops)
-    // 3. Only search if >3 characters
-    // 4. Use switchMap to cancel previous search if user keeps typing
+    // LEARNING: EAGER-LOADED CACHED SEARCH PATTERN
+    // 
+    // Strategy:
+    // 1. On page load (ngOnInit), fetch ALL ships from Firebase
+    // 2. Show loading indicator while fetching
+    // 3. Cache them in memory (allShipsCache)
+    // 4. For ALL searches, filter the cache (instant!)
+    // 
+    // Benefits:
+    // - Loading happens in background while user reads the page
+    // - True "contains" matching: "Win" finds "Arklow Wind"
+    // - All searches are INSTANT (no network delay)
+    // - Clear visual feedback via loading indicator
+    // 
+    // Trade-off: Initial 4-second load, but user barely notices
     this.ships$ = this.searchControl.valueChanges.pipe(
       debounceTime(300),
       distinctUntilChanged(),
       switchMap(search => {
         if (!search || search.length < 3) {
-          this.searching.set(false);
           return of([]);
         }
-        this.searching.set(true);
-        return this.shipRepository.getShipSuggestions(search).pipe(
-          finalize(() => this.searching.set(false)) // Reset loading state when done
+        
+        // If cache doesn't exist yet, return empty (shouldn't happen after ngOnInit)
+        if (!this.allShipsCache) {
+          return of([]);
+        }
+        
+        // Filter cached ships (instant!)
+        const filtered = this.allShipsCache.filter((ship: { ship: string; gt: number; id: string }) =>
+          ship.ship.toLowerCase().includes(search.toLowerCase())
         );
+        return of(filtered);
       })
     );
+  }
+
+  ngOnInit(): void {
+    // LEARNING: EAGER LOADING ON COMPONENT INIT
+    // Load all ships immediately when component opens
+    // User sees loading indicator while this happens
+    
+    this.shipRepository.getAllShips().subscribe({
+      next: (ships: { ship: string; gt: number; id: string }[]) => {
+        this.allShipsCache = ships;
+        this.loadingShips.set(false);
+      },
+      error: (err) => {
+        console.error('Failed to load ships:', err);
+        this.loadingShips.set(false);
+      }
+    });
   }
 
   /**

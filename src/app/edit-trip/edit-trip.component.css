@@ -19,9 +19,14 @@
 
 .header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 12px;
   margin-bottom: 20px;
+}
+
+.header h2 {
+  margin: 0;
+  flex: 1;
 }
 
 .edit-form {
@@ -107,24 +112,70 @@
   margin-top: 16px;
 }
 
-/* 
-  Floating Action Button Wrapper for Tooltip Support
-  
-  PATTERN: Wrapper needs same positioning as FAB
-  - When button is disabled, tooltip must be on wrapper (disabled buttons don't receive mouse events)
-  - Wrapper inherits fixed positioning so tooltip appears in correct location
-  - display: contents would break the fixed positioning, so we use position: fixed on wrapper too
-*/
-.fab-wrapper {
-  position: fixed;
-  bottom: 4rem; /* Match button position */
-  right: 2rem;
-  z-index: 100; /* Above other content */
+/* Old Trip Warning Banner */
+.old-trip-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+  background-color: #fff3cd;
+  border: 1px solid #ffc107;
+  border-left: 4px solid #ff9800;
+  border-radius: 8px;
+  color: #664d03;
 }
 
-/* Floating Action Button for Save */
+.old-trip-warning mat-icon {
+  color: #ff9800;
+  font-size: 28px;
+  width: 28px;
+  height: 28px;
+  margin-top: 2px;
+}
+
+.old-trip-warning .warning-content {
+  flex: 1;
+}
+
+.old-trip-warning strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 1.05rem;
+}
+
+.old-trip-warning p {
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+/* 
+  Floating Action Buttons Container
+  
+  PATTERN: Multiple FABs stacked vertically
+  - Cancel button above Save button
+  - Fixed positioning in bottom-right corner
+  - Consistent spacing between buttons
+*/
+.fab-buttons {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+/* Cancel FAB Button */
+.fab-cancel {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Save FAB Button */
 .fab-save {
-  /* Position is now handled by wrapper */
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
