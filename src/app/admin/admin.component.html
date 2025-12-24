@@ -1,6 +1,78 @@
 <div class="container">
   <h1>User Management</h1>
 
+  <!-- Shannon Daily Diary Monitoring Status -->
+  @if (metadata(); as meta) {
+    <mat-card style="margin-bottom: 24px;">
+      <mat-card-header>
+        <mat-card-title style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+          <span style="display: flex; align-items: center; gap: 8px;">
+            <mat-icon>monitor_heart</mat-icon>
+            Shannon Daily Diary Monitoring
+          </span>
+          <mat-slide-toggle 
+            [checked]="meta.watchtower_enabled"
+            (change)="toggleWatchtower($event.checked)"
+            color="primary">
+            {{ meta.watchtower_enabled ? 'Running' : 'Paused' }}
+          </mat-slide-toggle>
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 12px;">
+          
+          <!-- Status -->
+          <div>
+            <div style="font-size: 12px; color: #666; margin-bottom: 4px;">Status</div>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <mat-icon [style.color]="meta.watchtower_enabled ? '#4caf50' : '#ff9800'" style="font-size: 18px; width: 18px; height: 18px;">
+                {{ meta.watchtower_enabled ? 'play_circle' : 'pause_circle' }}
+              </mat-icon>
+              <strong>{{ meta.watchtower_enabled ? 'Monitoring Active' : 'Paused' }}</strong>
+            </div>
+          </div>
+
+          <!-- Last Check -->
+          <div>
+            <div style="font-size: 12px; color: #666; margin-bottom: 4px;">Last Check</div>
+            @if (meta.last_check; as lastCheck) {
+              <strong>{{ lastCheck.toDate() | date:'dd/MM HH:mm' }}</strong>
+            } @else {
+              <strong>Never</strong>
+            }
+          </div>
+
+          <!-- Last Processed -->
+          <div>
+            <div style="font-size: 12px; color: #666; margin-bottom: 4px;">Last Processed</div>
+            @if (meta.last_processed; as lastProc) {
+              <strong>{{ lastProc.toDate() | date:'dd/MM HH:mm' }}</strong>
+            } @else {
+              <strong>Never</strong>
+            }
+          </div>
+
+          <!-- Update Available -->
+          <div>
+            <div style="font-size: 12px; color: #666; margin-bottom: 4px;">Update Available</div>
+            <strong [style.color]="meta.update_available ? '#4caf50' : 'inherit'">
+              {{ meta.update_available ? 'Yes' : 'No' }}
+            </strong>
+          </div>
+
+          <!-- Processing Status -->
+          <div>
+            <div style="font-size: 12px; color: #666; margin-bottom: 4px;">Processing</div>
+            <strong [style.color]="meta.processing ? '#ff9800' : 'inherit'">
+              {{ meta.processing ? 'In Progress' : 'Idle' }}
+            </strong>
+          </div>
+
+        </div>
+      </mat-card-content>
+    </mat-card>
+  }
+
   <mat-form-field appearance="outline">
     <mat-label>Filter Users</mat-label>
     <input matInput (keyup)="applyFilter($event)" placeholder="Search by name or email">
@@ -27,6 +99,18 @@
         <td mat-cell *matCellDef="let user">{{ user.lastLoginTrip?.toDate() | date:'dd-MM-yy HH:mm' }}</td>
       </ng-container>
 
+      <!-- Last Sheet View Column -->
+      <ng-container matColumnDef="lastSheetView">
+        <th mat-header-cell *matHeaderCellDef>Last Sheet View</th>
+        <td mat-cell *matCellDef="let user">
+          @if (user.sheet_info_last_viewed; as lastView) {
+            {{ lastView.toDate() | date:'dd/MM HH:mm' }}
+          } @else {
+            Never
+          }
+        </td>
+      </ng-container>
+
       <!-- User Type Column -->
       <ng-container matColumnDef="userType">
         <th mat-header-cell *matHeaderCellDef mat-sort-header>User Type</th>
@@ -35,6 +119,7 @@
             <mat-option value="pilot">Pilot</mat-option>
             <mat-option value="admin">Admin</mat-option>
             <mat-option value="sfpc">SFPC</mat-option>
+            <mat-option value="viewer">Viewer</mat-option>
             <mat-option value="other">Other</mat-option>
           </mat-select>
         </td>

@@ -1,137 +1,92 @@
 <div class="reconciliation-container">
-  <mat-card>
+  <!-- PDF Daily Diary Section -->
+  <mat-card style="margin-top: 20px;">
     <mat-card-header>
       <mat-card-title>
-        <mat-icon>add_box</mat-icon>
-        Quick Add Ship from Port Report
+        <mat-icon>picture_as_pdf</mat-icon>
+        Daily Diary PDF
       </mat-card-title>
     </mat-card-header>
 
     <mat-card-content>
-      <!-- Paste Input -->
-      <mat-form-field class="full-width">
-        <mat-label>Paste ship data from port report</mat-label>
-        <textarea 
-          matInput 
-          [ngModel]="pastedText()"
-          (ngModelChange)="pastedText.set($event)"
-          rows="3"
-          placeholder="Paste here...">
-        </textarea>
-      </mat-form-field>
-
-      <div class="button-row">
-        <button mat-raised-button color="primary" (click)="parse()" [disabled]="!pastedText().trim()">
-          <mat-icon>sync</mat-icon>
-          Parse
-        </button>
-        @if (parsedData()) {
-          <button mat-button (click)="reset()">Clear</button>
-        }
-      </div>
-
-      @if (parseError()) {
-        <div class="error-message">
-          <mat-icon color="warn">error</mat-icon>
-          <p>{{ parseError() }}</p>
+      @if (pdfLoading()) {
+        <div class="loading-container">
+          <mat-spinner diameter="40"></mat-spinner>
+          <p style="margin-top: 16px; font-weight: 500;">Working on Day Diary, Fetching the info for you, this can take a couple of Mins! Sorry!</p>
+          @if (loadingStep()) {
+            <p style="margin-top: 8px; color: #666; font-size: 14px;">{{ loadingStep() }}</p>
+          }
         </div>
       }
 
-      <!-- Parsed Data Display -->
-      @if (parsedData()) {
-        <div class="parsed-section">
-          <h3>Parsed Information</h3>
-          <div class="parsed-card">
-            <div class="data-row">
-              <strong>Ship Name:</strong>
-              <span>{{ parsedData()!.shipName }}</span>
-            </div>
-            <div class="data-row">
-              <strong>Gross Tonnage:</strong>
-              <span>{{ parsedData()!.grossTonnage }}</span>
-            </div>
-            <div class="data-row">
-              <strong>ETA:</strong>
-              <span>{{ parsedData()!.eta | date:'EEE dd MMM yyyy HH:mm' }}</span>
-            </div>
-            <div class="data-row">
-              <strong>Berth:</strong>
-              <span>{{ parsedData()!.berthPort }}</span>
-            </div>
+      @if (pdfError()) {
+        <div class="error-message" style="margin-top: 16px;">
+          <mat-icon color="warn">error</mat-icon>
+          <p>{{ pdfError() }}</p>
+          <button mat-raised-button color="primary" (click)="fetchPdf()" style="margin-top: 12px;">
+            <mat-icon>refresh</mat-icon>
+            Retry
+          </button>
+        </div>
+      }
+
+      @if (pdfShips().length > 0) {
+        <div style="margin-top: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="margin: 0;">Extracted Ships ({{ pdfShipsCount() }})</h3>
+            @if (lastProcessed()) {
+              <span style="color: #666; font-size: 14px;">Last updated: {{ lastProcessed() | date:'dd/MM/yyyy HH:mm' }}</span>
+            }
           </div>
+          <table mat-table [dataSource]="pdfShips()" style="width: 100%; margin-top: 12px;">
+            
+            <ng-container matColumnDef="name">
+              <th mat-header-cell *matHeaderCellDef>Vessel Name</th>
+              <td mat-cell *matCellDef="let ship">{{ ship.name }}</td>
+            </ng-container>
 
-          <!-- Comparison Results -->
-          @if (loading()) {
-            <div class="loading-container">
-              <mat-spinner diameter="40"></mat-spinner>
-              <p>Checking existing data...</p>
-            </div>
-          }
+            <ng-container matColumnDef="gt">
+              <th mat-header-cell *matHeaderCellDef>GT</th>
+              <td mat-cell *matCellDef="let ship">{{ ship.gt | number }}</td>
+            </ng-container>
 
-          @if (comparison()) {
-            <div class="comparison-section">
-              <h3>Comparison with Database</h3>
-              
-              @if (comparison()!.isNewShip) {
-                <div class="status-card new">
-                  <mat-icon>add_circle</mat-icon>
-                  <p><strong>New Ship:</strong> This ship is not in the system</p>
-                </div>
-              } @else {
-                <div class="status-card existing">
-                  <mat-icon>check_circle</mat-icon>
-                  <p><strong>Existing Ship:</strong> Found in database</p>
-                </div>
-              }
+            <ng-container matColumnDef="port">
+              <th mat-header-cell *matHeaderCellDef>Port</th>
+              <td mat-cell *matCellDef="let ship">{{ ship.port }}</td>
+            </ng-container>
 
-              @if (comparison()!.isNewVisit) {
-                <div class="status-card new">
-                  <mat-icon>add_circle</mat-icon>
-                  <p><strong>New Visit:</strong> No active visit for this ship</p>
-                </div>
-              } @else {
-                <div class="status-card existing">
-                  <mat-icon>check_circle</mat-icon>
-                  <p><strong>Existing Visit:</strong> Active visit found</p>
-                  
-                  @if (comparison()!.hasChanges) {
-                    <div class="changes-list">
-                      <p><strong>Detected changes:</strong></p>
-                      <ul>
-                        @for (change of comparison()!.changes; track change) {
-                          <li>{{ change }}</li>
-                        }
-                      </ul>
-                    </div>
-                  } @else {
-                    <p class="no-changes">No changes detected</p>
-                  }
-                </div>
-              }
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <td mat-cell *matCellDef="let ship">{{ ship.status }}</td>
+            </ng-container>
 
-              <!-- Action Buttons -->
-              <div class="action-buttons">
-                @if (comparison()!.isNewShip || comparison()!.isNewVisit) {
-                  <button mat-raised-button color="primary" (click)="addToFirebase()" [disabled]="saving()">
-                    @if (saving()) {
-                      <mat-spinner diameter="20"></mat-spinner>
-                    }
-                    Add Visit
-                  </button>
+            <ng-container matColumnDef="eta">
+              <th mat-header-cell *matHeaderCellDef>ETA</th>
+              <td mat-cell *matCellDef="let ship">
+                @if (ship.eta) {
+                  {{ ship.eta | date:'dd/MM HH:mm' }}
+                } @else {
+                  -
                 }
-                @if (!comparison()!.isNewVisit && comparison()!.hasChanges) {
-                  <button mat-raised-button color="accent" (click)="updateFirebase()" [disabled]="saving()">
-                    @if (saving()) {
-                      <mat-spinner diameter="20"></mat-spinner>
-                    }
-                    Update Visit
-                  </button>
-                }
-              </div>
-            </div>
-          }
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="['name', 'gt', 'port', 'status', 'eta']"></tr>
+            <tr mat-row *matRowDef="let row; columns: ['name', 'gt', 'port', 'status', 'eta'];"></tr>
+          </table>
+        </div>
+
+        <details style="margin-top: 20px;">
+          <summary style="cursor: pointer; font-weight: 500;">Show Raw PDF Text</summary>
+          <pre style="background: #f5f5f5; padding: 16px; overflow: auto; max-height: 400px; border: 1px solid #ddd; margin-top: 12px;">{{ pdfText() }}</pre>
+        </details>
+      } @else if (pdfText()) {
+        <div style="margin-top: 20px;">
+          <h3>PDF Content (Raw Text - No Ships Found)</h3>
+          <pre style="background: #f5f5f5; padding: 16px; overflow: auto; max-height: 600px; border: 1px solid #ddd;">{{ pdfText() }}</pre>
         </div>
       }
     </mat-card-content>
   </mat-card>
 </div>
+

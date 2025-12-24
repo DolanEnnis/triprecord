@@ -1,211 +1,182 @@
-import { Component, signal, inject } from '@angular/core';
+import { Component, signal, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
-import { ShipPasteParserService, ParsedShipData } from '../services/ship-paste-parser.service';
-import { ShipRepository } from '../services/ship.repository';
-import { VisitRepository } from '../services/visit.repository';
-import { DataService } from '../services/data.service';
-import { Ship, Visit } from '../models/data.model';
-import { Timestamp, serverTimestamp } from '@angular/fire/firestore';
+import { MatTableModule } from '@angular/material/table';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { Functions, httpsCallable } from '@angular/fire/functions';
+import { SystemSettingsRepository } from '../services/system-settings.repository';
+import { UserRepository } from '../services/user.repository';
+import { Auth } from '@angular/fire/auth';
+import { skip, filter, take } from 'rxjs/operators';
 
 @Component({
   selector: 'app-sheet-info',
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
     MatCardModule,
     MatButtonModule,
-    MatFormFieldModule,
-    MatInputModule,
     MatProgressSpinnerModule,
-    MatIconModule
+    MatIconModule,
+    MatTableModule,
+    MatSnackBarModule
   ],
   templateUrl: './sheet-info.html',
   styleUrls: ['./sheet-info.css']
 })
-export class SheetInfoComponent {
-  private parser = inject(ShipPasteParserService);
-  private shipRepository = inject(ShipRepository);
-  private visitRepository = inject(VisitRepository);
-  private dataService = inject(DataService);
+export class SheetInfoComponent implements OnInit {
+  private functions = inject(Functions);
+  private systemSettings = inject(SystemSettingsRepository);
+  private userRepo = inject(UserRepository);
+  private auth = inject(Auth);
+  private snackBar = inject(MatSnackBar);
+  
+  // PDF-related state
+  pdfText = signal<string | null>(null);
+  pdfLoading = signal(false);
+  loadingStep = signal<string>(''); // Track current loading step
+  pdfError = signal<string | null>(null);
+  pdfShips = signal<PdfShip[]>([]);
+  pdfShipsCount = signal(0);
+  lastProcessed = signal<Date | null>(null); // Track when data was last updated
+  
+  // Create the Cloud Function callable during initialization
+  private fetchDailyDiaryCallable = httpsCallable<void, { 
+    text: string; 
+    numPages: number;
+    ships: PdfShip[];
+    shipsCount: number;
+  }>(
+    this.functions,
+    'fetchDailyDiaryPdf'
+  );
 
-  pastedText = signal('');
-  parsedData = signal<ParsedShipData | null>(null);
-  parseError = signal<string | null>(null);
-  loading = signal(false);
-  saving = signal(false);
-  comparison = signal<ComparisonResult | null>(null);
-
-  parse(): void {
-    this.parseError.set(null);
-    const parsed = this.parser.parseShipData(this.pastedText());
+  ngOnInit(): void {
+    // Mark that user viewed this page (for green nav indicator)
+    this.markAsViewed();
     
-    if (!parsed) {
-      this.parseError.set('Could not parse the pasted text. Please check the format.');
-      return;
-    }
-
-    this.parsedData.set(parsed);
-    this.compareWithExisting(parsed);
-  }
-
-  private compareWithExisting(data: ParsedShipData): void {
-    this.loading.set(true);
-
-    // Check if ship exists
-    this.shipRepository.searchShipsByName(data.shipName).subscribe({
-      next: (ships: Ship[]) => {
-        const existingShip = ships.find((s: Ship) => 
-          s.shipName.trim().toLowerCase() === data.shipName.trim().toLowerCase()
-        );
-
-        if (existingShip) {
-          // Ship exists, check for active visit
-          this.checkActiveVisit(existingShip, data);
+    // Check if we need to fetch new data or can use cached version
+    this.systemSettings.getShannonMetadata$()
+      .pipe(take(1))
+      .subscribe(metadata => {
+        if (metadata?.update_available) {
+          // New data available - fetch and process PDF
+          console.log('New PDF data available, fetching...');
+          this.fetchPdf();
+        } else if (metadata?.cached_ships && metadata.cached_ships.length > 0) {
+          // No update - load cached data instantly from Firestore
+          console.log('Loading cached ship data from Firestore...');
+          this.pdfText.set(metadata.cached_text || '');
+          this.pdfShips.set(metadata.cached_ships);
+          this.pdfShipsCount.set(metadata.cached_ships.length);
+          this.pdfLoading.set(false);
+          // Set last processed timestamp if available
+          if (metadata.last_processed) {
+            this.lastProcessed.set(metadata.last_processed.toDate());
+          }
         } else {
-          // New ship
-          this.comparison.set({
-            isNewShip: true,
-            isNewVisit: true,
-            hasChanges: false,
-            changes: []
-          });
-          this.loading.set(false);
+          // No cached data - first time, fetch PDF
+          console.log('No cached data found, performing initial fetch...');
+          this.fetchPdf();
         }
-      },
-      error: (err: any) => {
-        console.error('Error checking ship:', err);
-        this.loading.set(false);
-      }
-    });
-  }
-
-  private checkActiveVisit(ship: Ship, data: ParsedShipData): void {
-    this.visitRepository.getActiveVisits().subscribe({
-      next: (visits) => {
-        const existingVisit = visits.find(v => v.shipId === ship.id);
-        
-        const changes: string[] = [];
-        
-        // Check for GT mismatch
-        if (ship.grossTonnage !== data.grossTonnage) {
-          changes.push(`GT: ${ship.grossTonnage} → ${data.grossTonnage}`);
-        }
-
-        if (existingVisit) {
-          // Compare ETA
-          const existingEta = existingVisit.initialEta instanceof Timestamp 
-            ? existingVisit.initialEta.toDate()
-            : existingVisit.initialEta;
-          
-          if (Math.abs(existingEta.getTime() - data.eta.getTime()) > 60000) {
-            changes.push(`ETA: ${existingEta.toLocaleString()} → ${data.eta.toLocaleString()}`);
-          }
-
-          // Compare berth
-          if (existingVisit.berthPort !== data.berthPort) {
-            changes.push(`Berth: ${existingVisit.berthPort} → ${data.berthPort}`);
-          }
-        }
-
-        this.comparison.set({
-          existingShip: ship,
-          existingVisit,
-          isNewShip: false,
-          isNewVisit: !existingVisit,
-          hasChanges: changes.length > 0,
-          changes
-        });
-        this.loading.set(false);
-      },
-      error: (err) => {
-        console.error('Error checking visit:', err);
-        this.loading.set(false);
-      }
-    });
-  }
-
-  async addToFirebase(): Promise<void> {
-    const data = this.parsedData();
-    if (!data) return;
-
-    this.saving.set(true);
-
-    try {
-      await this.dataService.addNewVisitFromPaste({
-        shipName: data.shipName,
-        grossTonnage: data.grossTonnage,
-        imoNumber: null,
-        marineTrafficLink: null,
-        shipNotes: null,
-        initialEta: data.eta,
-        berthPort: data.berthPort,
-        visitNotes: null,
-        source: 'Sheet',
-        pilot: undefined
       });
+    
+    // Watch for real-time updates while user is on page
+    this.watchForUpdates();
+  }
 
-      this.reset();
-      this.saving.set(false);
-    } catch (error) {
-      console.error('Error adding to Firebase:', error);
-      this.parseError.set('Failed to add to Firebase. Please try again.');
-      this.saving.set(false);
+  /**
+   * Mark that the current user has viewed the Sheet-Info page.
+   * This updates the user_activity collection with the current timestamp.
+   */
+  private async markAsViewed(): Promise<void> {
+    const userId = this.auth.currentUser?.uid;
+    if (userId) {
+      await this.userRepo.markSheetInfoViewed(userId);
     }
   }
 
-  async updateFirebase(): Promise<void> {
-    const data = this.parsedData();
-    const comp = this.comparison();
-    if (!data || !comp || !comp.existingVisit) return;
-
-    this.saving.set(true);
-
-    try {
-      // Update ship GT if changed
-      if (comp.existingShip && comp.existingShip.grossTonnage !== data.grossTonnage) {
-        await this.shipRepository.updateShip(comp.existingShip.id!, {
-          grossTonnage: data.grossTonnage,
-          updatedAt: serverTimestamp()
+  /**
+   * Subscribe to metadata changes and show notification when new data is available.
+   * Skips the initial load and only reacts to subsequent changes.
+   * Also prevents notification if PDF is already being fetched.
+   */
+  private watchForUpdates(): void {
+    this.systemSettings.getShannonMetadata$()
+      .pipe(
+        skip(1),  // Ignore initial value (we just loaded)
+        filter(metadata => metadata.update_available === true),
+        filter(() => !this.pdfLoading())  // Don't notify if already loading
+      )
+      .subscribe(() => {
+        // Show snackbar notification with refresh action
+        this.snackBar.open(
+          'New daily diary data available',
+          'Refresh',
+          {
+            duration: 0,  // Stay until dismissed or action clicked
+            horizontalPosition: 'center'
+          }
+        ).onAction().subscribe(() => {
+          this.fetchPdf();  // Reload data when user clicks refresh
         });
-      }
-
-      // Update visit
-      await this.visitRepository.updateVisit(comp.existingVisit.id!, {
-        initialEta: Timestamp.fromDate(data.eta),
-        berthPort: data.berthPort,
-        updatedBy: 'Port Report'
       });
+  }
 
-      this.reset();
-      this.saving.set(false);
-    } catch (error) {
-      console.error('Error updating Firebase:', error);
-      this.parseError.set('Failed to update Firebase. Please try again.');
-      this.saving.set(false);
+  /**
+   * Fetches the daily diary PDF from CarGoPro via our Cloud Function.
+   * 
+   * Why we're using a Cloud Function instead of fetching directly:
+   * 1. CORS restrictions - The PDF domain may block browser requests
+   * 2. Heavy processing - PDF parsing is CPU-intensive, better on server
+   * 3. Consistent results - Server environment is predictable
+   */
+  async fetchPdf(): Promise<void> {
+    this.pdfLoading.set(true);
+    this.pdfError.set(null);
+    
+    try {
+      // Step 1: Downloading
+      this.loadingStep.set('Downloading PDF from server...');
+      
+      // Step 2: Processing (the Cloud Function handles parsing and AI)
+      this.loadingStep.set('Parsing and extracting ship data with AI...');
+      
+      // Call the Cloud Function using the callable we created at class level
+      // This avoids the "called outside injection context" error
+      const result = await this.fetchDailyDiaryCallable();
+      
+      // Step 3: Finalizing
+      this.loadingStep.set('Finalizing results...');
+      
+      // Extract the data from the result
+      this.pdfText.set(result.data.text);
+      this.pdfShips.set(result.data.ships || []);
+      this.pdfShipsCount.set(result.data.shipsCount || 0);
+      
+      // Set last processed timestamp to now
+      this.lastProcessed.set(new Date());
+      
+      console.log(`Successfully loaded ${result.data.shipsCount} ships from PDF`);
+    } catch (error: any) {
+      console.error('Error fetching PDF:', error);
+      this.pdfError.set(error.message || 'Failed to load PDF. Please try again.');
+    } finally {
+      this.pdfLoading.set(false);
+      this.loadingStep.set('');
     }
   }
 
-  reset(): void {
-    this.pastedText.set('');
-    this.parsedData.set(null);
-    this.parseError.set(null);
-    this.comparison.set(null);
-  }
 }
 
-interface ComparisonResult {
-  existingShip?: Ship;
-  existingVisit?: Visit;
-  isNewShip: boolean;
-  isNewVisit: boolean;
-  hasChanges: boolean;
-  changes: string[];
+interface PdfShip {
+  name: string;
+  gt: number;
+  port: string;
+  eta: string | null; // ISO datetime string
+  status: 'Due' | 'Awaiting Berth' | 'Alongside';
+  source: string;
 }

@@ -62,5 +62,13 @@ service cloud.firestore {
     match /distance/{document=**} {
       allow read, write: if isSignedIn();
     }
+
+    // --- System Settings (Shannon Monitoring) ---
+    match /system_settings/{document} {
+      // Everyone can read system settings
+      allow read: if isSignedIn();
+      // Only Cloud Functions can write (no user can write)
+      allow write: if false;
+    }
   }
 }

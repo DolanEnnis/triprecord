@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, inject, AfterViewInit } from '@angular/core';
+import { Component, OnInit, ViewChild, inject, AfterViewInit, effect } from '@angular/core';
 import { UserRepository } from '../services/user.repository';
 import { CommonModule } from '@angular/common';
 import { UserInterface } from '../auth/types/userInterface';
@@ -13,6 +13,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ConfirmationDialogComponent } from '../shared/confirmation-dialog/confirmation-dialog.component';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatCardModule } from '@angular/material/card';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { SystemSettingsRepository } from '../services/system-settings.repository';
 
 @Component({
   selector: 'app-admin',
@@ -28,7 +33,10 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
     MatButtonModule,
     MatIconModule,
     MatDialogModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    MatTooltipModule,
+    MatSlideToggleModule,
+    MatCardModule
   ],
   templateUrl: './admin.component.html',
   styleUrls: ['./admin.component.css']
@@ -37,24 +45,43 @@ export class AdminComponent implements OnInit, AfterViewInit {
   private readonly userRepository = inject(UserRepository);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly systemSettings = inject(SystemSettingsRepository);
 
-  displayedColumns: string[] = ['displayName', 'email', 'lastLoginTrip', 'userType', 'actions'];
+  // Using Signals for reactive state management
+  users = toSignal(this.userRepository.getAllUsers(), { initialValue: [] });
+  metadata = toSignal(this.systemSettings.getShannonMetadata$());
+
+  displayedColumns: string[] = ['displayName', 'email', 'lastLoginTrip', 'lastSheetView', 'userType', 'actions'];
   dataSource = new MatTableDataSource<UserInterface>();
 
   @ViewChild(MatSort) sort!: MatSort;
 
-  ngOnInit(): void {
-    this.userRepository.getAllUsers().subscribe(users => {
-      this.dataSource.data = users;
+  // Effect to automatically update dataSource when users Signal changes
+  constructor() {
+    effect(() => {
+      this.dataSource.data = this.users();
     });
+  }
+
+  ngOnInit(): void {
+    // Data loading is now handled by the Signal
   }
 
   ngAfterViewInit(): void {
     this.dataSource.sort = this.sort;
+    // Type-safe sorting accessor - no 'as any' needed!
     this.dataSource.sortingDataAccessor = (item, property) => {
       switch (property) {
-        case 'lastLoginTrip': return item.lastLoginTrip ? item.lastLoginTrip.toDate().getTime() : 0;
-        default: return (item as any)[property];
+        case 'lastLoginTrip': 
+          return item.lastLoginTrip ? item.lastLoginTrip.toDate().getTime() : 0;
+        case 'displayName': 
+          return item.displayName?.toLowerCase() ?? '';
+        case 'email': 
+          return item.email?.toLowerCase() ?? '';
+        case 'userType': 
+          return item.userType ?? '';
+        default: 
+          return '';
       }
     };
   }
@@ -65,15 +92,16 @@ export class AdminComponent implements OnInit, AfterViewInit {
   }
 
   updateUserType(user: UserInterface): void {
-    this.userRepository.updateUserType(user.uid, user.userType).subscribe({
-      next: () => {
-        this.snackBar.open(`User ${user.displayName} updated successfully.`, 'Close', { duration: 3000 });
-      },
-      error: (err) => {
-        this.snackBar.open(`Error updating user: ${err.message}`, 'Close');
-        // Optionally, you could revert the change in the UI here
-      }
-    });
+    this.userRepository.updateUserType(user.uid, user.userType)
+      .subscribe({
+        next: () => {
+          this.snackBar.open(`User ${user.displayName} updated successfully.`, 'Close', { duration: 3000 });
+        },
+        error: (err) => {
+          this.snackBar.open(`Error updating user: ${err.message}`, 'Close');
+          // Optionally, you could revert the change in the UI here
+        }
+      });
   }
 
   deleteUser(user: UserInterface): void {
@@ -84,18 +112,41 @@ export class AdminComponent implements OnInit, AfterViewInit {
       }
     });
 
-    dialogRef.afterClosed().subscribe(confirmed => {
-      if (confirmed) {
-        this.userRepository.deleteUser(user.uid).subscribe({
-          next: () => {
-            this.dataSource.data = this.dataSource.data.filter(u => u.uid !== user.uid);
-            this.snackBar.open(`User ${user.displayName} deleted.`, 'Close', { duration: 3000 });
-          },
-          error: (err) => {
-            this.snackBar.open(`Error deleting user: ${err.message}`, 'Close');
-          }
-        });
-      }
-    });
+    dialogRef.afterClosed()
+      .subscribe(confirmed => {
+        if (confirmed) {
+          this.userRepository.deleteUser(user.uid)
+            .subscribe({
+              next: () => {
+                // The Signal will automatically refresh the data, but we can filter for immediate UI update
+                this.dataSource.data = this.dataSource.data.filter(u => u.uid !== user.uid);
+                this.snackBar.open(`User ${user.displayName} deleted.`, 'Close', { duration: 3000 });
+              },
+              error: (err) => {
+                this.snackBar.open(`Error deleting user: ${err.message}`, 'Close');
+              }
+            });
+        }
+      });
+  }
+
+
+  /**
+   * Toggle watchtower monitoring on/off.
+   */
+  async toggleWatchtower(enabled: boolean): Promise<void> {
+    try {
+      await this.systemSettings.toggleWatchtower(enabled);
+      this.snackBar.open(
+        `Watchtower ${enabled ? 'enabled' : 'paused'}`,
+        'Close',
+        { duration: 3000 }
+      );
+    } catch (error: any) {
+      this.snackBar.open(
+        `Error toggling watchtower: ${error.message}`,
+        'Close'
+      );
+    }
   }
 }

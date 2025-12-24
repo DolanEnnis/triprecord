@@ -1,6 +1,22 @@
 <mat-toolbar color="primary">
   <div class="footer-content">
-    <span>&copy; 2025 Brian Dolan</span>
+    <span>&copy; 2026 Brian Dolan</span>
+    
+    <!-- External Links Section -->
+    <div class="external-links">
+      @for (link of externalLinks; track link.url) {
+        <a [href]="link.url"
+           [attr.aria-label]="link.description"
+           target="_blank"
+           rel="noopener noreferrer">
+          {{ link.label }}
+        </a>
+        @if (!$last) {
+          <span class="separator">|</span>
+        }
+      }
+    </div>
+    
     <span class="spacer"></span>
 
     @if (authService.currentUserSig(); as user) {

@@ -22,7 +22,9 @@
             <li><a routerLink="/previous" routerLinkActive="active-link">Previous</a></li>
              <li><a routerLink="/ships" routerLinkActive="active-link">Ships</a></li>
              <li><a routerLink="/dist2shannon" routerLinkActive="active-link">Dist2Shannon</a></li>
-             <li><a routerLink="/sheet-info" routerLinkActive="active-link">Sheet-Info</a></li>
+             <li><a routerLink="/sheet-info" 
+                    routerLinkActive="active-link"
+                    [style.color]="(isSheetInfoNew$ | async) ? '#4caf50' : 'inherit'">Sheet-Info</a></li>
           }
           @if(authService.isAdmin()){
             <li><a routerLink="/admin" routerLinkActive="active-link">Admin</a></li>

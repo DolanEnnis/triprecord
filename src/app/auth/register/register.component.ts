@@ -1,12 +1,16 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, DestroyRef, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../auth';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { finalize } from 'rxjs';
 
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 @Component({
@@ -19,6 +23,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
+    MatIconModule,
+    MatProgressSpinnerModule,
     MatSnackBarModule
 ],
   templateUrl: './register.component.html',
@@ -29,6 +35,11 @@ export class RegisterComponent {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly destroyRef = inject(DestroyRef);
+
+  // UX state signals
+  readonly isLoading = signal(false);
+  readonly hidePassword = signal(true);
 
   form = this.fb.group({
     email: ['', [Validators.required, Validators.email]],
@@ -41,10 +52,26 @@ export class RegisterComponent {
       return;
     }
 
-    const { email, password, displayName } = this.form.getRawValue();
+    const formData = this.form.getRawValue();
+    
+    // Type guard: Even though form validation ensures these fields exist,
+    // TypeScript doesn't know that. This explicit check satisfies the type checker.
+    if (!formData.email || !formData.password || !formData.displayName) {
+      console.error('Form data unexpectedly incomplete despite validation');
+      return;
+    }
+    
+    const { email, password, displayName } = formData;
+    
+    this.isLoading.set(true);
     
     // First attempt to register the user
-    this.authService.register(email!, password!, displayName!).subscribe({
+    this.authService.register(email, password, displayName)
+      .pipe(
+        finalize(() => this.isLoading.set(false)),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe({
       next: () => {
         this.router.navigate(['/']);
       },
@@ -52,7 +79,13 @@ export class RegisterComponent {
         // Forgiving authentication: If the email is already in use, check if they meant to login
         if (err.code === 'auth/email-already-in-use') {
           // Attempt to login with the provided credentials
-          this.authService.login(email!, password!).subscribe({
+          this.isLoading.set(true);
+          this.authService.login(email, password)
+            .pipe(
+              finalize(() => this.isLoading.set(false)),
+              takeUntilDestroyed(this.destroyRef)
+            )
+            .subscribe({
             next: () => {
               // Login succeeded - they provided the correct password, so log them in
               this.snackBar.open('Welcome back! You were already registered, so we logged you in.', 'Close', { 

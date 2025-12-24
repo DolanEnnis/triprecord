@@ -3,6 +3,7 @@ import { Component, forwardRef, inject } from '@angular/core';
 import {
   ControlValueAccessor,
   FormBuilder,
+  FormControl,
   FormGroup,
   NG_VALUE_ACCESSOR,
   ReactiveFormsModule,
@@ -16,6 +17,15 @@ import { MatInputModule } from '@angular/material/input';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule, DateAdapter } from '@angular/material/core';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
+
+// --- Type Definitions ---
+// Strongly-typed interface for the date-time picker form
+// This enables autocomplete and compile-time type checking
+interface DateTimeForm {
+  date: FormControl<Date | null>;
+  hour: FormControl<string>;
+  minute: FormControl<string>;
+}
 
 @Component({
   selector: 'app-date-time-picker',
@@ -40,11 +50,20 @@ import { MatAutocompleteModule } from '@angular/material/autocomplete';
 })
 export class DateTimePickerComponent implements ControlValueAccessor {
   private readonly fb = inject(FormBuilder);
-  private readonly adapter = inject(DateAdapter<any>);
+  // Use DateAdapter<Date> since we're working with native JavaScript Date objects
+  private readonly adapter = inject(DateAdapter<Date>);
 
-  form: FormGroup;
+  // Typed FormGroup provides autocomplete and type safety for form controls
+  form: FormGroup<DateTimeForm>;
 
-  // Generate 10-minute increments for the autocomplete suggestions
+  // Autocomplete suggestions for quick time entry
+  // Hours: All 24 hours (00-23) since ships can arrive at any time
+  hours: { value: number; label: string }[] = Array.from({ length: 24 }, (_, i) => ({
+    value: i,
+    label: i.toString().padStart(2, '0')
+  }));
+
+  // Minutes: 10-minute intervals for quick selection, users can still type exact values
   minutes: { value: number; label: string }[] = Array.from({ length: 6 }, (_, i) => ({
     value: i * 10,
     label: (i * 10).toString().padStart(2, '0')
@@ -56,23 +75,24 @@ export class DateTimePickerComponent implements ControlValueAccessor {
   constructor() {
     this.adapter.setLocale('en-GB');
 
-    //Don't default to current time - leave empty until value is provided
-    this.form = this.fb.group({
-      date: [null, Validators.required],
+    // Use nonNullable FormBuilder to create controls that match our typed interface
+    // This ensures hour and minute are always strings (never null)
+    this.form = this.fb.nonNullable.group({
+      date: [null as Date | null, Validators.required],
       hour: ['', [Validators.required, Validators.min(0), Validators.max(23)]],
       minute: ['', [Validators.required, Validators.min(0), Validators.max(59)]]
     });
 
     // Auto-fill time to 12:00 when a date is picked and time is empty
-    this.form.get('date')?.valueChanges.pipe(
+    this.form.controls.date.valueChanges.pipe(
       takeUntilDestroyed(),
     ).subscribe(dateValue => {
       if (dateValue) {
-        const hourControl = this.form.get('hour');
-        const minuteControl = this.form.get('minute');
+        const hourControl = this.form.controls.hour;
+        const minuteControl = this.form.controls.minute;
         
         // Only auto-fill if both hour and minute are empty (not set by user)
-        if (hourControl?.value === '' && minuteControl?.value === '') {
+        if (hourControl.value === '' && minuteControl.value === '') {
           this.form.patchValue({
             hour: '12',
             minute: '00'
@@ -86,17 +106,20 @@ export class DateTimePickerComponent implements ControlValueAccessor {
     ).subscribe(value => {
       if (this.form.valid) {
         const { date, hour, minute } = value;
-        // Parse string values to numbers
-        const hourNum = parseInt(hour, 10);
-        const minuteNum = parseInt(minute, 10);
-        
-        if (!isNaN(hourNum) && !isNaN(minuteNum) && hourNum >= 0 && hourNum <= 23 && minuteNum >= 0 && minuteNum <= 59) {
-          const combinedDateTime = new Date(date);
-          combinedDateTime.setHours(hourNum);
-          combinedDateTime.setMinutes(minuteNum);
-          combinedDateTime.setSeconds(0);
-          this.onChange(combinedDateTime);
+        // Type guards: ensure values exist before parsing
+        if (!date || hour === undefined || minute === undefined) {
+          return;
         }
+        
+        // When form is valid, we know:
+        // - date exists (required validator)
+        // - hour is 0-23 (min/max validators)
+        // - minute is 0-59 (min/max validators)
+        const combinedDateTime = new Date(date);
+        combinedDateTime.setHours(parseInt(hour, 10));
+        combinedDateTime.setMinutes(parseInt(minute, 10));
+        combinedDateTime.setSeconds(0);
+        this.onChange(combinedDateTime);
       } else {
         this.onChange(null);
       }
@@ -134,17 +157,17 @@ export class DateTimePickerComponent implements ControlValueAccessor {
 
   handleBlur(): void {
     // Pad hour and minute values when user leaves the field
-    const hourControl = this.form.get('hour');
-    const minuteControl = this.form.get('minute');
+    const hourControl = this.form.controls.hour;
+    const minuteControl = this.form.controls.minute;
     
-    if (hourControl?.value) {
+    if (hourControl.value) {
       const hourNum = parseInt(hourControl.value, 10);
       if (!isNaN(hourNum) && hourNum >= 0 && hourNum <= 23) {
         hourControl.setValue(String(hourNum).padStart(2, '0'), { emitEvent: false });
       }
     }
     
-    if (minuteControl?.value) {
+    if (minuteControl.value) {
       const minuteNum = parseInt(minuteControl.value, 10);
       if (!isNaN(minuteNum) && minuteNum >= 0 && minuteNum <= 59) {
         minuteControl.setValue(String(minuteNum).padStart(2, '0'), { emitEvent: false });

@@ -20,6 +20,13 @@ button {
   width: 100%;
 }
 
+.spinner-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 20px 0;
+}
+
 mat-card-actions {
   display: flex;
   justify-content: center;

@@ -9,6 +9,31 @@
   flex: 1 1 auto;
 }
 
+/* External Links Styling */
+.external-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 16px;
+}
+
+.external-links a {
+  color: white;
+  text-decoration: none;
+  opacity: 0.9;
+  transition: opacity 0.2s ease;
+}
+
+.external-links a:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.external-links .separator {
+  opacity: 0.5;
+  user-select: none;
+}
+
 mat-toolbar {
   height: 40px;
   font-size: 12px;

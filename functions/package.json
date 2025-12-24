@@ -16,13 +16,17 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@types/nodemailer": "^7.0.4",
+    "axios": "^1.13.2",
     "cors": "^2.8.5",
     "firebase-admin": "^11.8.0",
     "firebase-functions": "^7.0.1",
-    "nodemailer": "^7.0.11"
+    "nodemailer": "^7.0.11",
+    "openai": "^6.15.0",
+    "pdf-parse-new": "^2.0.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
+    "@types/pdf-parse": "^1.1.5",
     "typescript": "^5.2.0"
   },
   "private": true

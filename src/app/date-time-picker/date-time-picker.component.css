@@ -13,3 +13,20 @@
 .time-select {
   width: 110px;
 }
+
+/* Responsive: Stack fields vertically on small screens to prevent overflow */
+@media (max-width: 500px) {
+  .form-row {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  /* Make fields full width when stacked */
+  .form-row > * {
+    width: 100%;
+  }
+
+  .time-select {
+    width: 100%;
+  }
+}

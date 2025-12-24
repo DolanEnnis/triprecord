@@ -1,7 +1,9 @@
 import * as admin from "firebase-admin";
 import { defineSecret } from "firebase-functions/params";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import { setGlobalOptions } from "firebase-functions/v2";
+import { FieldValue } from "firebase-admin/firestore";
 import * as functionsV1 from "firebase-functions/v1"; // v1 for auth triggers
 import * as nodemailer from "nodemailer";
 
@@ -93,6 +95,233 @@ Return ONLY a valid JSON object, no markdown formatting.`;
       fullError: error
     });
     throw new HttpsError("internal", `Failed to fetch ship details from AI: ${error?.message || error}`);
+  }
+});
+
+/**
+ * Cloud Function to fetch and parse the daily diary PDF from CarGoPro.
+ * Extracts raw text and uses OpenAI to structure the data into ship records.
+ */
+export const fetchDailyDiaryPdf = onCall({ 
+  cors: true, 
+  region: "europe-west1",
+  secrets: [openaiApiKey],
+  timeoutSeconds: 60,
+  memory: "512MiB"
+}, async (request) => {
+  const db = admin.firestore();
+  const metadataRef = db.doc("system_settings/shannon_diary_metadata");
+  
+  try {
+    // STEP 0: Check and acquire processing lock
+    const metadataDoc = await metadataRef.get();
+    const metadata = metadataDoc.data();
+    
+    // Check if already processing
+    if (metadata?.processing) {
+      const processingStarted = metadata.processing_started_at?.toDate();
+      const now = new Date();
+      const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+      
+      // If lock is stuck (>5 min), release it
+      if (processingStarted && processingStarted < fiveMinutesAgo) {
+        console.warn("Processing lock is stale (>5min), releasing...");
+        await metadataRef.set({
+          processing: false,
+          processing_started_at: null
+        }, { merge: true });
+      } else {
+        throw new HttpsError("resource-exhausted", "PDF is already being processed. Please try again in a minute.");
+      }
+    }
+    
+    // Acquire lock
+    await metadataRef.set({
+      processing: true,
+      processing_started_at: FieldValue.serverTimestamp()
+    }, { merge: true });
+    
+    console.log("Processing lock acquired");
+    
+    const pdfUrl = "http://www.cargopro.ie/sfpc/download/rpt_daydiary.pdf";
+    console.log("Fetching PDF from:", pdfUrl);
+    
+    // Step 1: Fetch and parse PDF
+    const axios = (await import("axios")).default;
+    const response = await axios.get(pdfUrl, {
+      responseType: 'arraybuffer'
+    });
+    
+    const pdfBuffer = Buffer.from(response.data);
+    console.log(`PDF fetched successfully, size: ${pdfBuffer.length} bytes`);
+
+    // Step 2: Extract raw text
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const pdf = require("pdf-parse-new");
+    const pdfData = await pdf(pdfBuffer);
+    const rawText = pdfData.text;
+    
+    console.log(`PDF parsed: ${rawText.length} chars, ${pdfData.numpages} pages`);
+
+    // Step 3: Use OpenAI to extract structured ship data
+    const openaiModule = await import("openai");
+    const OpenAI = openaiModule.default;
+    const openai = new OpenAI({ apiKey: openaiApiKey.value() });
+
+    const prompt = `Analyze this raw text from a Shannon Port "Day Diary" PDF.
+It contains a table of ships with columns: Vessel Name, GT (Gross Tonnage), Port (single letter code), and ETA.
+
+Extract ALL ships and structure them as JSON.
+
+Port Code Mapping (single letter to full port name):
+- A = Aughinish
+- C = Cappa
+- M = Moneypoint
+- T = Tarbert
+- F = Foynes
+- S = Shannon
+- L = Limerick
+(Note: Anchorage has no single letter code)
+
+ETA Format Examples:
+- "Eta 21/1150" = day 21 of current month, time 11:50
+- "Eta 15/0830" = day 15, time 08:30
+- Extract ONLY if format matches "Eta DD/HHMM"
+- If no ETA found, set to null
+
+Rules:
+1. The "GT" is usually a 3-5 digit number (e.g., 4500, 15900).
+2. Ignore small tugs (like "Celtic Rebel") unless they have a clear GT.
+3. Port is a single letter code - map it to the full port name.
+4. ETA must be in format "Eta DD/HHMM" - extract day and time separately.
+5. **IMPORTANT: Include ALL ships even if ETA is missing - just set etaDay and etaTime to null.**
+6. **Status Indicators (look for these in the ship's row):**
+   - If you see "@ Anchor" or "@Anchor" → set statusMarker to "anchor"
+   - If you see "ETC" → set statusMarker to "etc"
+   - Otherwise → set statusMarker to null
+
+Output Schema:
+{
+  "ships": [
+    { 
+      "name": "SHIP NAME", 
+      "gt": 12345, 
+      "port": "Port Name",
+      "etaDay": 21,
+      "etaTime": "11:50",
+      "statusMarker": "anchor" | "etc" | null
+    }
+  ]
+}
+
+RAW TEXT:
+${rawText.substring(0, 20000)}`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      temperature: 0
+    });
+
+    const cleanedData = JSON.parse(completion.choices[0].message.content || "{}");
+    const rawShips = cleanedData.ships || [];
+    
+    // Process ETAs: convert day/time to proper Date format
+    // Logic: if day has passed this month, assume next month
+    const now = new Date();
+    const currentDay = now.getDate();
+    const currentMonth = now.getMonth(); // 0-based
+    const currentYear = now.getFullYear();
+    
+    const shipsFound = rawShips.map((ship: any) => {
+      let eta: string | null = null;
+      let status: 'Due' | 'Awaiting Berth' | 'Alongside';
+      
+      if (ship.etaDay && ship.etaTime) {
+        // Determine which month this ETA is for
+        const etaDay = ship.etaDay;
+        let etaMonth = currentMonth;
+        let etaYear = currentYear;
+        
+        // If the day has already passed this month, assume next month
+        if (etaDay < currentDay) {
+          etaMonth = currentMonth + 1;
+          if (etaMonth > 11) {
+            etaMonth = 0; // January
+            etaYear++;
+          }
+        }
+        
+        // Parse time (HH:MM format)
+        const [hours, minutes] = ship.etaTime.split(':').map((n: string) => parseInt(n, 10));
+        
+        // Create ISO datetime string
+        const etaDate = new Date(etaYear, etaMonth, etaDay, hours, minutes);
+        eta = etaDate.toISOString();
+      }
+      
+      // Determine status based on markers and ETA
+      if (ship.statusMarker === 'anchor') {
+        status = 'Awaiting Berth';
+      } else if (ship.statusMarker === 'etc') {
+        status = 'Alongside';
+      } else if (eta) {
+        status = 'Due';
+      } else {
+        // Default to Due if no other indicator
+        status = 'Due';
+      }
+      
+      return {
+        name: ship.name,
+        gt: ship.gt,
+        port: ship.port,
+        eta: eta, // ISO string or null
+        status: status,
+        source: 'Other' // 'Auto from Daydairy' concept - using 'Other' from Source type
+      };
+    });
+    
+    console.log(`OpenAI found ${shipsFound.length} ships`);
+
+    // CLEANUP: Update metadata - mark update as processed AND store cached ship data
+    await metadataRef.set({
+      update_available: false,
+      last_processed: FieldValue.serverTimestamp(),
+      processing: false,
+      processing_started_at: null,
+      cached_ships: shipsFound,  // Store parsed ships for instant frontend display
+      cached_text: rawText,      // Store raw text as well
+      cached_page_count: pdfData.numpages
+    }, { merge: true });
+    
+    console.log("Processing complete, metadata updated");
+
+    return {
+      text: rawText,
+      numPages: pdfData.numpages,
+      ships: shipsFound,
+      shipsCount: shipsFound.length
+    };
+
+  } catch (error: any) {
+    // Release lock on error
+    try {
+      await metadataRef.update({
+        processing: false,
+        processing_started_at: null
+      });
+      console.log("Processing lock released due to error");
+    } catch (lockError) {
+      console.error("Failed to release processing lock:", lockError);
+    }
+    
+    console.error("Error fetching/parsing PDF:", {
+      message: error?.message,
+      stack: error?.stack
+    });
+    throw new HttpsError("internal", `Failed to fetch daily diary PDF: ${error?.message || error}`);
   }
 });
 
@@ -232,3 +461,117 @@ export const onNewUserRegistration = functionsV1
       // 2. This is a notification feature, not critical to auth flow
     }
   });
+
+// ==============================================================================
+// SHANNON DAILY DIARY - WATCHTOWER FUNCTIONS
+// ==============================================================================
+
+const PDF_URL = "http://www.cargopro.ie/sfpc/download/rpt_daydiary.pdf";
+
+/**
+ * Shared helper function for checking if the Shannon Daily Diary PDF has changed.
+ * Used by both day and night scheduled functions.
+ * 
+ * Logic:
+ * 1. Send HTTP HEAD request to PDF URL (lightweight, no download)
+ * 2. Extract Last-Modified header
+ * 3. Compare with stored value in Firestore
+ * 4. If different, set update_available flag
+ * 5. Error handling: log and continue (will retry on next schedule)
+ */
+async function runFlagCheck(): Promise<void> {
+  const db = admin.firestore();
+  
+  try {
+    console.log("Starting Shannon PDF flag check...");
+    
+    // Check if watchtower is enabled (admin can pause monitoring)
+    const checkMetadataRef = db.doc("system_settings/shannon_diary_metadata");
+    const checkDoc = await checkMetadataRef.get();
+    
+    if (checkDoc.exists && checkDoc.data()?.watchtower_enabled === false) {
+      console.log("Watchtower is paused by admin. Skipping check.");
+      return;
+    }
+    
+    // Import axios dynamically
+    const axios = (await import("axios")).default;
+    
+    // Send HEAD request (gets headers only, no body download)
+    const response = await axios.head(PDF_URL, {
+      timeout: 10000  // 10 second timeout
+    });
+    
+    const serverModified = response.headers["last-modified"];
+    console.log("Server Last-Modified:", serverModified);
+    
+    if (!serverModified) {
+      console.warn("No Last-Modified header found in response");
+      return;
+    }
+    
+    // Get current metadata from Firestore
+    const metadataRef = db.doc("system_settings/shannon_diary_metadata");
+    const doc = await metadataRef.get();
+    const currentModified = doc.data()?.current_last_modified;
+    
+    // Compare and update if different
+    if (serverModified !== currentModified) {
+      await metadataRef.set({
+        update_available: true,
+        current_last_modified: serverModified,
+        last_check: FieldValue.serverTimestamp(),
+        watchtower_enabled: true  // Initialize as enabled
+      }, { merge: true });
+      
+      console.log(`✓ Update detected! Server: ${serverModified}, Previous: ${currentModified}`);
+    } else {
+      // No change, just update last_check timestamp (use set with merge to auto-create)
+      await metadataRef.set({
+        last_check: FieldValue.serverTimestamp(),
+        watchtower_enabled: true  // Initialize as enabled if doesn't exist
+      }, { merge: true });
+      
+      console.log("✓ No update detected, PDF unchanged");
+    }
+    
+  } catch (error: any) {
+    console.error("Flag check failed:", {
+      message: error?.message,
+      code: error?.code,
+      url: PDF_URL
+    });
+    // Don't throw - let it retry on next schedule
+  }
+}
+
+/**
+ * Scheduled function: Shannon Day Watcher
+ * Runs every 10 minutes during business hours (07:00-21:59 UTC)
+ * 
+ * Purpose: Frequent checks when port activity is highest
+ */
+export const checkShannonDay = onSchedule({
+  schedule: "*/10 7-21 * * *",  // Every 10 minutes, 07:00-21:59 UTC
+  timeZone: "UTC",
+  region: "europe-west1"
+}, async () => {
+  console.log("checkShannonDay triggered");
+  await runFlagCheck();
+});
+
+/**
+ * Scheduled function: Shannon Night Watcher
+ * Runs every hour during quiet hours (22:00-06:59 UTC)
+ * 
+ * Purpose: Less frequent checks to save resources when port is less active
+ */
+export const checkShannonNight = onSchedule({
+  schedule: "0 22-23,0-6 * * *",  // Hourly, 22:00-06:59 UTC
+  timeZone: "UTC",
+  region: "europe-west1"
+}, async () => {
+  console.log("checkShannonNight triggered");
+  await runFlagCheck();
+});
+
