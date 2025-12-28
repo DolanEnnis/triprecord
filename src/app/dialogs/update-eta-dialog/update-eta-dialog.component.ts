@@ -4,7 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { DateTimePickerComponent } from '../../date-time-picker/date-time-picker.component';
-import { VisitStatus } from '../../models/data.model';
+import { VisitStatus } from '../../models';
 
 @Component({
   selector: 'app-update-eta-dialog',

@@ -2,8 +2,9 @@ import { inject, Injectable, Injector, runInInjectionContext, Signal, signal, co
 import { collection, collectionData, Firestore, query, where, orderBy, Timestamp } from '@angular/fire/firestore';
 import { Observable, Subscription } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { Visit, VisitStatus } from '../models/data.model';
+import { Visit, VisitStatus } from '../models';
 import { VisitRepository } from './visit.repository';
+
 
 @Injectable({
   providedIn: 'root'

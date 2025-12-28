@@ -4,8 +4,8 @@ import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angu
 import { DataService } from '../services/data.service';
 import { AuthService } from '../auth/auth';
 import { PilotService } from '../services/pilot.service';
-import { Charge, ChargeableEvent } from '../models/trip.model';
-import { Port, TripType } from '../models/data.model';
+import { Charge, ChargeableEvent } from '../models';
+import { Port, TripType } from '../models';
 import { CommonModule } from '@angular/common';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';

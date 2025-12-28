@@ -26,7 +26,7 @@ import { debounceTime, distinctUntilChanged, switchMap, startWith } from 'rxjs/o
 
 import { VisitWorkflowService } from '../services/visit-workflow.service';
 import { AuthService} from '../auth/auth';
-import { Port, Ship, Visit, NewVisitData, Source } from '../models/data.model';
+import { Port, Ship, Visit, NewVisitData, Source } from '../models';
 import { ShipRepository } from '../services/ship.repository';
 import { VisitRepository } from '../services/visit.repository';
 import { UserRepository } from '../services/user.repository';

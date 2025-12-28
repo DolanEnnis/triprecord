@@ -15,7 +15,7 @@ import { Observable, of } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, finalize, map } from 'rxjs/operators';
 import { ShipDetailsCard } from '../ship-details-card/ship-details-card';
 import { PreviousVisitsListComponent } from '../previous-visits/previous-visits-list/previous-visits-list.component';
-import { EnrichedVisit } from '../models/enriched-visit.model';
+import { EnrichedVisit } from '../models';
 
 /**
  * LEARNING: COMPONENT COMPOSITION PATTERN

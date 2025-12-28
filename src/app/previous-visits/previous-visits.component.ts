@@ -12,7 +12,7 @@ import { RouterModule } from '@angular/router';
 import { PreviousVisitsListComponent } from './previous-visits-list/previous-visits-list.component';
 import { VisitRepository } from '../services/visit.repository';
 import { Observable, of } from 'rxjs';
-import { EnrichedVisit } from '../models/enriched-visit.model';
+import { EnrichedVisit } from '../models';
 
 @Component({
   selector: 'app-previous-visits',

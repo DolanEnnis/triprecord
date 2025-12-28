@@ -14,15 +14,15 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { RiverStateService } from '../services/river-state.service';
 import { TimeAgoPipe } from '../shared/pipes/time-ago.pipe';
-import { Visit, VisitStatus } from '../models/data.model';
-import { StatusListRow } from '../models/status-list.model';
+import { Visit, VisitStatus } from '../models';
+import { StatusListRow } from '../models';
 import { Timestamp} from '@angular/fire/firestore';
 import { UpdateEtaDialogComponent } from '../dialogs/update-eta-dialog/update-eta-dialog.component';
 import { AuthService } from '../auth/auth';
 import { VisitRepository } from '../services/visit.repository';
 import { TripRepository } from '../services/trip.repository';
 import { PilotService } from '../services/pilot.service';
-import { PortFilter, isValidPortFilter } from '../models/port-filter.types';
+import { PortFilter, isValidPortFilter } from '../models';
 
 
 @Component({

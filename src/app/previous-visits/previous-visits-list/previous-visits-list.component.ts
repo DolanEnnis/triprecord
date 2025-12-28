@@ -7,7 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { EnrichedVisit } from '../../models/enriched-visit.model';
+import { EnrichedVisit } from '../../models';
 
 @Component({
   selector: 'app-previous-visits-list',

@@ -14,8 +14,9 @@ import {
   where,
 } from '@angular/fire/firestore';
 import { from, map, Observable } from 'rxjs';
-import { Charge } from '../models/trip.model';
+import { Charge } from '../models';
 import { AuthService } from '../auth/auth';
+
 
 /**
  * ChargeRepository handles all direct data access operations for the '/charges' Firestore collection.

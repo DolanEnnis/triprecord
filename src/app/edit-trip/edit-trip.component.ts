@@ -21,7 +21,7 @@ import { ShipIntelligenceService } from '../services/ship-intelligence.service';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ShipIntelligenceDialogComponent } from '../dialogs/ship-intelligence-dialog.component';
 import { OldTripWarningDialogComponent } from '../dialogs/old-trip-warning-dialog.component';
-import { Trip, Visit, Ship, Port, VisitStatus, TripType, Source } from '../models/data.model';
+import { Trip, Visit, Ship, Port, VisitStatus, TripType, Source } from '../models';
 import { combineLatest, filter, map, switchMap, of, forkJoin, catchError, tap, take, Observable } from 'rxjs';
 import { Timestamp } from '@angular/fire/firestore';
 import { DateTimePickerComponent } from '../date-time-picker/date-time-picker.component';

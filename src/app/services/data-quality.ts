@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
-import { UnifiedTrip } from '../models/trip.model';
+import { UnifiedTrip } from '../models';
+
 
 export type TripWithWarnings = UnifiedTrip & { dataWarnings: string[] };
 

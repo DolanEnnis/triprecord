@@ -13,7 +13,8 @@ import {
   orderBy,
 } from '@angular/fire/firestore';
 import { Observable } from 'rxjs';
-import { Trip } from '../models/data.model';
+import { Trip } from '../models';
+
 
 /**
  * TripRepository handles all direct data access operations for the '/trips' Firestore collection.

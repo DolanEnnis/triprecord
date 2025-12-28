@@ -1,11 +1,11 @@
 import { inject, Injectable, Injector, runInInjectionContext } from '@angular/core';
 import { serverTimestamp, Timestamp, doc, updateDoc } from '@angular/fire/firestore';
 import { AuthService } from '../auth/auth';
-import { NewVisitData, Trip, TripType, Visit, VisitStatus } from '../models/data.model';
-import { Charge } from '../models/trip.model';
+import { NewVisitData, Trip, TripType, Visit, VisitStatus, Charge } from '../models';
 import { ShipRepository } from './ship.repository';
 import { VisitRepository } from './visit.repository';
 import { TripRepository } from './trip.repository';
+
 
 @Injectable({
   providedIn: 'root',

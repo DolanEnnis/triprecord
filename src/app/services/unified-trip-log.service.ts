@@ -1,15 +1,20 @@
 import { inject, Injectable, Injector, runInInjectionContext } from '@angular/core';
 import { Firestore, query, Timestamp } from '@angular/fire/firestore';
 import { combineLatest, forkJoin,  map, Observable, of, switchMap } from 'rxjs';
-// Removed redundant imports of OldTrip, OldVisit
-import { Charge, ChargeableEvent, UnifiedTrip } from '../models/trip.model';
-
-// Import the new models with explicit aliases and necessary types.
-import { Trip as NewTrip, Visit as NewVisit, TripType, Port } from '../models/data.model';
+import { 
+  Charge, 
+  ChargeableEvent, 
+  UnifiedTrip,
+  Trip as NewTrip, 
+  Visit as NewVisit, 
+  TripType, 
+  Port 
+} from '../models';
 
 import { ChargeRepository } from './charge.repository';
 import { TripRepository } from './trip.repository';
 import { VisitRepository } from './visit.repository';
+
 
 /**
  * UnifiedTripLogService is responsible for fetching and transforming trip-related data

@@ -22,9 +22,8 @@ import {
 } from '@angular/fire/firestore';
 import { combineLatest, from, Observable, of } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
-import { Trip, Visit, VisitStatus } from '../models/data.model';
-import { StatusListRow } from '../models/status-list.model';
-import { EnrichedVisit } from '../models/enriched-visit.model';
+import { Trip, Visit, VisitStatus, StatusListRow, EnrichedVisit } from '../models';
+
 
 @Injectable({
   providedIn: 'root',

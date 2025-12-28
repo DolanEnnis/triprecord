@@ -3,7 +3,7 @@ import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { DataService } from '../services/data.service';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../auth/auth';
-import {  UnifiedTrip } from '../models/trip.model';
+import {  UnifiedTrip } from '../models';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ConfirmationDialogComponent } from '../shared/confirmation-dialog/confirmation-dialog.component';
 import { CreateChargeDialogComponent } from '../create-charge-dialog/create-charge-dialog.component';

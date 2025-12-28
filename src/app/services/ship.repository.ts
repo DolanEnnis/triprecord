@@ -15,7 +15,8 @@ import {
   where,
 } from '@angular/fire/firestore';
 import { from, map, Observable, of } from 'rxjs';
-import { Ship, NewVisitData } from '../models/data.model';
+import { Ship, NewVisitData } from '../models';
+
 
 /**
  * ShipRepository handles all direct data access operations for the '/ships' Firestore collection.

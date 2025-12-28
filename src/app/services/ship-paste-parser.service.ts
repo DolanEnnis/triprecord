@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
-import { Port } from '../models/data.model';
+import { Port } from '../models';
+
 import { Timestamp } from '@angular/fire/firestore';
 
 export interface ParsedShipData {

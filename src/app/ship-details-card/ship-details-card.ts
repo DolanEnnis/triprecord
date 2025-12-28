@@ -9,7 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { ShipRepository } from '../services/ship.repository';
-import { Ship } from '../models/data.model';
+import { Ship } from '../models';
 
 /**
  * LEARNING: REUSABLE COMPONENT PATTERN

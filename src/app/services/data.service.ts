@@ -2,8 +2,8 @@ import { inject, Injectable} from '@angular/core';
 import { Observable, of } from 'rxjs';
 import { Timestamp } from '@angular/fire/firestore';
 // Only import DTO models
-import { Charge, UnifiedTrip } from '../models/trip.model';
-import { NewVisitData, VisitStatus } from '../models/data.model';
+import { Charge, UnifiedTrip, NewVisitData, VisitStatus } from '../models';
+
 
 import { AuthService } from '../auth/auth';
 import { ChargeRepository } from './charge.repository';

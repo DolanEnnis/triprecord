@@ -12,7 +12,7 @@ import { UserRepository } from '../services/user.repository';
 import { Auth } from '@angular/fire/auth';
 import { skip, filter, take } from 'rxjs/operators';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { PdfShip } from '../models/pdf-ship.model';
+import { PdfShip } from '../models';
 
 @Component({
   selector: 'app-sheet-info',
