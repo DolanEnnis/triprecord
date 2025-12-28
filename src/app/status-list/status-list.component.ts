@@ -7,17 +7,21 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatSelectModule } from '@angular/material/select';
 import { Router } from '@angular/router';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { RiverStateService } from '../services/river-state.service';
 import { TimeAgoPipe } from '../shared/pipes/time-ago.pipe';
-import { Visit } from '../models/data.model';
+import { Visit, VisitStatus } from '../models/data.model';
 import { StatusListRow } from '../models/status-list.model';
-import { Timestamp } from '@angular/fire/firestore';
+import { Timestamp} from '@angular/fire/firestore';
 import { UpdateEtaDialogComponent } from '../dialogs/update-eta-dialog/update-eta-dialog.component';
 import { AuthService } from '../auth/auth';
 import { VisitRepository } from '../services/visit.repository';
+import { TripRepository } from '../services/trip.repository';
+import { PilotService } from '../services/pilot.service';
 import { PortFilter, isValidPortFilter } from '../models/port-filter.types';
 
 
@@ -32,6 +36,8 @@ import { PortFilter, isValidPortFilter } from '../models/port-filter.types';
     MatButtonModule,
     MatTooltipModule,
     MatButtonToggleModule,
+    MatMenuModule,
+    MatSelectModule,
     MatDialogModule,
     MatSnackBarModule,
     DatePipe,
@@ -47,6 +53,8 @@ export class StatusListComponent {
   private readonly snackBar = inject(MatSnackBar);
   private readonly authService = inject(AuthService);
   private readonly visitRepository = inject(VisitRepository);
+  private readonly tripRepository = inject(TripRepository);
+  readonly pilotService = inject(PilotService);
 
   // Filter Signal - Persisted in localStorage with type-safe validation
   readonly portFilter = signal<PortFilter>(
@@ -100,7 +108,11 @@ export class StatusListComponent {
 
   openEtaDialog(row: StatusListRow) {
     const dialogRef = this.dialog.open(UpdateEtaDialogComponent, {
-      data: { shipName: row.shipName, currentEta: row.date }
+      data: { 
+        shipName: row.shipName, 
+        currentEta: row.date,
+        status: row.status // Pass status to determine correct label
+      }
     });
 
     dialogRef.afterClosed().subscribe(async (newDate: Date | undefined) => {
@@ -118,10 +130,10 @@ export class StatusListComponent {
           
           // Show success message to user
           this.snackBar.open(
-            `✓ ${row.shipName} time updated successfully`,
+            `✓ ${row.shipName} time updated successfully - display will refresh automatically`,
             'Close',
             {
-              duration: 3000, // Auto-dismiss after 3 seconds
+              duration: 4000, // Show a bit longer so users see it
               horizontalPosition: 'center',
               verticalPosition: 'bottom',
               panelClass: ['success-snackbar']
@@ -211,5 +223,105 @@ export class StatusListComponent {
   isPastDue(date: Date): boolean {
     const now = new Date();
     return date < now;
+  }
+
+  // Get the next valid statuses based on current status (state machine)
+  getNextStatuses(currentStatus: VisitStatus): VisitStatus[] {
+    switch (currentStatus) {
+      case 'Due':
+        return ['Awaiting Berth', 'Cancelled'];
+      case 'Awaiting Berth':
+        return ['Alongside', 'Cancelled'];
+      case 'Alongside':
+        return ['Sailed', 'Cancelled'];
+      case 'Sailed':
+        return ['Cancelled']; // Can mark as cancelled if there was an error
+      case 'Cancelled':
+        return []; // No transitions from cancelled
+      default:
+        return [];
+    }
+  }
+
+  // Change the status of a visit
+  async changeStatus(row: StatusListRow, newStatus: VisitStatus): Promise<void> {
+    const currentUser = this.authService.currentUserSig()?.displayName || 'Unknown';
+    try {
+      await this.visitRepository.updateVisitStatus(
+        row.visitId,
+        newStatus,
+        currentUser
+      );
+
+      // Show success message
+      this.snackBar.open(
+        `✓ ${row.shipName} status changed to ${newStatus}`,
+        'Close',
+        {
+          duration: 3000,
+          horizontalPosition: 'center',
+          verticalPosition: 'bottom',
+          panelClass: ['success-snackbar']
+        }
+      );
+    } catch (error) {
+      console.error('Failed to update status:', error);
+      this.snackBar.open(
+        `✗ Failed to change status. Please try again.`,
+        'Close',
+        {
+          duration: 5000,
+          horizontalPosition: 'center',
+          verticalPosition: 'bottom',
+          panelClass: ['error-snackbar']
+        }
+      );
+    }
+  }
+
+  // Update pilot assignment
+  async updatePilot(row: StatusListRow, newPilot: string): Promise<void> {
+    // Need to update the trip's pilot field
+    if (!row.tripId) {
+      this.snackBar.open(
+        `✗ Cannot update pilot: Trip not found`,
+        'Close',
+        {
+          duration: 5000,
+          horizontalPosition: 'center',
+          verticalPosition: 'bottom',
+          panelClass: ['error-snackbar']
+        }
+      );
+      return;
+    }
+
+    try {
+      await this.tripRepository.updateTrip(row.tripId, { pilot: newPilot });
+
+      // Show success message
+      this.snackBar.open(
+        `✓ Pilot updated to ${newPilot || 'Unassigned'}`,
+        'Close',
+        {
+          duration: 3000,
+          horizontalPosition: 'center',
+          verticalPosition: 'bottom',
+          panelClass: ['success-snackbar']
+        }
+      );
+    } catch (error) {
+      console.error('Failed to update pilot:', error);
+      this.snackBar.open(
+        `✗ Failed to update pilot. Please try again.`,
+        'Close',
+        {
+          duration: 5000,
+          horizontalPosition: 'center',
+          verticalPosition: 'bottom',
+          panelClass: ['error-snackbar']
+        }
+      );
+    }
   }
 }

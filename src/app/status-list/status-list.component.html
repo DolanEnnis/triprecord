@@ -38,7 +38,15 @@
       <!-- Ship Column -->
       <ng-container matColumnDef="ship">
         <mat-header-cell *matHeaderCellDef> Vessel Name </mat-header-cell>
-        <mat-cell *matCellDef="let element"> {{ element.shipName }} </mat-cell>
+        <mat-cell *matCellDef="let element">
+          <span 
+            class="ship-name-link" 
+            (click)="editTrip(element)"
+            matTooltip="Click to edit trip details"
+          >
+            {{ element.shipName }}
+          </span>
+        </mat-cell>
       </ng-container>
 
       <!-- Office Time (ETA/ETB/ETS) Column - Header changes dynamically -->
@@ -48,14 +56,14 @@
           *matCellDef="let element"
           class="clickable-cell"
           (click)="openEtaDialog(element)"
-          matTooltip="Click to update ETA"
+          [matTooltip]="'Click to update ' + section.timeLabel"
           [style.color]="
             element.isTimeSet && isPastDue(getDate(element.date))
               ? 'red'
               : 'inherit'
           "
         >
-          <span *ngIf="element.isTimeSet">{{ getDate(element.date) | date : "EEE dd, HH:mm" }}</span>
+          <span *ngIf="element.isTimeSet">{{ getDate(element.date) | date : "EEE dd/MM HH:mm" }}</span>
           <span *ngIf="!element.isTimeSet" class="not-set">Not Set</span>
         </mat-cell>
       </ng-container>
@@ -75,7 +83,19 @@
       <!-- Pilot Column -->
       <ng-container matColumnDef="pilot">
         <mat-header-cell *matHeaderCellDef> Pilot </mat-header-cell>
-        <mat-cell *matCellDef="let element"> {{ element.pilot }} </mat-cell>
+        <mat-cell *matCellDef="let element">
+          <mat-select 
+            [value]="element.pilot"
+            (selectionChange)="updatePilot(element, $event.value)"
+            class="pilot-select"
+            [disabled]="!element.tripId"
+          >
+            <mat-option value="">Unassigned</mat-option>
+            <mat-option *ngFor="let pilot of pilotService.pilotNames()" [value]="pilot">
+              {{ pilot }}
+            </mat-option>
+          </mat-select>
+        </mat-cell>
       </ng-container>
 
       <!-- Updated Column -->
@@ -98,14 +118,23 @@
       <ng-container matColumnDef="actions">
         <mat-header-cell *matHeaderCellDef> Actions </mat-header-cell>
         <mat-cell *matCellDef="let element">
+          <!-- Status Change Menu -->
           <button
             mat-icon-button
-            color="primary"
-            (click)="editTrip(element)"
-            matTooltip="Edit Trip"
+            [matMenuTriggerFor]="statusMenu"
+            matTooltip="Change Status"
           >
-            <mat-icon>edit</mat-icon>
+            <mat-icon>sync_alt</mat-icon>
           </button>
+          <mat-menu #statusMenu="matMenu">
+            <button 
+              mat-menu-item 
+              *ngFor="let status of getNextStatuses(element.status)"
+              (click)="changeStatus(element, status)"
+            >
+              {{ status }}
+            </button>
+          </mat-menu>
         </mat-cell>
       </ng-container>
 

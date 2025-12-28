@@ -192,9 +192,10 @@ export class VisitRepository {
 
               return from(getDocs(tripQuery)).pipe(
                 map((snapshot) => {
-                  let tripData: Trip | undefined;
+                  let tripData: (Trip & { id: string }) | undefined;
                   if (!snapshot.empty) {
-                    tripData = snapshot.docs[0].data() as Trip;
+                    const doc = snapshot.docs[0];
+                    tripData = { ...doc.data() as Trip, id: doc.id };
                   }
 
                   // 3. Map to the clean View Model (StatusListRow)
@@ -290,10 +291,6 @@ export class VisitRepository {
         await updateDoc(visitDocRef, visitUpdatePayload);
       } else {
         // 3. For 'Awaiting Berth' or 'Alongside', update the correct Trip's boarding time
-        // First, update the visit audit fields
-        await updateDoc(visitDocRef, visitUpdatePayload);
-
-        // Determine which trip type to update based on status
         const targetTripType = status === 'Alongside' ? 'Out' : 'In';
 
         // Query for the specific trip type
@@ -308,14 +305,50 @@ export class VisitRepository {
         const tripSnapshot = await getDocs(tripQuery);
         
         if (!tripSnapshot.empty) {
+          // Trip exists - update it
           const tripDocRef = doc(this.firestore, `${this.TRIPS_COLLECTION}/${tripSnapshot.docs[0].id}`);
           await updateDoc(tripDocRef, {
             boarding: Timestamp.fromDate(newDate),
           });
         } else {
-          console.warn(`Cannot update date for status ${status}: No ${targetTripType} trip found for visit ${visitId}.`);
-          throw new Error(`No ${targetTripType} trip found for this visit.`);
+          // Trip doesn't exist - create it (defensive programming for legacy/incomplete data)
+          console.warn(`Auto-creating missing ${targetTripType} trip for visit ${visitId}`);
+
+          // Fetch visit data to get ship info
+          const visitSnapshot = await getDoc(visitDocRef);
+          if (!visitSnapshot.exists()) {
+            console.error('Visit not found - cannot create trip:', visitId);
+            throw new Error('Visit not found - cannot create trip');
+          }
+
+          const visitData = visitSnapshot.data() as Visit;
+
+          // Create the missing trip with sensible defaults
+          const newTrip: Omit<Trip, 'id'> = {
+            visitId: visitId,
+            shipId: visitData.shipId,
+            typeTrip: targetTripType,
+            boarding: Timestamp.fromDate(newDate),
+            pilot: targetTripType === 'In' ? (visitData.inwardPilot || '') : '',
+            port: visitData.berthPort || null,
+            pilotNotes: '',
+            extraChargesNotes: '',
+            isConfirmed: false,
+            recordedBy: updatedBy,
+            recordedAt: serverTimestamp(),
+            ownNote: null,
+            pilotNo: null,
+            monthNo: null,
+            car: null,
+            timeOff: null,
+            good: null,
+          };
+
+          await addDoc(collection(this.firestore, this.TRIPS_COLLECTION), newTrip);
         }
+
+        // Update visit AFTER trip is created/updated to avoid race condition
+        await updateDoc(visitDocRef, visitUpdatePayload);
       }
     });
   }

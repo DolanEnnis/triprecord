@@ -46,9 +46,11 @@ export class UserRepository {
    * @returns Promise that resolves when the timestamp is updated
    */
   async markSheetInfoViewed(uid: string): Promise<void> {
-    const userDoc = doc(this.firestore, `users/${uid}`);
-    await updateDoc(userDoc, {
-      sheet_info_last_viewed: serverTimestamp()
+    return runInInjectionContext(this.injector, async () => {
+      const userDoc = doc(this.firestore, `users/${uid}`);
+      await updateDoc(userDoc, {
+        sheet_info_last_viewed: serverTimestamp()
+      });
     });
   }
 

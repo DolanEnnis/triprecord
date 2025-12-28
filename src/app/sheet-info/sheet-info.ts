@@ -1,4 +1,4 @@
-import { Component, signal, inject, OnInit } from '@angular/core';
+import { Component, signal, inject, OnInit, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -11,6 +11,8 @@ import { SystemSettingsRepository } from '../services/system-settings.repository
 import { UserRepository } from '../services/user.repository';
 import { Auth } from '@angular/fire/auth';
 import { skip, filter, take } from 'rxjs/operators';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { PdfShip } from '../models/pdf-ship.model';
 
 @Component({
   selector: 'app-sheet-info',
@@ -33,6 +35,7 @@ export class SheetInfoComponent implements OnInit {
   private userRepo = inject(UserRepository);
   private auth = inject(Auth);
   private snackBar = inject(MatSnackBar);
+  private destroyRef = inject(DestroyRef);
   
   // PDF-related state
   pdfText = signal<string | null>(null);
@@ -42,6 +45,9 @@ export class SheetInfoComponent implements OnInit {
   pdfShips = signal<PdfShip[]>([]);
   pdfShipsCount = signal(0);
   lastProcessed = signal<Date | null>(null); // Track when data was last updated
+  
+  // Table configuration - defined once to avoid repetition in template
+  displayedColumns = ['name', 'gt', 'port', 'status', 'eta'] as const;
   
   // Create the Cloud Function callable during initialization
   private fetchDailyDiaryCallable = httpsCallable<void, { 
@@ -103,13 +109,17 @@ export class SheetInfoComponent implements OnInit {
    * Subscribe to metadata changes and show notification when new data is available.
    * Skips the initial load and only reacts to subsequent changes.
    * Also prevents notification if PDF is already being fetched.
+   * 
+   * Uses takeUntilDestroyed() to automatically cleanup the subscription when the
+   * component is destroyed, preventing memory leaks.
    */
   private watchForUpdates(): void {
     this.systemSettings.getShannonMetadata$()
       .pipe(
         skip(1),  // Ignore initial value (we just loaded)
         filter(metadata => metadata.update_available === true),
-        filter(() => !this.pdfLoading())  // Don't notify if already loading
+        filter(() => !this.pdfLoading()),  // Don't notify if already loading
+        takeUntilDestroyed(this.destroyRef)  // ✅ Auto-cleanup when component destroyed
       )
       .subscribe(() => {
         // Show snackbar notification with refresh action
@@ -161,22 +171,17 @@ export class SheetInfoComponent implements OnInit {
       this.lastProcessed.set(new Date());
       
       console.log(`Successfully loaded ${result.data.shipsCount} ships from PDF`);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching PDF:', error);
-      this.pdfError.set(error.message || 'Failed to load PDF. Please try again.');
+      // Use type guard to safely extract error message
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Failed to load PDF. Please try again.';
+      this.pdfError.set(errorMessage);
     } finally {
       this.pdfLoading.set(false);
       this.loadingStep.set('');
     }
   }
 
-}
-
-interface PdfShip {
-  name: string;
-  gt: number;
-  port: string;
-  eta: string | null; // ISO datetime string
-  status: 'Due' | 'Awaiting Berth' | 'Alongside';
-  source: string;
 }

@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { DateTimePickerComponent } from '../../date-time-picker/date-time-picker.component';
+import { VisitStatus } from '../../models/data.model';
 
 @Component({
   selector: 'app-update-eta-dialog',
@@ -16,7 +17,7 @@ import { DateTimePickerComponent } from '../../date-time-picker/date-time-picker
     DateTimePickerComponent
   ],
   template: `
-    <h2 mat-dialog-title>Update ETA for {{ data.shipName }}</h2>
+    <h2 mat-dialog-title>Update {{ timeLabel }} for {{ data.shipName }}</h2>
     <mat-dialog-content>
       <form [formGroup]="form">
         <app-date-time-picker formControlName="newEta"></app-date-time-picker>
@@ -37,11 +38,25 @@ import { DateTimePickerComponent } from '../../date-time-picker/date-time-picker
 export class UpdateEtaDialogComponent {
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<UpdateEtaDialogComponent>);
-  readonly data = inject<{ shipName: string, currentEta: Date }>(MAT_DIALOG_DATA);
+  readonly data = inject<{ shipName: string, currentEta: Date, status: VisitStatus }>(MAT_DIALOG_DATA);
 
   form = this.fb.group({
     newEta: [this.data.currentEta || new Date(), Validators.required]
   });
+
+  // Compute the correct label based on status
+  get timeLabel(): string {
+    switch (this.data.status) {
+      case 'Due':
+        return 'ETA';
+      case 'Awaiting Berth':
+        return 'ETB';
+      case 'Alongside':
+        return 'ETS';
+      default:
+        return 'Time';
+    }
+  }
 
   onCancel(): void {
     this.dialogRef.close();

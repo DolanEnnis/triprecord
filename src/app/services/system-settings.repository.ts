@@ -1,4 +1,4 @@
-import { inject, Injectable } from '@angular/core';
+import { inject, Injectable, Injector, runInInjectionContext } from '@angular/core';
 import { Firestore, doc, docData } from '@angular/fire/firestore';
 import { Observable } from 'rxjs';
 import { Timestamp } from '@angular/fire/firestore';
@@ -48,6 +48,7 @@ export interface ShannonMetadata {
 })
 export class SystemSettingsRepository {
   private firestore = inject(Firestore);
+  private injector = inject(Injector);
   private metadataDoc = doc(this.firestore, 'system_settings/shannon_diary_metadata');
 
   /**
@@ -57,7 +58,9 @@ export class SystemSettingsRepository {
    * @returns Observable of metadata updates
    */
   getShannonMetadata$(): Observable<ShannonMetadata> {
-    return docData(this.metadataDoc) as Observable<ShannonMetadata>;
+    return runInInjectionContext(this.injector, () => {
+      return docData(this.metadataDoc) as Observable<ShannonMetadata>;
+    });
   }
 
   /**

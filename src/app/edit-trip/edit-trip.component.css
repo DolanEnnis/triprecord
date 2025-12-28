@@ -154,9 +154,10 @@
   Floating Action Buttons Container
   
   PATTERN: Multiple FABs stacked vertically
-  - Cancel button above Save button
+  - Save Changes button above Cancel button (flex-direction: column makes first appear at top)
   - Fixed positioning in bottom-right corner
   - Consistent spacing between buttons
+  - Both buttons have same width for visual consistency
 */
 .fab-buttons {
   position: fixed;
@@ -169,14 +170,45 @@
   align-items: flex-end;
 }
 
-/* Cancel FAB Button */
+/* Ensure both FAB buttons have the same width */
+.fab-save,
 .fab-cancel {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  width: 180px !important;
+  min-width: 180px !important;
 }
 
-/* Save FAB Button */
+/* Save FAB Button - Subtle Green */
 .fab-save {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  background-color: #4caf50 !important; /* Material Green 500 */
+  color: white !important;
+  box-shadow: 0 4px 8px rgba(76, 175, 80, 0.4); /* Green-tinted shadow */
+  transition: all 0.3s ease;
+}
+
+.fab-save:hover:not([disabled]) {
+  background-color: #45a049 !important; /* Slightly darker green on hover */
+  box-shadow: 0 6px 12px rgba(76, 175, 80, 0.5);
+  transform: translateY(-2px);
+}
+
+.fab-save:disabled {
+  background-color: #a5d6a7 !important; /* Lighter green when disabled */
+  color: rgba(255, 255, 255, 0.7) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Cancel FAB Button - Subtle Gray */
+.fab-cancel {
+  background-color: #757575 !important; /* Material Gray 600 */
+  color: white !important;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* Neutral shadow */
+  transition: all 0.3s ease;
+}
+
+.fab-cancel:hover {
+  background-color: #616161 !important; /* Slightly darker gray on hover */
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+  transform: translateY(-2px);
 }
 
 /* Pilot's Own Info Section - Card-like styling for pilot-only fields */

@@ -393,21 +393,10 @@
     - Reduces confusion when "Save Changes" is the only option
   -->
   <div class="fab-buttons">
-    <!-- Cancel Button -->
-    <button 
-      mat-fab 
-      color="basic" 
-      class="fab-cancel" 
-      (click)="cancel()"
-      matTooltip="Go back without saving">
-      <mat-icon>close</mat-icon>
-    </button>
-    
-    <!-- Save Button -->
+    <!-- Save Button (appears first/top due to flex-direction: column) -->
     <div [matTooltip]="getSaveButtonTooltip()" class="fab-wrapper">
       <button 
         mat-extended-fab 
-        color="primary" 
         class="fab-save" 
         (click)="save()" 
         [disabled]="saving()">
@@ -415,6 +404,16 @@
         <span>{{ saving() ? 'Saving...' : 'Save Changes' }}</span>
       </button>
     </div>
+    
+    <!-- Cancel Button (appears second/below) -->
+    <button 
+      mat-extended-fab 
+      class="fab-cancel" 
+      (click)="cancel()"
+      matTooltip="Go back without saving">
+      <mat-icon>close</mat-icon>
+      <span>Cancel</span>
+    </button>
   </div>
 </div>
 

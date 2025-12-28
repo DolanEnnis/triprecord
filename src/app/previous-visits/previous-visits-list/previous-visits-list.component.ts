@@ -71,13 +71,15 @@ export class PreviousVisitsListComponent implements OnInit, AfterViewInit {
     this.dataSource.sort = this.sort;
     
     // Custom sorting to handle null sailing dates
-    // When sorting by Sailed column, put null/empty dates at the top
+    // LEARNING: CUSTOM SORT FOR INCOMPLETE RECORDS
+    // Ships marked "Sailed" but missing sailedDate are incomplete - push to end
     this.dataSource.sortingDataAccessor = (item: EnrichedVisit, property: string) => {
       if (property === 'sailedDate') {
-        // If no sailed date, return a very early date to put it at top when ascending
-        // or a very late date to put at top when descending
+        // CRITICAL: If status is "Sailed" but no sailedDate, it's an incomplete record
+        // Push these to the BOTTOM regardless of sort direction (out of sight but not forgotten)
         if (!item.sailedDate) {
-          return this.sort?.direction === 'asc' ? new Date(0) : new Date(9999, 11, 31);
+          // Return far future date to always sort to bottom
+          return new Date(9999, 11, 31);
         }
         return item.sailedDate;
       }
@@ -159,22 +161,24 @@ export class PreviousVisitsListComponent implements OnInit, AfterViewInit {
     const currentIsInFuture = currentEta > nowTime;
     if (!currentIsInFuture) return false; // Only FUTURE rows can have the boundary
     
-    // Find the LAST (chronologically latest) FUTURE ship in the entire dataset
-    // The boundary should appear below that ship
+    // CRITICAL FIX: Find the EARLIEST (chronologically closest to now) FUTURE ship
+    // With descending sort (newest first), this ship appears at the BOTTOM of future ships
+    // The boundary line should appear BELOW it, separating future from past
     const allData = this.dataSource.filteredData;
-    let latestFutureEta = 0;
-    let latestFutureVisitId: string | null = null;
+    let earliestFutureEta = Number.MAX_SAFE_INTEGER; // Start with max, find minimum
+    let earliestFutureVisitId: string | null = null;
     
     for (const visit of allData) {
       const eta = visit[dateField]?.getTime();
-      if (eta && eta > nowTime && eta > latestFutureEta) {
-        latestFutureEta = eta;
-        latestFutureVisitId = visit.visitId;
+      // Find the SMALLEST future ETA (closest to now)
+      if (eta && eta > nowTime && eta < earliestFutureEta) {
+        earliestFutureEta = eta;
+        earliestFutureVisitId = visit.visitId;
       }
     }
     
-    // Compare by visitId instead of object reference
-    return latestFutureVisitId === row.visitId;
+    // The line appears on the ship closest to "now" (earliest future ship)
+    return earliestFutureVisitId === row.visitId;
   }
 
   editVisit(row: EnrichedVisit) {

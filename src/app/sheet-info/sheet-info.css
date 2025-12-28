@@ -4,12 +4,116 @@
   margin: 0 auto;
 }
 
+/* PDF Card */
+.pdf-card {
+  margin-top: 20px;
+}
+
 mat-card-title {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
+/* Loading States */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px;
+  gap: 12px;
+}
+
+.loading-message {
+  margin-top: 16px;
+  font-weight: 500;
+}
+
+.loading-step {
+  margin-top: 8px;
+  color: #666;
+  font-size: 14px;
+}
+
+/* Error States */
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background-color: #ffebee;
+  border-radius: 4px;
+  color: #c62828;
+  margin-top: 16px;
+  margin-bottom: 16px;
+}
+
+.retry-button {
+  margin-top: 12px;
+}
+
+/* Ships Section */
+.ships-section {
+  margin-top: 20px;
+}
+
+.ships-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.ships-header h3 {
+  margin: 0;
+  color: #1976d2;
+}
+
+.last-updated {
+  color: #666;
+  font-size: 14px;
+}
+
+.ships-table {
+  width: 100%;
+  margin-top: 12px;
+}
+
+/* Raw Text Details */
+.raw-text-details {
+  margin-top: 20px;
+}
+
+.raw-text-summary {
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.raw-text-content {
+  background: #f5f5f5;
+  padding: 16px;
+  overflow: auto;
+  max-height: 400px;
+  border: 1px solid #ddd;
+  margin-top: 12px;
+}
+
+.raw-text-large {
+  max-height: 600px;
+}
+
+/* No Ships Section */
+.no-ships-section {
+  margin-top: 20px;
+}
+
+.no-ships-section h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  color: #1976d2;
+}
+
+/* Legacy classes (keeping for potential backward compatibility) */
 .full-width {
   width: 100%;
   margin-bottom: 16px;
@@ -19,17 +123,6 @@ mat-card-title {
   display: flex;
   gap: 12px;
   margin-bottom: 24px;
-}
-
-.error-message {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px;
-  background-color: #ffebee;
-  border-radius: 4px;
-  color: #c62828;
-  margin-bottom: 16px;
 }
 
 .parsed-section {
@@ -62,14 +155,6 @@ mat-card-title {
 
 .data-row strong {
   color: #424242;
-}
-
-.loading-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 24px;
-  gap: 12px;
 }
 
 .comparison-section {

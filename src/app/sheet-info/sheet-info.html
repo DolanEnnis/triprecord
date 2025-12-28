@@ -1,10 +1,10 @@
 <div class="reconciliation-container">
   <!-- PDF Daily Diary Section -->
-  <mat-card style="margin-top: 20px;">
+  <mat-card class="pdf-card">
     <mat-card-header>
       <mat-card-title>
         <mat-icon>picture_as_pdf</mat-icon>
-        Daily Diary PDF
+        <a href="http://www.cargopro.ie/sfpc/download/rpt_daydiary.pdf" target="_blank" rel="noopener noreferrer">Day Diary PDF</a>
       </mat-card-title>
     </mat-card-header>
 
@@ -12,18 +12,18 @@
       @if (pdfLoading()) {
         <div class="loading-container">
           <mat-spinner diameter="40"></mat-spinner>
-          <p style="margin-top: 16px; font-weight: 500;">Working on Day Diary, Fetching the info for you, this can take a couple of Mins! Sorry!</p>
+          <p class="loading-message">Working on Day Diary, Fetching the info for you, this can take a couple of Mins! Sorry!</p>
           @if (loadingStep()) {
-            <p style="margin-top: 8px; color: #666; font-size: 14px;">{{ loadingStep() }}</p>
+            <p class="loading-step">{{ loadingStep() }}</p>
           }
         </div>
       }
 
       @if (pdfError()) {
-        <div class="error-message" style="margin-top: 16px;">
+        <div class="error-message">
           <mat-icon color="warn">error</mat-icon>
           <p>{{ pdfError() }}</p>
-          <button mat-raised-button color="primary" (click)="fetchPdf()" style="margin-top: 12px;">
+          <button mat-raised-button color="primary" (click)="fetchPdf()" class="retry-button">
             <mat-icon>refresh</mat-icon>
             Retry
           </button>
@@ -31,14 +31,14 @@
       }
 
       @if (pdfShips().length > 0) {
-        <div style="margin-top: 20px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <h3 style="margin: 0;">Extracted Ships ({{ pdfShipsCount() }})</h3>
+        <div class="ships-section">
+          <div class="ships-header">
+            <h3>Extracted Ships ({{ pdfShipsCount() }})</h3>
             @if (lastProcessed()) {
-              <span style="color: #666; font-size: 14px;">Last updated: {{ lastProcessed() | date:'dd/MM/yyyy HH:mm' }}</span>
+              <span class="last-updated">Last updated: {{ lastProcessed() | date:'dd/MM/yyyy HH:mm' }}</span>
             }
           </div>
-          <table mat-table [dataSource]="pdfShips()" style="width: 100%; margin-top: 12px;">
+          <table mat-table [dataSource]="pdfShips()" class="ships-table">
             
             <ng-container matColumnDef="name">
               <th mat-header-cell *matHeaderCellDef>Vessel Name</th>
@@ -71,19 +71,19 @@
               </td>
             </ng-container>
 
-            <tr mat-header-row *matHeaderRowDef="['name', 'gt', 'port', 'status', 'eta']"></tr>
-            <tr mat-row *matRowDef="let row; columns: ['name', 'gt', 'port', 'status', 'eta'];"></tr>
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
           </table>
         </div>
 
-        <details style="margin-top: 20px;">
-          <summary style="cursor: pointer; font-weight: 500;">Show Raw PDF Text</summary>
-          <pre style="background: #f5f5f5; padding: 16px; overflow: auto; max-height: 400px; border: 1px solid #ddd; margin-top: 12px;">{{ pdfText() }}</pre>
+        <details class="raw-text-details">
+          <summary class="raw-text-summary">Show Raw PDF Text</summary>
+          <pre class="raw-text-content">{{ pdfText() }}</pre>
         </details>
       } @else if (pdfText()) {
-        <div style="margin-top: 20px;">
+        <div class="no-ships-section">
           <h3>PDF Content (Raw Text - No Ships Found)</h3>
-          <pre style="background: #f5f5f5; padding: 16px; overflow: auto; max-height: 600px; border: 1px solid #ddd;">{{ pdfText() }}</pre>
+          <pre class="raw-text-content raw-text-large">{{ pdfText() }}</pre>
         </div>
       }
     </mat-card-content>

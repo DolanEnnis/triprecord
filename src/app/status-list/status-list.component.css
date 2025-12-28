@@ -95,6 +95,18 @@ mat-header-cell {
   text-decoration: underline;
 }
 
+.ship-name-link {
+  cursor: pointer;
+  color: #1976d2; /* Material blue */
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.ship-name-link:hover {
+  color: #1565c0; /* Darker blue on hover */
+  text-decoration: underline;
+}
+
 .empty-state {
   padding: 40px 20px;
   text-align: center;
@@ -132,4 +144,13 @@ mat-header-cell {
 
 ::ng-deep .error-snackbar .mat-mdc-button {
   color: white !important;
+}
+
+.pilot-select {
+  width: 100%;
+  font-size: 14px;
+}
+
+::ng-deep .pilot-select .mat-mdc-select-trigger {
+  min-height: 24px !important;
 }

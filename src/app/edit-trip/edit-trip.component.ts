@@ -702,7 +702,16 @@ export class EditTripComponent implements OnInit, IFormComponent {
       this.hasUnsavedAdditionalTrip = false;
       
       this.snackBar.open('Changes saved successfully', 'Close', { duration: 3000 });
-      this.router.navigate(['/']); // Redirect to root (Status List)
+      
+      // LEARNING: PRESERVING NAVIGATION CONTEXT
+      // Use Location.back() instead of hardcoded route to return user to their previous page.
+      // This works whether they came from:
+      // - Status List (/)
+      // - Previous Visits (/previous)  
+      // - Ships page (/ships)
+      // - Any other page
+      // The browser history remembers where they were, so we just go back one step.
+      this.location.back();
     } catch (err) {
       console.error('Error saving', err);
       this.snackBar.open('Error saving changes', 'Close');
