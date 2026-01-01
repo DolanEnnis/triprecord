@@ -86,14 +86,24 @@
   background-color: #e0e0e0;
 }
 
-.fab-add-charge {
+.fab-add-trip {
   position: fixed;
-  bottom: 4rem; /* Increased to lift it above the 40px footer */
+  bottom: 4rem;
   right: 2rem;
-  z-index: 100; /* Ensure it's above other content */
-  /* Override theme's accent color for higher visibility */
-  background-color: #4CAF50; /* A standard Material Design green */
-  border-radius: 28px; /* Explicitly set for a fully rounded pill shape */
+  z-index: 100;
+  min-width: 140px;
+  height: 42px;
+  font-weight: 500;
+  background-color: #4CAF50 !important;
+  color: #000000 !important;
+  border: 2px solid #000000 !important;
+  border-radius: 28px !important;
+  transition: all 0.3s ease;
+}
+
+.fab-add-trip:hover {
+  background-color: #45a049 !important;
+  transform: translateY(-2px);
 }
 
 .metadata-cell {
@@ -189,13 +199,10 @@
   /* Use FAB color and shape */
   background-color: #4CAF50;
   border-radius: 28px;
+  min-width: 140px;
+  height: 42px;
 
   /* Override disabled styles to make it look like the real button */
   color: white;
   opacity: 1;
-}
-
-/* The icon color should inherit, but we can be explicit */
-.help-content p button[mat-flat-button] mat-icon {
-  color: white;
 }

@@ -34,40 +34,65 @@
         <div class="ships-section">
           <div class="ships-header">
             <h3>Extracted Ships ({{ pdfShipsCount() }})</h3>
-            @if (lastProcessed()) {
-              <span class="last-updated">Last updated: {{ lastProcessed() | date:'dd/MM/yyyy HH:mm' }}</span>
-            }
+            <div class="timestamp-container">
+              @if (lastProcessed()) {
+                <span class="last-updated">Last updated: {{ lastProcessed() | date:'dd/MM/yyyy HH:mm' }}</span>
+              }
+              @if (previousProcessed()) {
+                <span class="previous-updated">Previous: {{ previousProcessed() | date:'dd/MM/yyyy HH:mm' }}</span>
+              }
+            </div>
           </div>
-          <table mat-table [dataSource]="pdfShips()" class="ships-table">
+          <table mat-table [dataSource]="shipComparisons()" class="ships-table">
             
             <ng-container matColumnDef="name">
               <th mat-header-cell *matHeaderCellDef>Vessel Name</th>
-              <td mat-cell *matCellDef="let ship">{{ ship.name }}</td>
+              <td mat-cell *matCellDef="let comparison"
+                  [class.new-ship]="comparison.changeType === 'new'"
+                  [class.removed-ship]="comparison.changeType === 'removed'">
+                <span [class.bold]="comparison.changedFields.has('name')">{{ comparison.ship.name }}</span>
+              </td>
             </ng-container>
 
             <ng-container matColumnDef="gt">
               <th mat-header-cell *matHeaderCellDef>GT</th>
-              <td mat-cell *matCellDef="let ship">{{ ship.gt | number }}</td>
+              <td mat-cell *matCellDef="let comparison"
+                  [class.new-ship]="comparison.changeType === 'new'"
+                  [class.removed-ship]="comparison.changeType === 'removed'">
+                <span [class.bold]="comparison.changedFields.has('gt')">{{ comparison.ship.gt | number }}</span>
+              </td>
             </ng-container>
 
             <ng-container matColumnDef="port">
               <th mat-header-cell *matHeaderCellDef>Port</th>
-              <td mat-cell *matCellDef="let ship">{{ ship.port }}</td>
+              <td mat-cell *matCellDef="let comparison"
+                  [class.new-ship]="comparison.changeType === 'new'"
+                  [class.removed-ship]="comparison.changeType === 'removed'">
+                <span [class.bold]="comparison.changedFields.has('port')">{{ comparison.ship.port }}</span>
+              </td>
             </ng-container>
 
             <ng-container matColumnDef="status">
               <th mat-header-cell *matHeaderCellDef>Status</th>
-              <td mat-cell *matCellDef="let ship">{{ ship.status }}</td>
+              <td mat-cell *matCellDef="let comparison"
+                  [class.new-ship]="comparison.changeType === 'new'"
+                  [class.removed-ship]="comparison.changeType === 'removed'">
+                <span [class.bold]="comparison.changedFields.has('status')">{{ comparison.ship.status }}</span>
+              </td>
             </ng-container>
 
             <ng-container matColumnDef="eta">
               <th mat-header-cell *matHeaderCellDef>ETA</th>
-              <td mat-cell *matCellDef="let ship">
-                @if (ship.eta) {
-                  {{ ship.eta | date:'dd/MM HH:mm' }}
-                } @else {
-                  -
-                }
+              <td mat-cell *matCellDef="let comparison"
+                  [class.new-ship]="comparison.changeType === 'new'"
+                  [class.removed-ship]="comparison.changeType === 'removed'">
+                <span [class.bold]="comparison.changedFields.has('eta')">
+                  @if (comparison.ship.eta) {
+                    {{ comparison.ship.eta | date:'dd/MM HH:mm' }}
+                  } @else {
+                    -
+                  }
+                </span>
               </td>
             </ng-container>
 

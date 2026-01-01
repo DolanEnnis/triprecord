@@ -1,6 +1,7 @@
+/* Container now uses more screen width to reduce large side margins */
 .status-container {
   padding: 20px;
-  max-width: 1200px;
+  max-width: 1600px; /* Increased to better utilize screen space */
   margin: 0 auto;
 }
 
@@ -60,9 +61,23 @@ mat-header-cell {
 .mat-column-updated {
   flex: 2.5;
 }
+.mat-column-marine-traffic {
+  flex: 0.5;
+  text-align: center;
+}
 .mat-column-actions {
   flex: 0.5;
   text-align: center;
+}
+
+/* Marine Traffic link styling */
+.marine-traffic-link {
+  color: #1976d2; /* Material blue to match ship name links */
+  transition: color 0.2s;
+}
+
+.marine-traffic-link:hover {
+  color: #1565c0; /* Darker blue on hover */
 }
 
 .update-info {

@@ -129,24 +129,40 @@
         </div>
       }
     </mat-card-content>
-
-    <mat-card-actions align="end">
-      <a mat-button color="accent" routerLink="/trip-confirmation">Cancel</a>
-      <!-- 
-        TOOLTIP WRAPPER PATTERN for disabled buttons:
-        - Disabled buttons don't receive mouse events
-        - Put matTooltip on a wrapper div instead
-        - Tooltip dynamically shows what's wrong with the form
-      -->
-      <div [matTooltip]="getFormErrorTooltip()" class="button-wrapper">
-        <button mat-flat-button color="primary" (click)="onSubmit()" [disabled]="visitForm.invalid || isLoading">
-          @if (isLoading) {
-            <mat-progress-spinner mode="indeterminate" diameter="20"></mat-progress-spinner>
-          } @else {
-            <span>Create Visit</span>
-          }
-        </button>
-      </div>
-    </mat-card-actions>
   </mat-card>
+
+  <!-- 
+    Floating Action Buttons - Horizontal Layout
+    
+    DESIGN PATTERN: Cancel as text button beside primary action
+    - Simple text button for Cancel (original design user preferred)
+    - Primary action button (Create Visit) with tooltip wrapper for disabled state
+    - Horizontal layout with buttons side-by-side
+    - Fixed position at bottom-right, stays visible while scrolling
+  -->
+  <div class="fab-buttons">
+    <!-- Cancel Button (text button, appears first/left) -->
+    <button 
+      mat-button 
+      color="accent" 
+      class="fab-cancel" 
+      routerLink="/trip-confirmation">
+      Cancel
+    </button>
+    
+    <!-- Create Visit Button (primary action, appears second/right) -->
+    <div [matTooltip]="getFormErrorTooltip()" class="fab-wrapper">
+      <button 
+        mat-flat-button
+        class="fab-create" 
+        (click)="onSubmit()" 
+        [disabled]="visitForm.invalid || isLoading">
+        @if (isLoading) {
+          <mat-progress-spinner mode="indeterminate" diameter="20"></mat-progress-spinner>
+        } @else {
+          Create Visit
+        }
+      </button>
+    </div>
+  </div>
 </div>

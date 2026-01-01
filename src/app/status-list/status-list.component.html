@@ -49,6 +49,31 @@
         </mat-cell>
       </ng-container>
 
+      <!-- Marine Traffic Column -->
+      <!-- Displays link to Marine Traffic vessel tracking using stored URL and custom logo -->
+      <ng-container matColumnDef="marine-traffic">
+        <mat-header-cell *matHeaderCellDef> Marine Traffic </mat-header-cell>
+        <mat-cell *matCellDef="let element">
+          <!-- Only display link if marineTrafficLink exists in the data -->
+          <a 
+            *ngIf="element.marineTrafficLink"
+            [href]="element.marineTrafficLink" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            class="marine-traffic-link"
+            matTooltip="View on Marine Traffic"
+          >
+            <img 
+              src="/MarineTraffic.png" 
+              alt="Marine Traffic" 
+              style="height: 20px; width: auto; display: block;"
+            />
+          </a>
+          <!-- Show dash/placeholder if no link available -->
+          <span *ngIf="!element.marineTrafficLink" style="color: #ccc;">—</span>
+        </mat-cell>
+      </ng-container>
+
       <!-- Office Time (ETA/ETB/ETS) Column - Header changes dynamically -->
       <ng-container matColumnDef="officeTime">
         <mat-header-cell *matHeaderCellDef> {{ section.timeLabel }} </mat-header-cell>

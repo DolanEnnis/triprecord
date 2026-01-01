@@ -151,13 +151,13 @@
 }
 
 /* 
-  Floating Action Buttons Container
+  Floating Action Buttons Container - Horizontal Layout
   
-  PATTERN: Multiple FABs stacked vertically
-  - Save Changes button above Cancel button (flex-direction: column makes first appear at top)
+  PATTERN: Text Cancel button beside primary action button
+  - Cancel is a simple text button (standardized design)
+  - Save Changes is the primary action button
+  - Horizontal layout (flex-direction: row)
   - Fixed positioning in bottom-right corner
-  - Consistent spacing between buttons
-  - Both buttons have same width for visual consistency
 */
 .fab-buttons {
   position: fixed;
@@ -165,50 +165,42 @@
   right: 2rem;
   z-index: 100;
   display: flex;
-  flex-direction: column;
+  flex-direction: row; /* Horizontal layout */
   gap: 12px;
-  align-items: flex-end;
+  align-items: center;
 }
 
-/* Ensure both FAB buttons have the same width */
-.fab-save,
-.fab-cancel {
-  width: 180px !important;
-  min-width: 180px !important;
+/* Wrapper for tooltip on disabled button - disabled elements don't receive mouse events */
+.fab-wrapper {
+  display: inline-block;
 }
 
-/* Save FAB Button - Subtle Green */
+/* Save Changes Button - Green background, black text, black border */
 .fab-save {
-  background-color: #4caf50 !important; /* Material Green 500 */
-  color: white !important;
-  box-shadow: 0 4px 8px rgba(76, 175, 80, 0.4); /* Green-tinted shadow */
+  min-width: 140px;
+  height: 42px;
+  font-weight: 500;
+  background-color: #4CAF50 !important;
+  color: #000000 !important;
+  border: 2px solid #000000 !important;
+  border-radius: 28px !important;
   transition: all 0.3s ease;
 }
 
 .fab-save:hover:not([disabled]) {
-  background-color: #45a049 !important; /* Slightly darker green on hover */
-  box-shadow: 0 6px 12px rgba(76, 175, 80, 0.5);
+  background-color: #45a049 !important;
   transform: translateY(-2px);
 }
 
 .fab-save:disabled {
-  background-color: #a5d6a7 !important; /* Lighter green when disabled */
-  color: rgba(255, 255, 255, 0.7) !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  background-color: #a5d6a7 !important;
+  color: #666666 !important;
+  border-color: #666666 !important;
 }
 
-/* Cancel FAB Button - Subtle Gray */
+/* Cancel Button - Simple accent text button */
 .fab-cancel {
-  background-color: #757575 !important; /* Material Gray 600 */
-  color: white !important;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* Neutral shadow */
-  transition: all 0.3s ease;
-}
-
-.fab-cancel:hover {
-  background-color: #616161 !important; /* Slightly darker gray on hover */
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
-  transform: translateY(-2px);
+  font-weight: 500;
 }
 
 /* Pilot's Own Info Section - Card-like styling for pilot-only fields */
@@ -285,6 +277,22 @@
   /* Reduce padding on additional trip cards */
   .additional-trip-card {
     padding: 12px;
+  }
+
+  /* Buttons stay horizontal but shrink on mobile */
+  .fab-buttons {
+    bottom: 1rem;
+    right: 1rem;
+    gap: 8px;
+  }
+
+  .fab-save {
+    min-width: 120px;
+    font-size: 0.9rem;
+  }
+
+  .fab-cancel {
+    font-size: 0.9rem;
   }
 }
 

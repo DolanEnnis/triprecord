@@ -2,6 +2,7 @@ import { inject, Injectable, Injector, runInInjectionContext } from '@angular/co
 import { Firestore, doc, docData } from '@angular/fire/firestore';
 import { Observable } from 'rxjs';
 import { Timestamp } from '@angular/fire/firestore';
+import { PdfShip } from '../models';
 
 /**
  * Metadata for Shannon Daily Diary monitoring system.
@@ -30,13 +31,19 @@ export interface ShannonMetadata {
   watchtower_enabled: boolean;
   
   /** Cached ship data from last PDF processing (for instant frontend display) */
-  cached_ships?: any[];
+  cached_ships?: PdfShip[];
   
   /** Cached raw PDF text */
   cached_text?: string;
   
   /** Cached page count from last PDF */
   cached_page_count?: number;
+  
+  /** Previous PDF ship data (for change detection) */
+  previous_ships?: PdfShip[];
+  
+  /** Timestamp when previous PDF was processed */
+  previous_processed?: Timestamp;
 }
 
 /**

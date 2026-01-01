@@ -97,8 +97,8 @@ export class StatusListComponent {
     }
   ]);
 
-  // Columns: Ship, Date (ETA/ETD), Port, Note, Pilot, Updated, Actions
-  displayedColumns: string[] = ['ship', 'officeTime', 'port', 'note', 'pilot', 'updated', 'actions'];
+  // Columns: Ship, Marine Traffic link, Date (ETA/ETD), Port, Note, Pilot, Updated, Actions
+  displayedColumns: string[] = ['ship', 'marine-traffic', 'officeTime', 'port', 'note', 'pilot', 'updated', 'actions'];
 
   editTrip(row: StatusListRow) {
     if (row.visitId) {

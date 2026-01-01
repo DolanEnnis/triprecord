@@ -380,40 +380,34 @@
   </form>
 
   <!-- 
-    Floating Action Buttons with Tooltip Wrapper 
+    Floating Action Buttons - Horizontal Layout
     
-    DESIGN PATTERN: Wrapper-based tooltip for disabled buttons
-    - matTooltip on wrapper instead of button (disabled buttons don't receive mouse events)
-    - Dynamic tooltip shows validation errors or save status
-    - Maintains FAB (Floating Action Button) position and styling
-    
-    UX IMPROVEMENT: Cancel button added
-    - Users can easily exit without saving
-    - Natural navigation pattern (back to where they came from)
-    - Reduces confusion when "Save Changes" is the only option
+    DESIGN PATTERN: Cancel as text button beside primary action
+    - Simple text button for Cancel (standardized site-wide)
+    - Primary action button (Save Changes) with tooltip wrapper for disabled state
+    - Horizontal layout with buttons side-by-side
+    - Fixed position at bottom-right, stays visible while scrolling
   -->
   <div class="fab-buttons">
-    <!-- Save Button (appears first/top due to flex-direction: column) -->
+    <!-- Cancel Button (text button, appears first/left) -->
+    <button 
+      mat-button 
+      color="accent" 
+      class="fab-cancel" 
+      (click)="cancel()">
+      Cancel
+    </button>
+    
+    <!-- Save Changes Button (primary action, appears second/right) -->
     <div [matTooltip]="getSaveButtonTooltip()" class="fab-wrapper">
       <button 
-        mat-extended-fab 
+        mat-flat-button
         class="fab-save" 
         (click)="save()" 
         [disabled]="saving()">
-        <mat-icon>save</mat-icon>
-        <span>{{ saving() ? 'Saving...' : 'Save Changes' }}</span>
+        {{ saving() ? 'Saving...' : 'Save Changes' }}
       </button>
     </div>
-    
-    <!-- Cancel Button (appears second/below) -->
-    <button 
-      mat-extended-fab 
-      class="fab-cancel" 
-      (click)="cancel()"
-      matTooltip="Go back without saving">
-      <mat-icon>close</mat-icon>
-      <span>Cancel</span>
-    </button>
   </div>
 </div>
 

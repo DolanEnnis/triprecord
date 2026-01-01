@@ -1,4 +1,4 @@
-import { Component, signal, inject, OnInit, DestroyRef } from '@angular/core';
+import { Component, signal, inject, OnInit, DestroyRef, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -12,7 +12,7 @@ import { UserRepository } from '../services/user.repository';
 import { Auth } from '@angular/fire/auth';
 import { skip, filter, take } from 'rxjs/operators';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { PdfShip } from '../models';
+import { PdfShip, ShipComparisonResult, ChangeType } from '../models';
 
 @Component({
   selector: 'app-sheet-info',
@@ -45,6 +45,24 @@ export class SheetInfoComponent implements OnInit {
   pdfShips = signal<PdfShip[]>([]);
   pdfShipsCount = signal(0);
   lastProcessed = signal<Date | null>(null); // Track when data was last updated
+  
+  // Previous PDF data (for change detection)
+  previousShips = signal<PdfShip[]>([]);
+  previousProcessed = signal<Date | null>(null);
+  
+  /**
+   * Computed comparison between current and previous ship lists.
+   * 
+   * This automatically recalculates whenever previousShips() or pdfShips() changes.
+   * Returns a merged list containing:
+   * - New ships (in current, not in previous) - marked as 'new'
+   * - Removed ships (in previous, not in current) - marked as 'removed'
+   * - Modified ships (in both, with field changes) - marked as 'modified'
+   * - Unchanged ships - marked as 'unchanged'
+   */
+  shipComparisons = computed(() => {
+    return this.compareShipLists(this.previousShips(), this.pdfShips());
+  });
   
   // Table configuration - defined once to avoid repetition in template
   displayedColumns = ['name', 'gt', 'port', 'status', 'eta'] as const;
@@ -79,9 +97,18 @@ export class SheetInfoComponent implements OnInit {
           this.pdfShips.set(metadata.cached_ships);
           this.pdfShipsCount.set(metadata.cached_ships.length);
           this.pdfLoading.set(false);
+          
           // Set last processed timestamp if available
           if (metadata.last_processed) {
             this.lastProcessed.set(metadata.last_processed.toDate());
+          }
+          
+          // Load previous data for change detection
+          if (metadata.previous_ships && metadata.previous_ships.length > 0) {
+            this.previousShips.set(metadata.previous_ships);
+            if (metadata.previous_processed) {
+              this.previousProcessed.set(metadata.previous_processed.toDate());
+            }
           }
         } else {
           // No cached data - first time, fetch PDF
@@ -93,6 +120,7 @@ export class SheetInfoComponent implements OnInit {
     // Watch for real-time updates while user is on page
     this.watchForUpdates();
   }
+
 
   /**
    * Mark that the current user has viewed the Sheet-Info page.
@@ -182,6 +210,115 @@ export class SheetInfoComponent implements OnInit {
       this.pdfLoading.set(false);
       this.loadingStep.set('');
     }
+  }
+
+  /**
+   * Compare two ship lists and identify changes.
+   * 
+   * @remarks
+   * Ships are matched by name using case-insensitive comparison.
+   * 
+   * **Algorithm:**
+   * 1. Create a map of previous ships by normalized name (lowercase)
+   * 2. Iterate through current ships:
+   *    - If not in previous → 'new'
+   *    - If in previous → compare fields to detect 'modified' or 'unchanged'$
+   * 3. Add remaining previous ships as 'removed'
+   * 
+   * **Why case-insensitive matching?**
+   * PDF extraction can have capitalization variations, so "MSC OSCAR" and "Msc Oscar"
+   * should be treated as the same ship.
+   * 
+   * @param previous - Ships from the previous PDF
+   * @param current - Ships from the current PDF
+   * @returns Array of comparison results with change type and modified fields
+   */
+  private compareShipLists(previous: PdfShip[], current: PdfShip[]): ShipComparisonResult[] {
+    const results: ShipComparisonResult[] = [];
+    
+    // If no previous data, all current ships are "new" (but don't highlight on first load)
+    if (previous.length === 0) {
+      return current.map(ship => ({
+        ship,
+        changeType: 'unchanged' as ChangeType,
+        changedFields: new Set<keyof PdfShip>()
+      }));
+    }
+    
+    // Create a map of previous ships by normalized name
+    const previousMap = new Map<string, PdfShip>();
+    for (const ship of previous) {
+      previousMap.set(ship.name.toLowerCase(), ship);
+    }
+    
+    // Track which previous ships we've matched
+    const matchedPreviousShips = new Set<string>();
+    
+    // Process current ships
+    for (const currentShip of current) {
+      const normalizedName = currentShip.name.toLowerCase();
+      const previousShip = previousMap.get(normalizedName);
+      
+      if (!previousShip) {
+        // New ship
+        results.push({
+          ship: currentShip,
+          changeType: 'new',
+          changedFields: new Set<keyof PdfShip>()
+        });
+      } else {
+        // Ship exists in both - check for changes
+        matchedPreviousShips.add(normalizedName);
+        const changedFields = this.detectChangedFields(previousShip, currentShip);
+        
+        results.push({
+          ship: currentShip,
+          changeType: changedFields.size > 0 ? 'modified' : 'unchanged',
+          changedFields
+        });
+      }
+    }
+    
+    // Add removed ships (in previous but not in current)
+    for (const [normalizedName, ship] of previousMap.entries()) {
+      if (!matchedPreviousShips.has(normalizedName)) {
+        results.push({
+          ship,
+          changeType: 'removed',
+          changedFields: new Set<keyof PdfShip>()
+        });
+      }
+    }
+    
+    return results;
+  }
+
+  /**
+   * Detect which fields changed between two ship records.
+   * 
+   * @remarks
+   * Compares all fields except 'source' (which is metadata, not ship data).
+   * 
+   * **Field Comparison:**
+   * - String fields (name, port, status): Exact match
+   * - Number fields (gt): Strict equality
+   * - ETA: ISO string comparison (null is handled)
+   * 
+   * @param previous - Previous ship data
+   * @param current - Current ship data
+   * @returns Set of field names that changed
+   */
+  private detectChangedFields(previous: PdfShip, current: PdfShip): Set<keyof PdfShip> {
+    const changedFields = new Set<keyof PdfShip>();
+    
+    // Compare each field
+    if (previous.name !== current.name) changedFields.add('name');
+    if (previous.gt !== current.gt) changedFields.add('gt');
+    if (previous.port !== current.port) changedFields.add('port');
+    if (previous.status !== current.status) changedFields.add('status');
+    if (previous.eta !== current.eta) changedFields.add('eta');
+    
+    return changedFields;
   }
 
 }

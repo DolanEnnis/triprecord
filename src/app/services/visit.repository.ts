@@ -190,72 +190,79 @@ export class VisitRepository {
               );
 
               return from(getDocs(tripQuery)).pipe(
-                map((snapshot) => {
+                switchMap((snapshot) => {
                   let tripData: (Trip & { id: string }) | undefined;
                   if (!snapshot.empty) {
                     const doc = snapshot.docs[0];
                     tripData = { ...doc.data() as Trip, id: doc.id };
                   }
 
-                  // 3. Map to the clean View Model (StatusListRow)
+                  // Fetch ship data to get marineTrafficLink
+                  const shipDocRef = doc(this.firestore, `ships/${visit.shipId}`);
+                  return from(getDoc(shipDocRef)).pipe(
+                    map((shipDoc) => {
+                      const shipData = shipDoc.exists() ? shipDoc.data() as any : null;
 
-                // Safe Date Conversions - Status-specific logic:
-                // - 'Due' vessels should show ETA (when ship arrives at port)
-                // - 'Awaiting Berth' vessels should show ETB (pilot boarding time)
-                // - 'Alongside' vessels should show ETS (sailing time, from outward trip)
-                let activeDate: Date;
-                let isTimeSet = false; // Track if the time is actually set or a fallback
-                
-                if (status === 'Due') {
-                  // For 'Due' status, always use the visit's initialEta
-                  if (visit.initialEta && visit.initialEta instanceof Timestamp) {
-                    activeDate = visit.initialEta.toDate();
-                    isTimeSet = true; // ETA is the primary field for Due vessels
-                  } else {
-                    activeDate = new Date(); // Fallback if ETA is missing
-                    isTimeSet = false;
-                  }
-                } else {
-                  // For 'Awaiting Berth' and 'Alongside', use the trip's boarding time
-                  if (tripData?.boarding && tripData.boarding instanceof Timestamp) {
-                    activeDate = tripData.boarding.toDate();
-                    isTimeSet = true; // Boarding time (ETB/ETS) is explicitly set
-                  } else if (visit.initialEta && visit.initialEta instanceof Timestamp) {
-                    activeDate = visit.initialEta.toDate();
-                    isTimeSet = false; // Fallback to ETA if boarding time not set
-                  } else {
-                    activeDate = new Date(); // Fallback if data is corrupt
-                    isTimeSet = false;
-                  }
-                }  
+                      // 3. Map to the clean View Model (StatusListRow)
 
-                  const updateDate =
-                    visit.statusLastUpdated instanceof Timestamp
-                      ? visit.statusLastUpdated.toDate()
-                      : new Date();
+                      // Safe Date Conversions - Status-specific logic:
+                      // - 'Due' vessels should show ETA (when ship arrives at port)
+                      // - 'Awaiting Berth' vessels should show ETB (pilot boarding time)
+                      // - 'Alongside' vessels should show ETS (sailing time, from outward trip)
+                      let activeDate: Date;
+                      let isTimeSet = false; // Track if the time is actually set or a fallback
+                      
+                      if (status === 'Due') {
+                        // For 'Due' status, always use the visit's initialEta
+                        if (visit.initialEta && visit.initialEta instanceof Timestamp) {
+                          activeDate = visit.initialEta.toDate();
+                          isTimeSet = true; // ETA is the primary field for Due vessels
+                        } else {
+                          activeDate = new Date(); // Fallback if ETA is missing
+                          isTimeSet = false;
+                        }
+                      } else {
+                        // For 'Awaiting Berth' and 'Alongside', use the trip's boarding time
+                        if (tripData?.boarding && tripData.boarding instanceof Timestamp) {
+                          activeDate = tripData.boarding.toDate();
+                          isTimeSet = true; // Boarding time (ETB/ETS) is explicitly set
+                        } else if (visit.initialEta && visit.initialEta instanceof Timestamp) {
+                          activeDate = visit.initialEta.toDate();
+                          isTimeSet = false; // Fallback to ETA if boarding time not set
+                        } else {
+                          activeDate = new Date(); // Fallback if data is corrupt
+                          isTimeSet = false;
+                        }
+                      }  
 
+                      const updateDate =
+                        visit.statusLastUpdated instanceof Timestamp
+                          ? visit.statusLastUpdated.toDate()
+                          : new Date();
 
-                  return {
-                    visitId: visit.id!,
-                    tripId: tripData?.id, // Populate tripId
-                    shipName: visit.shipName,
-                    status: visit.currentStatus,
-                    date: activeDate,
-                    isTimeSet: isTimeSet, // Flag to indicate if time is set
+                      return {
+                        visitId: visit.id!,
+                        tripId: tripData?.id, // Populate tripId
+                        shipName: visit.shipName,
+                        status: visit.currentStatus,
+                        date: activeDate,
+                        isTimeSet: isTimeSet, // Flag to indicate if time is set
 
-                    // Flattened fields (Handling "No Info" logic)
-                    port:
-                      tripData?.port ||
-                      visit.berthPort ||
-                      'No Info',
-                    note: tripData?.pilotNotes || visit.visitNotes || '',
-                    pilot: tripData?.pilot || visit.inwardPilot || 'Unassigned',
+                        // Flattened fields (Handling "No Info" logic)
+                        port:
+                          tripData?.port ||
+                          visit.berthPort ||
+                          'No Info',
+                        note: tripData?.pilotNotes || visit.visitNotes || '',
+                        pilot: tripData?.pilot || visit.inwardPilot || 'Unassigned',
 
-                    updatedBy: visit.updatedBy,
-                    updatedAt: updateDate,
-                    source: visit.source,
-                    // Marine Traffic link omitted as requested
-                  } as StatusListRow;
+                        updatedBy: visit.updatedBy,
+                        updatedAt: updateDate,
+                        source: visit.source,
+                        marineTrafficLink: shipData?.marineTrafficLink || null, // Get link from ship data
+                      } as StatusListRow;
+                    })
+                  );
                 })
               );
             });

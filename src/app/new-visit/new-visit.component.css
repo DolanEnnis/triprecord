@@ -45,28 +45,61 @@ h3:first-of-type {
   margin-top: 0;
 }
 
-mat-card-actions {
-  padding: 1.5rem 1rem 1rem;
-  background: #fafafa;
-  margin: 1.5rem -16px -16px;
-  border-top: 1px solid #e0e0e0;
-}
-
-button[mat-flat-button] {
-  min-width: 140px;
-  height: 42px;
-  font-weight: 500;
-}
-
 /* 
-  Wrapper for disabled button tooltip pattern.
-  Must be inline-block so the tooltip wrapper doesn't stretch full width.
+  Floating Action Buttons Container - Horizontal Layout
+  
+  PATTERN: Text Cancel button beside primary action button
+  - Cancel is a simple text button (original design)
+  - Create Visit is the primary action button
+  - Horizontal layout (flex-direction: row)
+  - Fixed positioning in bottom-right corner
 */
-.button-wrapper {
+.fab-buttons {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 100;
+  display: flex;
+  flex-direction: row; /* Horizontal layout */
+  gap: 12px;
+  align-items: center;
+}
+
+/* Wrapper for tooltip on disabled button - disabled elements don't receive mouse events */
+.fab-wrapper {
   display: inline-block;
 }
 
-button mat-progress-spinner {
+/* Create Visit Button - Green background, black text, black border */
+.fab-create {
+  min-width: 140px;
+  height: 42px;
+  font-weight: 500;
+  background-color: #4CAF50 !important;
+  color: #000000 !important;
+  border: 2px solid #000000 !important;
+  border-radius: 28px !important;
+  transition: all 0.3s ease;
+}
+
+.fab-create:hover:not([disabled]) {
+  background-color: #45a049 !important;
+  transform: translateY(-2px);
+}
+
+.fab-create:disabled {
+  background-color: #a5d6a7 !important;
+  color: #666666 !important;
+  border-color: #666666 !important;
+}
+
+/* Cancel Button - Simple accent text button */
+.fab-cancel {
+  font-weight: 500;
+}
+
+/* Loading spinner inside Create Visit button */
+.fab-create mat-progress-spinner {
   display: inline-block;
   margin: 0 18px;
 }
@@ -245,8 +278,19 @@ mat-form-field {
     gap: 0.75rem;
   }
 
-  button[mat-flat-button] {
-    width: 100%;
-    margin-top: 0.5rem;
+  /* Buttons stay horizontal but shrink on mobile */
+  .fab-buttons {
+    bottom: 1rem;
+    right: 1rem;
+    gap: 8px;
+  }
+
+  .fab-create {
+    min-width: 120px;
+    font-size: 0.9rem;
+  }
+
+  .fab-cancel {
+    font-size: 0.9rem;
   }
 }

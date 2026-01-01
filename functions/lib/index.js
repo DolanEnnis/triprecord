@@ -105,9 +105,12 @@ exports.fetchDailyDiaryPdf = (0, https_1.onCall)({
     const db = admin.firestore();
     const metadataRef = db.doc("system_settings/shannon_diary_metadata");
     try {
-        // STEP 0: Check and acquire processing lock
+        // STEP 0: Check and acquire processing lock + read current data for history
         const metadataDoc = await metadataRef.get();
         const metadata = metadataDoc.data();
+        // Preserve current data before processing (for change detection)
+        const previousShips = (metadata === null || metadata === void 0 ? void 0 : metadata.cached_ships) || [];
+        const previousProcessed = (metadata === null || metadata === void 0 ? void 0 : metadata.last_processed) || null;
         // Check if already processing
         if (metadata === null || metadata === void 0 ? void 0 : metadata.processing) {
             const processingStarted = (_a = metadata.processing_started_at) === null || _a === void 0 ? void 0 : _a.toDate();
@@ -259,6 +262,7 @@ ${rawText.substring(0, 20000)}`;
         });
         console.log(`OpenAI found ${shipsFound.length} ships`);
         // CLEANUP: Update metadata - mark update as processed AND store cached ship data
+        // Also preserve previous data for change detection (strikethrough/bold highlighting)
         await metadataRef.set({
             update_available: false,
             last_processed: firestore_1.FieldValue.serverTimestamp(),
@@ -266,7 +270,10 @@ ${rawText.substring(0, 20000)}`;
             processing_started_at: null,
             cached_ships: shipsFound, // Store parsed ships for instant frontend display
             cached_text: rawText, // Store raw text as well
-            cached_page_count: pdfData.numpages
+            cached_page_count: pdfData.numpages,
+            // Preserve previous version for change detection
+            previous_ships: previousShips,
+            previous_processed: previousProcessed
         }, { merge: true });
         console.log("Processing complete, metadata updated");
         return {
