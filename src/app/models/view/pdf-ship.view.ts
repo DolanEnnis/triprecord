@@ -61,6 +61,13 @@ export interface PdfShip {
    */
   status: Exclude<VisitStatus, 'Sailed' | 'Cancelled'>;
   
+  /** 
+   * Contextual notes extracted from PDF.
+   * Contains text between ship dimensions and port code (e.g., "@ Anchor in after Volgaborg", "Eta 03/1200").
+   * `null` if no notes found.
+   */
+  notes: string | null;
+  
   /** Source identifier (typically 'CarGoPro Daily Diary') */
   source: string;
 }

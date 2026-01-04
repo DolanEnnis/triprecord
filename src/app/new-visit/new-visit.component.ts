@@ -98,6 +98,7 @@ export class NewVisitComponent implements OnInit, IFormComponent {
       source: [null, Validators.required],
     });
 
+    // Set up autocomplete observable FIRST (before patching values)
     this.filteredShips$ = this.shipNameControl.valueChanges.pipe(
       startWith(''),
       tap(value => {
@@ -119,12 +120,61 @@ export class NewVisitComponent implements OnInit, IFormComponent {
         }
       })
     );
+    
+    // NOW check for router state and pre-fill (AFTER observable is set up)
+    // This prevents the startWith('') from clearing our pre-filled values
+    const pdfData = window.history.state?.pdfData;
+    
+    if (pdfData) {
+      console.log('Pre-filling form with PDF data:', pdfData);
+      
+      // Pre-fill form with PDF ship data
+      // Use emitEvent: false to prevent valueChanges from clearing the fields
+      this.visitForm.patchValue({
+        shipName: pdfData.shipName || '',
+        grossTonnage: pdfData.grossTonnage || null,
+        initialEta: pdfData.eta ? new Date(pdfData.eta) : initialDate,
+        berthPort: pdfData.port || null,
+        source: 'Sheet' // Default source to 'Sheet' since it came from PDF
+      }, { emitEvent: false });
+      
+      // Mark form as dirty
+      this.visitForm.markAsDirty();
+      
+      // Try to find the ship in database to auto-populate vessel details
+      // This will override the PDF GT if ship exists in our system
+      if (pdfData.shipName) {
+        this.shipRepository.findShipByName(pdfData.shipName).subscribe(ship => {
+          if (ship) {
+            console.log('Ship found in database, populating full details:', ship);
+            this.populateFormWithShipData(ship);
+          } else {
+            console.log('Ship not in database, using PDF data only');
+          }
+        });
+      }
+      
+      // Show confirmation message
+      this.snackBar.open(`Form pre-filled with data for ${pdfData.shipName}`, 'Dismiss', {
+        duration: 4000,
+        verticalPosition: 'top'
+      });
+    }
   }
 
   get shipNameControl() { return this.visitForm.get('shipName')!; }
   get grossTonnageControl() { return this.visitForm.get('grossTonnage')!; }
 
-  displayShip(ship: Ship | { ship: string, id: string }): string {
+  /**
+   * Display function for ship autocomplete.
+   * Handles both Ship objects from database AND plain strings from PDF pre-fill.
+   */
+  displayShip(ship: Ship | { ship: string, id: string } | string): string {
+    // Handle plain string (from PDF pre-fill)
+    if (typeof ship === 'string') {
+      return ship;
+    }
+    // Handle Ship object or suggestion object
     return ship ? (ship as Ship).shipName || (ship as { ship: string }).ship || '' : '';
   }
 

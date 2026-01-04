@@ -174,36 +174,83 @@ export const fetchDailyDiaryPdf = onCall({
     const openai = new OpenAI({ apiKey: openaiApiKey.value() });
 
     const prompt = `Analyze this raw text from a Shannon Port "Day Diary" PDF.
-It contains a table of ships with columns: Vessel Name, GT (Gross Tonnage), Port (single letter code), and ETA.
+It contains a table of ships with columns: Vessel Name, GT (Gross Tonnage), Port/Berth Code, and ETA.
 
 Extract ALL ships and structure them as JSON.
 
-Port Code Mapping (single letter to full port name):
-- A = Aughinish
-- C = Cappa
-- M = Moneypoint
-- T = Tarbert
-- F = Foynes
-- S = Shannon
-- L = Limerick
-(Note: Anchorage has no single letter code)
+**CRITICAL: Port/Berth Code Format Rules**
+
+Port codes in this PDF ALWAYS follow this EXACT pattern:
+- Format: ONE LETTER + EXACTLY TWO DIGITS
+- Examples: A02, T15, F07, S01, M03, C12, L05
+
+**What IS a port code:**
+- A02 → Aughinish, berth 02
+- F07 → Foynes, berth 07
+- T15 → Tarbert, berth 15
+- S01 → Shannon, berth 01
+
+**What is NOT a port code (IGNORE these):**
+- "MSt" → This is cargo/status, NOT a port (3 letters, no digits)
+- "MT" → This is cargo/status, NOT a port (2 letters, no digits)  
+- "TT" or "T" → This is tug designation, NOT a port (letters only)
+- "Etc" → This is status marker, NOT a port (3 letters)
+- Any text with 3+ letters → NOT a port code
+- Any text without exactly 2 digits → NOT a port code
+
+**Port Letter Mapping (first letter of the berth code):**
+- A = Aughinish (e.g., A01, A02)
+- C = Cappa (e.g., C12)
+- M = Moneypoint (e.g., M03)
+- T = Tarbert (e.g., T15)
+- F = Foynes (e.g., F07, F03)
+- S = Shannon (e.g., S01)
+- L = Limerick (e.g., L05)
+
+**Instructions:**
+1. Scan the ship's row for ANY **standalone** text matching pattern: [LETTER][DIGIT][DIGIT]
+   - The code MUST be separated by spaces (e.g., " F03 " or at end of line)
+   - NEVER extract from within a longer word (e.g., "MCPORTS" contains "CPO" but is NOT a port)
+   - **Word boundary check:** Look for the pattern surrounded by spaces or punctuation
+2. Use ONLY the first letter to determine the port name
+3. If you see "MSt", "MT", "TT", "Etc" or similar → IGNORE them, keep searching
+4. If you find "F07" → Port is Foynes
+5. If no valid [LETTER][DIGIT][DIGIT] pattern found → set port to null
+6. **Disambiguation:** If multiple valid codes exist, prefer the one that appears AFTER status markers like "Etc" or time stamps
 
 ETA Format Examples:
 - "Eta 21/1150" = day 21 of current month, time 11:50
 - "Eta 15/0830" = day 15, time 08:30
-- Extract ONLY if format matches "Eta DD/HHMM"
+- "Etc04/Am 04/0515" = Estimated Time of COMPLETION (not arrival), day 4, time 05:15
+- Extract ONLY if format matches "Eta DD/HHMM" for arrival times
+- If you see "Etc" instead of "Eta", this is a completion time (ship already alongside)
 - If no ETA found, set to null
 
 Rules:
 1. The "GT" is usually a 3-5 digit number (e.g., 4500, 15900).
 2. Ignore small tugs (like "Celtic Rebel") unless they have a clear GT.
-3. Port is a single letter code - map it to the full port name.
+3. Port code MUST match [LETTER][DIGIT][DIGIT] format - ignore everything else.
 4. ETA must be in format "Eta DD/HHMM" - extract day and time separately.
 5. **IMPORTANT: Include ALL ships even if ETA is missing - just set etaDay and etaTime to null.**
-6. **Status Indicators (look for these in the ship's row):**
-   - If you see "@ Anchor" or "@Anchor" → set statusMarker to "anchor"
-   - If you see "ETC" → set statusMarker to "etc"
-   - Otherwise → set statusMarker to null
+6. **Notes Field:**
+   - Extract ANY text between ship dimensions (draft/beam/length) and port code
+   - This may include: "@ Anchor in after [ship]", "Eta DD/HHMM", "in after...", waiting indicators
+   - Example: "@ Anchor in after Volgaborg" or "Eta 03/1200"
+   - Set to null if no text found between dimensions and port code
+6. **Status Indicators - Understanding Maritime Terminology:**
+   - **"ETC"** = Estimated Time of Completion
+     * Means the ship is ALREADY ALONGSIDE at berth
+     * Actively loading/unloading cargo
+     * The time given is when they expect to FINISH the job
+     * → Set statusMarker to "etc"
+   - **"ETA"** = Estimated Time of Arrival  
+     * Means the ship is INBOUND (not yet at berth)
+     * The time given is when they expect to ARRIVE
+     * → This is the etaDay/etaTime fields
+   - **"@ Anchor"** or **"@Anchor"**
+     * Means the ship has arrived but is waiting for a berth
+     * → Set statusMarker to "anchor"
+   - **Otherwise** → set statusMarker to null
 
 Output Schema:
 {
@@ -214,7 +261,8 @@ Output Schema:
       "port": "Port Name",
       "etaDay": 21,
       "etaTime": "11:50",
-      "statusMarker": "anchor" | "etc" | null
+      "statusMarker": "anchor" | "etc" | null,
+      "notes": "@ Anchor in after Volgaborg" | "Eta 03/1200" | null
     }
   ]
 }
@@ -245,25 +293,48 @@ ${rawText.substring(0, 20000)}`;
       
       if (ship.etaDay && ship.etaTime) {
         // Determine which month this ETA is for
-        const etaDay = ship.etaDay;
-        let etaMonth = currentMonth;
-        let etaYear = currentYear;
+        const etaDay = parseInt(ship.etaDay, 10);
         
-        // If the day has already passed this month, assume next month
-        if (etaDay < currentDay) {
-          etaMonth = currentMonth + 1;
-          if (etaMonth > 11) {
-            etaMonth = 0; // January
-            etaYear++;
+        // Validate etaDay
+        if (isNaN(etaDay) || etaDay < 1 || etaDay > 31) {
+          console.warn(`Invalid ETA day for ship ${ship.name}: ${ship.etaDay}`);
+        } else {
+          let etaMonth = currentMonth;
+          let etaYear = currentYear;
+          
+          // If the day has already passed this month, assume next month
+          if (etaDay < currentDay) {
+            etaMonth = currentMonth + 1;
+            if (etaMonth > 11) {
+              etaMonth = 0; // January
+              etaYear++;
+            }
+          }
+          
+          // Parse time (HH:MM format) with error handling
+          try {
+            const timeParts = ship.etaTime.split(':');
+            if (timeParts.length >= 2) {
+              const hours = parseInt(timeParts[0], 10);
+              const minutes = parseInt(timeParts[1], 10);
+              
+              // Validate hours and minutes
+              if (!isNaN(hours) && !isNaN(minutes) && 
+                  hours >= 0 && hours < 24 && 
+                  minutes >= 0 && minutes < 60) {
+                // Create ISO datetime string
+                const etaDate = new Date(etaYear, etaMonth, etaDay, hours, minutes);
+                eta = etaDate.toISOString();
+              } else {
+                console.warn(`Invalid time values for ship ${ship.name}: ${ship.etaTime}`);
+              }
+            } else {
+              console.warn(`Malformed time string for ship ${ship.name}: ${ship.etaTime}`);
+            }
+          } catch (error) {
+            console.error(`Error parsing ETA time for ship ${ship.name}:`, error);
           }
         }
-        
-        // Parse time (HH:MM format)
-        const [hours, minutes] = ship.etaTime.split(':').map((n: string) => parseInt(n, 10));
-        
-        // Create ISO datetime string
-        const etaDate = new Date(etaYear, etaMonth, etaDay, hours, minutes);
-        eta = etaDate.toISOString();
       }
       
       // Determine status based on markers and ETA
@@ -284,6 +355,7 @@ ${rawText.substring(0, 20000)}`;
         port: ship.port,
         eta: eta, // ISO string or null
         status: status,
+        notes: ship.notes || null, // Contextual notes from PDF
         source: 'Other' // 'Auto from Daydairy' concept - using 'Other' from Source type
       };
     });

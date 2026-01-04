@@ -1,6 +1,7 @@
+/* Use global .page-container class for consistent max-width (1600px) */
 .container {
   padding: 20px;
-  max-width: 1200px;
+  max-width: 1600px;
   margin: 0 auto;
 }
 
@@ -151,57 +152,14 @@
 }
 
 /* 
-  Floating Action Buttons Container - Horizontal Layout
+  Floating Action Buttons - Using global utilities from styles.css
   
-  PATTERN: Text Cancel button beside primary action button
-  - Cancel is a simple text button (standardized design)
-  - Save Changes is the primary action button
-  - Horizontal layout (flex-direction: row)
-  - Fixed positioning in bottom-right corner
+  Classes used:
+  - .fab-buttons (container)
+  - .fab-wrapper (tooltip wrapper)
+  - .fab-primary (for .fab-save - green button)
+  - .fab-secondary (for .fab-cancel - text button)
 */
-.fab-buttons {
-  position: fixed;
-  bottom: 2rem;
-  right: 2rem;
-  z-index: 100;
-  display: flex;
-  flex-direction: row; /* Horizontal layout */
-  gap: 12px;
-  align-items: center;
-}
-
-/* Wrapper for tooltip on disabled button - disabled elements don't receive mouse events */
-.fab-wrapper {
-  display: inline-block;
-}
-
-/* Save Changes Button - Green background, black text, black border */
-.fab-save {
-  min-width: 140px;
-  height: 42px;
-  font-weight: 500;
-  background-color: #4CAF50 !important;
-  color: #000000 !important;
-  border: 2px solid #000000 !important;
-  border-radius: 28px !important;
-  transition: all 0.3s ease;
-}
-
-.fab-save:hover:not([disabled]) {
-  background-color: #45a049 !important;
-  transform: translateY(-2px);
-}
-
-.fab-save:disabled {
-  background-color: #a5d6a7 !important;
-  color: #666666 !important;
-  border-color: #666666 !important;
-}
-
-/* Cancel Button - Simple accent text button */
-.fab-cancel {
-  font-weight: 500;
-}
 
 /* Pilot's Own Info Section - Card-like styling for pilot-only fields */
 .pilot-own-section {
@@ -236,6 +194,37 @@
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 16px;
   width: 100%;
+}
+
+/* LEARNING: REPLACING INLINE STYLES WITH CSS CLASSES
+ * Why move styles from HTML to CSS?
+ * 1. Separation of concerns - HTML for structure, CSS for presentation
+ * 2. Reusability - Use the same class multiple times
+ * 3. Maintainability - Change styling in one place
+ * 4. No !important needed - CSS specificity works naturally
+ */
+
+/* Full-width textarea fields (Extra and Own Note) */
+.pilot-textarea-field {
+  width: 100%;
+  max-width: none;
+  display: block;
+  margin-bottom: 16px;
+}
+
+/* Three-column grid for Pilot No, Month No, Good */
+.pilot-three-col-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+/* Two-column grid for Car and Time Off */
+.pilot-two-col-grid {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 16px;
 }
 
 /* RESPONSIVE: Mobile/Tablet adjustments */
@@ -279,21 +268,7 @@
     padding: 12px;
   }
 
-  /* Buttons stay horizontal but shrink on mobile */
-  .fab-buttons {
-    bottom: 1rem;
-    right: 1rem;
-    gap: 8px;
-  }
-
-  .fab-save {
-    min-width: 120px;
-    font-size: 0.9rem;
-  }
-
-  .fab-cancel {
-    font-size: 0.9rem;
-  }
+  /* FAB button responsive styles now handled by global utilities */
 }
 
 /* Extra small screens (phones in portrait) */

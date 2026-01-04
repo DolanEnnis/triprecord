@@ -6,9 +6,10 @@
   padding: 2rem;
 }
 
+/* Use global .page-container class for consistent max-width (1600px) */
 .main-card {
   width: 100%;
-  max-width: 1400px; /* Increased max-width for wider screens */
+  max-width: 1600px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   border-radius: 8px;
 }
@@ -46,63 +47,14 @@ h3:first-of-type {
 }
 
 /* 
-  Floating Action Buttons Container - Horizontal Layout
+  Floating Action Buttons - Using global utilities from styles.css
   
-  PATTERN: Text Cancel button beside primary action button
-  - Cancel is a simple text button (original design)
-  - Create Visit is the primary action button
-  - Horizontal layout (flex-direction: row)
-  - Fixed positioning in bottom-right corner
+  Classes used:
+  - .fab-buttons (container)
+  - .fab-wrapper (tooltip wrapper)
+  - .fab-primary (for .fab-create - green button)
+  - .fab-secondary (for .fab-cancel - text button)
 */
-.fab-buttons {
-  position: fixed;
-  bottom: 2rem;
-  right: 2rem;
-  z-index: 100;
-  display: flex;
-  flex-direction: row; /* Horizontal layout */
-  gap: 12px;
-  align-items: center;
-}
-
-/* Wrapper for tooltip on disabled button - disabled elements don't receive mouse events */
-.fab-wrapper {
-  display: inline-block;
-}
-
-/* Create Visit Button - Green background, black text, black border */
-.fab-create {
-  min-width: 140px;
-  height: 42px;
-  font-weight: 500;
-  background-color: #4CAF50 !important;
-  color: #000000 !important;
-  border: 2px solid #000000 !important;
-  border-radius: 28px !important;
-  transition: all 0.3s ease;
-}
-
-.fab-create:hover:not([disabled]) {
-  background-color: #45a049 !important;
-  transform: translateY(-2px);
-}
-
-.fab-create:disabled {
-  background-color: #a5d6a7 !important;
-  color: #666666 !important;
-  border-color: #666666 !important;
-}
-
-/* Cancel Button - Simple accent text button */
-.fab-cancel {
-  font-weight: 500;
-}
-
-/* Loading spinner inside Create Visit button */
-.fab-create mat-progress-spinner {
-  display: inline-block;
-  margin: 0 18px;
-}
 
 /* --- Content & Form Layout --- */
 
@@ -219,7 +171,7 @@ mat-form-field {
   transition: all 0.2s ease;
 }
 
-/* Using ::ng-deep for Angular Material component styling */
+/* Component-specific Material overrides */
 ::ng-deep .mat-mdc-form-field.mat-focused {
   transform: translateY(-1px);
 }
@@ -278,19 +230,5 @@ mat-form-field {
     gap: 0.75rem;
   }
 
-  /* Buttons stay horizontal but shrink on mobile */
-  .fab-buttons {
-    bottom: 1rem;
-    right: 1rem;
-    gap: 8px;
-  }
-
-  .fab-create {
-    min-width: 120px;
-    font-size: 0.9rem;
-  }
-
-  .fab-cancel {
-    font-size: 0.9rem;
-  }
+  /* FAB button responsive styles now handled by global utilities */
 }

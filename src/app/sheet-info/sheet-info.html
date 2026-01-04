@@ -72,6 +72,21 @@
               </td>
             </ng-container>
 
+            <ng-container matColumnDef="notes">
+              <th mat-header-cell *matHeaderCellDef>Notes</th>
+              <td mat-cell *matCellDef="let comparison"
+                  [class.new-ship]="comparison.changeType === 'new'"
+                  [class.removed-ship]="comparison.changeType === 'removed'">
+                <span [class.bold]="comparison.changedFields.has('notes')">
+                  @if (comparison.ship.notes) {
+                    {{ comparison.ship.notes }}
+                  } @else {
+                    -
+                  }
+                </span>
+              </td>
+            </ng-container>
+
             <ng-container matColumnDef="status">
               <th mat-header-cell *matHeaderCellDef>Status</th>
               <td mat-cell *matCellDef="let comparison"
@@ -82,7 +97,7 @@
             </ng-container>
 
             <ng-container matColumnDef="eta">
-              <th mat-header-cell *matHeaderCellDef>ETA</th>
+              <th mat-header-cell *matHeaderCellDef>Next Movement</th>
               <td mat-cell *matCellDef="let comparison"
                   [class.new-ship]="comparison.changeType === 'new'"
                   [class.removed-ship]="comparison.changeType === 'removed'">
@@ -113,5 +128,87 @@
       }
     </mat-card-content>
   </mat-card>
+
+  <!-- PDF-ONLY SHIPS (Not in Our System) -->
+  @if (pdfShips().length > 0 && pdfOnlyResults().length > 0) {
+    <mat-card class="pdf-only-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon color="warn">add_circle_outline</mat-icon>
+          Ships in PDF - Not in Our System ({{ pdfOnlyResults().length }})
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <table class="pdf-only-table">
+          <thead>
+            <tr>
+              <th>Vessel Name</th>
+              <th>GT</th>
+              <th>Next Movement</th>
+              <th>Port</th>
+              <th>Notes</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (result of pdfOnlyResults(); track result.shipName) {
+              <tr>
+                <td>{{ result.pdfShip!.name }}</td>
+                <td>{{ result.pdfShip!.gt | number }}</td>
+                <td>@if (result.pdfShip!.eta) { {{ result.pdfShip!.eta | date:'dd/MM HH:mm' }} } @else { - }</td>
+                <td>{{ result.pdfShip!.port }}</td>
+                <td>@if (result.pdfShip!.notes) { {{ result.pdfShip!.notes }} } @else { - }</td>
+                <td>{{ result.pdfShip!.status }}</td>
+                <td>
+                  <button mat-raised-button color="primary" (click)="createVisitFromPdf(result.pdfShip!)">
+                    <mat-icon>add</mat-icon>
+                    Create Visit
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </mat-card-content>
+    </mat-card>
+  }
+
+  <!-- SYSTEM-ONLY SHIPS (In Our System but Not in PDF) -->
+  @if (pdfShips().length > 0 && systemOnlyResults().length > 0) {
+    <mat-card class="system-only-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon color="accent">info_outline</mat-icon>
+          In Our System - Not in PDF ({{ systemOnlyResults().length }})
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <p class="info-text">These ships are active in our system but don't appear in the PDF. They may have sailed, been cancelled, or the PDF may be outdated.</p>
+        <table class="system-only-table">
+          <thead>
+            <tr>
+              <th>Vessel Name</th>
+              <th>GT</th>
+              <th>Next Movement</th>
+              <th>Port</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (result of systemOnlyResults(); track result.shipName) {
+              <tr>
+                <td>{{ result.shipName }}</td>
+                <td>{{ getSystemGt(result) | number }}</td>
+                <td>{{ getSystemEta(result) | date:'dd/MM HH:mm' }}</td>
+                <td>{{ getSystemPort(result) }}</td>
+                <td>{{ getSystemStatus(result) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </mat-card-content>
+    </mat-card>
+  }
 </div>
 

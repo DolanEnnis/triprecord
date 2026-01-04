@@ -198,10 +198,13 @@ export class VisitRepository {
                   }
 
                   // Fetch ship data to get marineTrafficLink
-                  const shipDocRef = doc(this.firestore, `ships/${visit.shipId}`);
-                  return from(getDoc(shipDocRef)).pipe(
-                    map((shipDoc) => {
-                      const shipData = shipDoc.exists() ? shipDoc.data() as any : null;
+                  // We need to wrap Firebase calls in runInInjectionContext because switchMap 
+                  // creates a new execution context where Angular's DI is not available
+                  return runInInjectionContext(this.injector, () => {
+                    const shipDocRef = doc(this.firestore, `ships/${visit.shipId}`);
+                    return from(getDoc(shipDocRef)).pipe(
+                      map((shipDoc) => {
+                        const shipData = shipDoc.exists() ? shipDoc.data() as any : null;
 
                       // 3. Map to the clean View Model (StatusListRow)
 
@@ -263,6 +266,7 @@ export class VisitRepository {
                       } as StatusListRow;
                     })
                   );
+                  }); // Close runInInjectionContext
                 })
               );
             });

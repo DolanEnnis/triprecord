@@ -1,16 +1,298 @@
-/* You can add global styles to this file, and also import other style files */
+/* ===== GLOBAL STYLES ===== */
 /* Import a pre-built Angular Material theme. This provides the color palette for components. */
 @import "@angular/material/prebuilt-themes/indigo-pink.css";
 
-html, body { height: 100%; }
-body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+/* ===== BASE RESETS ===== */
+html, body { 
+  height: 100%; 
+}
 
-/*
-  Global styles for specific Material table columns.
-  This is the recommended alternative to using `::ng-deep`.
-*/
+body { 
+  margin: 0; 
+  font-family: Roboto, "Helvetica Neue", sans-serif; 
+}
+
+/* ===== SITE-WIDE LAYOUT UTILITIES ===== */
+
+/**
+ * Standard Container - Use this class for consistent max-width across all pages
+ * Applied to main content containers to create uniform margins on large screens
+ */
+.page-container {
+  max-width: 1600px; /* Increased to better utilize screen space */
+  margin: 0 auto;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/**
+ * Responsive padding adjustments
+ */
+@media screen and (max-width: 768px) {
+  .page-container {
+    padding: 8px;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .page-container {
+    padding: 4px;
+  }
+}
+
+/* ===== GLOBAL TABLE STYLES ===== */
+
+/**
+ * Global styles for specific Material table columns.
+ * This is the recommended alternative to using `::ng-deep`.
+ */
 .extra-column,
 .note-column {
   width: 15%; /* Adjust this percentage as needed */
   word-wrap: break-word;
+}
+
+/* ===== SNACKBAR (NOTIFICATION) STYLING ===== */
+
+/**
+ * Success Snackbar - Green background for success messages
+ * Used app-wide for positive feedback (save success, creation success, etc.)
+ */
+::ng-deep .success-snackbar {
+  background-color: #4caf50 !important; /* Green for success */
+  color: white !important;
+}
+
+::ng-deep .success-snackbar .mat-mdc-button {
+  color: white !important;
+}
+
+/**
+ * Error Snackbar - Red background for error messages
+ * Used app-wide for error feedback (validation errors, save failures, etc.)
+ */
+::ng-deep .error-snackbar {
+  background-color: #f44336 !important; /* Red for errors */
+  color: white !important;
+}
+
+::ng-deep .error-snackbar .mat-mdc-button {
+  color: white !important;
+}
+
+/* ===== FLOATING ACTION BUTTONS (FAB) PATTERN ===== */
+
+/**
+ * FAB Container - Fixed bottom-right positioning for action buttons
+ * Used on forms (new-visit, edit-trip) for primary actions
+ * 
+ * Pattern: Primary action button (green) + secondary text button (cancel)
+ * Layout: Horizontal on desktop, shrinks on mobile
+ */
+.fab-buttons {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 100;
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  align-items: center;
+}
+
+/**
+ * Wrapper for tooltip on disabled button
+ * Disabled elements don't receive mouse events, so wrap for tooltips to work
+ */
+.fab-wrapper {
+  display: inline-block;
+}
+
+/**
+ * FAB Primary Button - Green background, black text, black border
+ * Use for main actions: "Create Visit", "Save Changes", etc.
+ */
+.fab-primary {
+  min-width: 140px;
+  height: 42px;
+  font-weight: 500;
+  background-color: #4CAF50 !important;
+  color: #000000 !important;
+  border: 2px solid #000000 !important;
+  border-radius: 28px !important;
+  transition: all 0.3s ease;
+}
+
+.fab-primary:hover:not([disabled]) {
+  background-color: #45a049 !important;
+  transform: translateY(-2px);
+}
+
+.fab-primary:disabled {
+  background-color: #a5d6a7 !important;
+  color: #666666 !important;
+  border-color: #666666 !important;
+}
+
+/**
+ * FAB Secondary Button - Text button for cancel/back actions
+ */
+.fab-secondary {
+  font-weight: 500;
+}
+
+/**
+ * Loading spinner inside FAB primary button
+ */
+.fab-primary mat-progress-spinner {
+  display: inline-block;
+  margin: 0 18px;
+}
+
+/* Responsive adjustments for FAB buttons */
+@media screen and (max-width: 768px) {
+  .fab-buttons {
+    bottom: 1rem;
+    right: 1rem;
+    gap: 8px;
+  }
+
+  .fab-primary {
+    min-width: 120px;
+    font-size: 0.9rem;
+  }
+
+  .fab-secondary {
+    font-size: 0.9rem;
+  }
+}
+
+/* ===== EMPTY STATE PATTERN ===== */
+
+/**
+ * Empty State - Consistent styling for "no data" messages
+ * Used across tables, lists, and search results
+ */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #757575;
+  font-style: italic;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  margin: 10px 0 20px 0;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 1rem;
+}
+
+/* ===== CARD HEADER PATTERN ===== */
+
+/**
+ * Primary Card Header - Blue background with white text
+ * Used for form cards (new-visit, etc.)
+ */
+.card-header-primary {
+  background: #3f51b5;
+  color: white;
+  padding: 1.5rem;
+  margin: -16px -16px 1.5rem -16px;
+  border-radius: 8px 8px 0 0;
+}
+
+.card-header-primary h2 {
+  color: white;
+  margin: 0;
+  font-size: 1.75rem;
+}
+
+.card-header-primary mat-card-subtitle {
+  color: rgba(255, 255, 255, 0.9);
+  margin-top: 0.5rem;
+}
+
+/* Responsive: Reduce padding on mobile */
+@media screen and (max-width: 768px) {
+  .card-header-primary {
+    padding: 1rem;
+    margin: -16px -16px 1rem -16px;
+  }
+
+  .card-header-primary h2 {
+    font-size: 1.35rem;
+  }
+}
+
+/* ===== STANDARDIZED RESPONSIVE BREAKPOINTS ===== */
+
+/**
+ * Breakpoint Reference (Use these values consistently):
+ * - 1200px: Large tablets / small desktops
+ * - 768px:  Tablets (portrait)
+ * - 480px:  Mobile phones
+ * 
+ * Use CSS custom properties if you need to reference these values
+ */
+:root {
+  --breakpoint-large: 1200px;
+  --breakpoint-tablet: 768px;
+  --breakpoint-mobile: 480px;
+}
+
+/* ===== BACKWARD COMPATIBILITY ALIASES ===== */
+
+/**
+ * Component-specific FAB class aliases for backward compatibility
+ * These allow existing templates to continue working without modification
+ */
+.fab-create,
+.fab-save {
+  /* Inherits all styles from .fab-primary */
+  min-width: 140px;
+  height: 42px;
+  font-weight: 500;
+  background-color: #4CAF50 !important;
+  color: #000000 !important;
+  border: 2px solid #000000 !important;
+  border-radius: 28px !important;
+  transition: all 0.3s ease;
+}
+
+.fab-create:hover:not([disabled]),
+.fab-save:hover:not([disabled]) {
+  background-color: #45a049 !important;
+  transform: translateY(-2px);
+}
+
+.fab-create:disabled,
+.fab-save:disabled {
+  background-color: #a5d6a7 !important;
+  color: #666666 !important;
+  border-color: #666666 !important;
+}
+
+.fab-create mat-progress-spinner,
+.fab-save mat-progress-spinner {
+  display: inline-block;
+  margin: 0 18px;
+}
+
+.fab-cancel {
+  /* Inherits all styles from .fab-secondary */
+  font-weight: 500;
+}
+
+/* Responsive: Mobile adjustments for backward compatibility classes */
+@media screen and (max-width: 768px) {
+  .fab-create,
+  .fab-save {
+    min-width: 120px;
+    font-size: 0.9rem;
+  }
+
+  .fab-cancel {
+    font-size: 0.9rem;
+  }
 }

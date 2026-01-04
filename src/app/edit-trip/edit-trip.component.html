@@ -156,18 +156,18 @@
           <h4 class="pilot-section-title">Pilot's Own Info</h4>
           
           <!-- Extra and Own Note - Full width, NOT in grid -->
-          <mat-form-field appearance="outline" style="width: 100% !important; max-width: none !important; display: block; margin-bottom: 16px;">
+          <mat-form-field appearance="outline" class="pilot-textarea-field">
             <mat-label>Extra</mat-label>
             <textarea matInput formControlName="extraChargesNotes" rows="2"></textarea>
           </mat-form-field>
 
-          <mat-form-field appearance="outline" style="width: 100% !important; max-width: none !important; display: block; margin-bottom: 16px;">
+          <mat-form-field appearance="outline" class="pilot-textarea-field">
             <mat-label>Own Note</mat-label>
             <textarea matInput formControlName="ownNote" rows="2"></textarea>
           </mat-form-field>
 
           <!-- Pilot No, Month No, Good on one line -->
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px;">
+          <div class="pilot-three-col-grid">
             <mat-form-field appearance="outline">
               <mat-label>Pilot No</mat-label>
               <input matInput type="number" formControlName="pilotNo">
@@ -185,7 +185,7 @@
           </div>
 
           <!-- Car and Time Off on one line -->
-          <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 16px;">
+          <div class="pilot-two-col-grid">
             <mat-form-field appearance="outline">
               <mat-label>Car</mat-label>
               <input matInput formControlName="car">
@@ -243,18 +243,18 @@
           <h4 class="pilot-section-title">Pilot's Own Info</h4>
           
           <!-- Extra and Own Note - Full width, NOT in grid -->
-          <mat-form-field appearance="outline" style="width: 100% !important; max-width: none !important; display: block; margin-bottom: 16px;">
+          <mat-form-field appearance="outline" class="pilot-textarea-field">
             <mat-label>Extra</mat-label>
             <textarea matInput formControlName="extraChargesNotes" rows="2"></textarea>
           </mat-form-field>
 
-          <mat-form-field appearance="outline" style="width: 100% !important; max-width: none !important; display: block; margin-bottom: 16px;">
+          <mat-form-field appearance="outline" class="pilot-textarea-field">
             <mat-label>Own Note</mat-label>
             <textarea matInput formControlName="ownNote" rows="2"></textarea>
           </mat-form-field>
 
           <!-- Pilot No, Month No, Good on one line -->
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px;">
+          <div class="pilot-three-col-grid">
             <mat-form-field appearance="outline">
               <mat-label>Pilot No</mat-label>
               <input matInput type="number" formControlName="pilotNo">
@@ -272,7 +272,7 @@
           </div>
 
           <!-- Car and Time Off on one line -->
-          <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 16px;">
+          <div class="pilot-two-col-grid">
             <mat-form-field appearance="outline">
               <mat-label>Car</mat-label>
               <input matInput formControlName="car">

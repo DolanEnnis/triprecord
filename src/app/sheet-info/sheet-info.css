@@ -1,6 +1,7 @@
+/* Use global .page-container class for consistent max-width (1600px) */
 .reconciliation-container {
   padding: 20px;
-  max-width: 1000px;
+  max-width: 1600px;
   margin: 0 auto;
 }
 
@@ -87,25 +88,21 @@ mat-card-title {
 }
 
 /* Change Detection Styling */
-/* New ships: entire row bold with subtle yellow background */
+/* New ships: entire row bold */
 .new-ship {
   font-weight: bold;
-  background-color: #fff9c4; /* Light yellow */
 }
 
 /* Removed ships: entire row strikethrough with reduced opacity and light gray background */
 .removed-ship {
   text-decoration: line-through;
   opacity: 0.6;
-  background-color: #f5f5f5; /* Light gray */
+  background-color: #f5f5f5; /* Keep gray for removed items */
 }
 
-/* Changed fields: individual cells bold with yellow highlight */
+/* Changed fields: individual cells bold */
 .bold {
   font-weight: bold;
-  background-color: #ffeb3b; /* Brighter yellow for changed fields */
-  padding: 2px 4px;
-  border-radius: 2px;
 }
 
 
@@ -258,4 +255,235 @@ mat-card-title {
 
 mat-card {
   margin: 20px;
+}
+
+/* ===== RECONCILIATION SECTION ===== */
+
+.reconciliation-card {
+  margin-top: 24px;
+}
+
+.reconciliation-section {
+  margin-bottom: 32px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 1.1em;
+}
+
+.no-issues {
+  color: #4caf50;
+  font-weight: 500;
+  padding: 12px;
+  background-color: #f1f8e9;
+  border-radius: 4px;
+}
+
+/* Comparison List */
+.comparison-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.comparison-item {
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 16px;
+  background-color: #fafafa;
+}
+
+/* Ship Header */
+.ship-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.ship-header strong {
+  font-size: 1.1em;
+}
+
+.badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.85em;
+  font-weight: 500;
+}
+
+.pdf-badge {
+  background-color: #ffd54f;
+  color: #333;
+}
+
+.warning-badge {
+  background-color: #ffab91;
+  color: #333;
+}
+
+/* Ship Details */
+.ship-details {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+/* Comparison Details */
+.comparison-details {
+  margin-top: 12px;
+}
+
+.data-row {
+  display: flex;
+  gap: 16px;
+  padding: 8px;
+  border-radius: 4px;
+  margin-bottom: 4px;
+}
+
+.pdf-row {
+  background-color: #e3f2fd;
+}
+
+.system-row {
+  background-color: #fff3e0;
+}
+
+.row-label {
+  font-weight: 600;
+  min-width: 100px;
+}
+
+.different {
+  font-weight: bold;
+  color: #d32f2f;
+  text-decoration: underline;
+}
+
+/* Discrepancies List */
+.discrepancies-list {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.discrepancy-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background-color: #ffebee;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.small-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+/* Tables */
+.matched-table,
+.system-only-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+.matched-table th,
+.matched-table td,
+.system-only-table th,
+.system-only-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.matched-table th,
+.system-only-table th {
+  background-color: #f5f5f5;
+  font-weight: 600;
+}
+
+.matched-table tbody tr:hover,
+.system-only-table tbody tr:hover {
+  background-color: #f9f9f9;
+}
+
+/* PDF-ONLY SHIPS TABLE */
+.pdf-only-card {
+  margin-top: 20px;
+}
+
+.pdf-only-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+.pdf-only-table th,
+.pdf-only-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.pdf-only-table th {
+  background-color: #f5f5f5;
+  font-weight: 600;
+  font-size: 0.95em;
+}
+
+.pdf-only-table tbody tr:hover {
+  background-color: #f9f9f9;
+}
+
+.pdf-only-table button {
+  white-space: nowrap;
+}
+
+.pdf-only-table button mat-icon {
+  margin-right: 4px;
+}
+
+/* SYSTEM-ONLY SHIPS TABLE */
+.system-only-card {
+  margin-top: 20px;
+}
+
+.system-only-card .info-text {
+  margin: 0 0 16px 0;
+  color: #666;
+  font-size: 0.95em;
+}
+
+.system-only-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+.system-only-table th,
+.system-only-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.system-only-table th {
+  background-color: #f5f5f5;
+  font-weight: 600;
+  font-size: 0.95em;
+}
+
+.system-only-table tbody tr:hover {
+  background-color: #f9f9f9;
 }

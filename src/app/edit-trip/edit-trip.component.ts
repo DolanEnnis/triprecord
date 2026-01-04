@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule, Validators, ValidatorFn, AbstractControl, ValidationErrors } from '@angular/forms';
@@ -23,6 +23,7 @@ import { ShipIntelligenceDialogComponent } from '../dialogs/ship-intelligence-di
 import { OldTripWarningDialogComponent } from '../dialogs/old-trip-warning-dialog.component';
 import { Trip, Visit, Ship, Port, VisitStatus, TripType, Source } from '../models';
 import { combineLatest, filter, map, switchMap, of, forkJoin, catchError, tap, take, Observable } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Timestamp } from '@angular/fire/firestore';
 import { DateTimePickerComponent } from '../date-time-picker/date-time-picker.component';
 import { IFormComponent } from '../guards/form-component.interface';
@@ -85,7 +86,6 @@ function pilotValidator(pilotService: PilotService, originalPilotName?: string |
     MatIconModule,
     MatCardModule,
     MatSnackBarModule,
-    MatSnackBarModule,
     MatNativeDateModule,
     MatDialogModule,
     MatAutocompleteModule,
@@ -107,6 +107,7 @@ export class EditTripComponent implements OnInit, IFormComponent {
   private dialog = inject(MatDialog);
   private authService = inject(AuthService);
   private location = inject(Location);
+  private destroyRef = inject(DestroyRef); // For automatic subscription cleanup
   pilotService = inject(PilotService); // Public so template can access pilotService.pilotNames()
 
   visitId: string | null = null;
@@ -255,9 +256,14 @@ export class EditTripComponent implements OnInit, IFormComponent {
 
   /**
    * Getter for easier access to the additionalTrips FormArray in the template
+   * 
+   * LEARNING: TYPED FORM ARRAYS
+   * - FormArray<FormGroup> is more specific than just FormArray
+   * - This tells TypeScript that each element is a FormGroup (not just any control)
+   * - Better IntelliSense and type checking in your IDE
    */
-  get additionalTripsArray(): FormArray {
-    return this.form.get('additionalTrips') as FormArray;
+  get additionalTripsArray(): FormArray<FormGroup> {
+    return this.form.get('additionalTrips') as FormArray<FormGroup>;
   }
 
   /**
@@ -332,7 +338,13 @@ export class EditTripComponent implements OnInit, IFormComponent {
     this.loading.set(true);
 
     // 1. Get Visit
+    // LEARNING: PREVENTING MEMORY LEAKS WITH takeUntilDestroyed
+    // - If the user navigates away before data loads, the subscription would keep running
+    // - takeUntilDestroyed(this.destroyRef) automatically completes the observable when component is destroyed
+    // - This is the MODERN Angular 16+ pattern (replaces the old takeUntil(ngUnsubscribe$) pattern)
+    // - No manual cleanup needed!
     this.visitRepo.getVisitById(visitId).pipe(
+      takeUntilDestroyed(this.destroyRef),
       switchMap(visit => {
         if (!visit) throw new Error('Visit not found');
         this.shipId = visit.shipId;
@@ -566,7 +578,7 @@ export class EditTripComponent implements OnInit, IFormComponent {
           berthPort: formVal.visit.berthPort ?? null,
           visitNotes: formVal.visit.visitNotes ?? null,
           source: formVal.visit.source ?? 'Other', // Default to 'Other' if undefined
-          updatedBy: 'Admin' // TODO: Real user
+          updatedBy: this.authService.currentUserSig()?.displayName || 'Unknown'
         });
       }
 
@@ -574,22 +586,30 @@ export class EditTripComponent implements OnInit, IFormComponent {
       // Inward Trip: Update if exists, CREATE if doesn't exist
       if (this.inwardTripId) {
         // Update existing inward trip
-        await this.tripRepo.updateTrip(this.inwardTripId, {
-          pilot: formVal.inwardTrip.pilot ?? null,
-          boarding: (formVal.inwardTrip.boarding ? Timestamp.fromDate(formVal.inwardTrip.boarding) : null) as any,
+        // LEARNING: PROPER TYPING WITHOUT 'as any'
+        // - We create properly typed update payload that matches Partial<Trip>
+        // - TypeScript validates that all fields are compatible
+        // - No type assertions needed when types are correct!
+        const inwardTripUpdate: Partial<Trip> = {
+          pilot: formVal.inwardTrip.pilot ?? '',
+          boarding: formVal.inwardTrip.boarding ? Timestamp.fromDate(formVal.inwardTrip.boarding) : null,
           port: formVal.inwardTrip.port ?? null,
-          pilotNotes: formVal.inwardTrip.pilotNotes ?? null,
-          // Pilot-only fields
+          pilotNotes: formVal.inwardTrip.pilotNotes ?? '',
           extraChargesNotes: formVal.inwardTrip.extraChargesNotes ?? '',
-          ownNote: formVal.inwardTrip.ownNote ?? '',
+          ownNote: formVal.inwardTrip.ownNote ?? null,
           pilotNo: formVal.inwardTrip.pilotNo ?? null,
           monthNo: formVal.inwardTrip.monthNo ?? null,
-          car: formVal.inwardTrip.car ?? '',
+          car: formVal.inwardTrip.car ?? null,
           timeOff: formVal.inwardTrip.timeOff ? Timestamp.fromDate(formVal.inwardTrip.timeOff) : null,
           good: formVal.inwardTrip.good ?? null
-        });
+        };
+        await this.tripRepo.updateTrip(this.inwardTripId, inwardTripUpdate);
       } else if (formVal.inwardTrip.pilot || formVal.inwardTrip.boarding) {
         // Create new inward trip if user has entered data but trip doesn't exist
+        // LEARNING: USING Omit<Trip, 'id'> FOR NEW DOCUMENTS
+        // - Firestore auto-generates the 'id' field, so we omit it when creating
+        // - All other required fields must be present
+        // - TypeScript ensures we don't forget any required fields!
         const newInwardTrip: Omit<Trip, 'id'> = {
           visitId: this.visitId!,
           shipId: this.shipId!,
@@ -600,7 +620,7 @@ export class EditTripComponent implements OnInit, IFormComponent {
           pilotNotes: formVal.inwardTrip.pilotNotes ?? '',
           extraChargesNotes: '',
           isConfirmed: false,
-          recordedBy: 'Admin', // TODO: Real user
+          recordedBy: this.authService.currentUserSig()?.displayName || 'Unknown',
           recordedAt: Timestamp.now(),
           ownNote: null,
           pilotNo: null,
@@ -609,7 +629,7 @@ export class EditTripComponent implements OnInit, IFormComponent {
           timeOff: null,
           good: null
         };
-        this.inwardTripId = await this.tripRepo.addTrip(newInwardTrip as any);
+        this.inwardTripId = await this.tripRepo.addTrip(newInwardTrip);
         console.log('Created new inward trip with ID:', this.inwardTripId);
       }
 
@@ -617,20 +637,20 @@ export class EditTripComponent implements OnInit, IFormComponent {
       // CRITICAL FIX: Previously only updated, never created
       if (this.outwardTripId) {
         // Update existing outward trip
-        await this.tripRepo.updateTrip(this.outwardTripId, {
-          pilot: formVal.outwardTrip.pilot ?? null,
-          boarding: (formVal.outwardTrip.boarding ? Timestamp.fromDate(formVal.outwardTrip.boarding) : null) as any,
+        const outwardTripUpdate: Partial<Trip> = {
+          pilot: formVal.outwardTrip.pilot ?? '',
+          boarding: formVal.outwardTrip.boarding ? Timestamp.fromDate(formVal.outwardTrip.boarding) : null,
           port: formVal.outwardTrip.port ?? null,
-          pilotNotes: formVal.outwardTrip.pilotNotes ?? null,
-          // Pilot-only fields
+          pilotNotes: formVal.outwardTrip.pilotNotes ?? '',
           extraChargesNotes: formVal.outwardTrip.extraChargesNotes ?? '',
-          ownNote: formVal.outwardTrip.ownNote ?? '',
+          ownNote: formVal.outwardTrip.ownNote ?? null,
           pilotNo: formVal.outwardTrip.pilotNo ?? null,
           monthNo: formVal.outwardTrip.monthNo ?? null,
-          car: formVal.outwardTrip.car ?? '',
+          car: formVal.outwardTrip.car ?? null,
           timeOff: formVal.outwardTrip.timeOff ? Timestamp.fromDate(formVal.outwardTrip.timeOff) : null,
           good: formVal.outwardTrip.good ?? null
-        });
+        };
+        await this.tripRepo.updateTrip(this.outwardTripId, outwardTripUpdate);
       } else if (formVal.outwardTrip.pilot || formVal.outwardTrip.boarding) {
         // Create new outward trip if user has entered data but trip doesn't exist
         // This handles cases where the visit was created without an outward trip
@@ -644,7 +664,7 @@ export class EditTripComponent implements OnInit, IFormComponent {
           pilotNotes: formVal.outwardTrip.pilotNotes ?? '',
           extraChargesNotes: '',
           isConfirmed: false,
-          recordedBy: 'Admin', // TODO: Real user
+          recordedBy: this.authService.currentUserSig()?.displayName || 'Unknown',
           recordedAt: Timestamp.now(),
           ownNote: null,
           pilotNo: null,
@@ -653,7 +673,7 @@ export class EditTripComponent implements OnInit, IFormComponent {
           timeOff: null,
           good: null
         };
-        this.outwardTripId = await this.tripRepo.addTrip(newOutwardTrip as any);
+        this.outwardTripId = await this.tripRepo.addTrip(newOutwardTrip);
         console.log('Created new outward trip with ID:', this.outwardTripId);
       }
 
@@ -666,32 +686,54 @@ export class EditTripComponent implements OnInit, IFormComponent {
       this.deletedTripIds = [];
 
       // 5. Handle Additional Trips (Update or Create)
-      const additionalTripsData = formVal.additionalTrips as any[];
+      // LEARNING: AVOIDING 'as any' WITH PROPER TYPING
+      // - We know the form structure, so we can type it properly
+      // - Each additional trip has the same fields as defined in createTripFormGroup()
+      // - Using explicit types catches errors at compile time!
+      const additionalTripsData = formVal.additionalTrips as Array<{
+        typeTrip: TripType;
+        pilot: string;
+        boarding: Date | null;
+        port: Port | null;
+        pilotNotes: string;
+      }>;
+      
       for (let i = 0; i < additionalTripsData.length; i++) {
         const tripData = additionalTripsData[i];
         const tripId = this.additionalTripIds[i];
 
-        const tripPayload = {
-          typeTrip: tripData.typeTrip,
-          pilot: tripData.pilot ?? '',
-          boarding: tripData.boarding ? Timestamp.fromDate(tripData.boarding) : null,
-          port: tripData.port ?? null,
-          pilotNotes: tripData.pilotNotes ?? ''
-        };
-
         if (tripId) {
           // Update existing trip
-          await this.tripRepo.updateTrip(tripId, tripPayload as any);
+          const updatePayload: Partial<Trip> = {
+            typeTrip: tripData.typeTrip,
+            pilot: tripData.pilot ?? '',
+            boarding: tripData.boarding ? Timestamp.fromDate(tripData.boarding) : null,
+            port: tripData.port ?? null,
+            pilotNotes: tripData.pilotNotes ?? ''
+          };
+          await this.tripRepo.updateTrip(tripId, updatePayload);
         } else {
           // Create new trip
-          await this.tripRepo.addTrip({
-            ...tripPayload,
+          const newTrip: Omit<Trip, 'id'> = {
             visitId: this.visitId!,
             shipId: this.shipId!,
+            typeTrip: tripData.typeTrip,
+            pilot: tripData.pilot ?? '',
+            boarding: tripData.boarding ? Timestamp.fromDate(tripData.boarding) : null,
+            port: tripData.port ?? null,
+            pilotNotes: tripData.pilotNotes ?? '',
+            extraChargesNotes: '',
             isConfirmed: false,
-            recordedBy: 'Admin', // TODO: Real user
-            recordedAt: Timestamp.now()
-          } as any);
+            recordedBy: this.authService.currentUserSig()?.displayName || 'Unknown',
+            recordedAt: Timestamp.now(),
+            ownNote: null,
+            pilotNo: null,
+            monthNo: null,
+            car: null,
+            timeOff: null,
+            good: null
+          };
+          await this.tripRepo.addTrip(newTrip);
         }
       }
 

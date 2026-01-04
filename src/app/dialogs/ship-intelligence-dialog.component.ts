@@ -1,12 +1,31 @@
-import { Component, Inject, inject } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MAT_DIALOG_DATA, MatDialogRef, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { ShipIntelligenceData } from '../services/ship-intelligence.service';
 
+/**
+ * Data structure for the ship information currently in the form.
+ * 
+ * LEARNING: WHY CREATE INTERFACES INSTEAD OF USING 'any'
+ * - Type safety: Prevents typos and catches errors at compile time
+ * - IntelliSense: Get autocomplete for field names
+ * - Self-documenting: Anyone reading the code knows what fields exist
+ * - Refactoring safety: If you rename a field, TypeScript finds all usages
+ */
+export interface CurrentShipData {
+  shipName?: string;
+  grossTonnage?: string | number;
+  // Note: DWT and Manager are not currently tracked in the form,
+  // so they're not included here. Add them when the form model supports them.
+}
+
+/**
+ * Dialog data containing both current form data and fetched AI intelligence.
+ */
 export interface ShipIntelligenceDialogData {
-  currentData: any;
+  currentData: CurrentShipData;
   fetchedData: ShipIntelligenceData;
 }
 
@@ -28,14 +47,18 @@ export interface ShipIntelligenceDialogData {
             <label>GT</label>
             <div>{{ data.currentData.grossTonnage || '-' }}</div>
           </div>
+          <!-- DWT and Manager not shown because form doesn't track them yet -->
+          <!-- When adding these fields to the form, uncomment and bind to data.currentData -->
+          <!--
           <div class="field">
             <label>DWT</label>
-            <div>{{ '-' }}</div> <!-- Not currently in form model explicitly as DWT -->
+            <div>{{ data.currentData.deadweightTonnage || '-' }}</div>
           </div>
           <div class="field">
             <label>Manager</label>
-            <div>{{ '-' }}</div> <!-- Not currently in form model -->
+            <div>{{ data.currentData.manager || '-' }}</div>
           </div>
+          -->
         </div>
 
         <div class="column highlight">
@@ -113,5 +136,27 @@ export interface ShipIntelligenceDialogData {
   `]
 })
 export class ShipIntelligenceDialogComponent {
-  constructor(@Inject(MAT_DIALOG_DATA) public data: ShipIntelligenceDialogData) {}
+  /**
+   * LEARNING: MODERN ANGULAR DEPENDENCY INJECTION
+   * 
+   * **Old way (constructor injection):**
+   * ```typescript
+   * constructor(@Inject(MAT_DIALOG_DATA) public data: ShipIntelligenceDialogData) {}
+   * ```
+   * 
+   * **Modern way (inject() function):**
+   * ```typescript
+   * readonly data = inject<ShipIntelligenceDialogData>(MAT_DIALOG_DATA);
+   * ```
+   * 
+   * **Why the modern way is better:**
+   * 1. More concise - less boilerplate code
+   * 2. Consistent - same pattern used in other modern dialogs
+   * 3. Type inference - TypeScript can often infer types automatically
+   * 4. Composability - Can be used in functions, not just constructors
+   * 
+   * The `inject()` function was introduced in Angular 14 and is now the
+   * recommended approach for dependency injection.
+   */
+  readonly data = inject<ShipIntelligenceDialogData>(MAT_DIALOG_DATA);
 }

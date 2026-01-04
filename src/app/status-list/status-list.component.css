@@ -1,7 +1,8 @@
 /* Container now uses more screen width to reduce large side margins */
+/* Use global .page-container class for consistent max-width (1600px) */
 .status-container {
   padding: 20px;
-  max-width: 1600px; /* Increased to better utilize screen space */
+  max-width: 1600px;
   margin: 0 auto;
 }
 
@@ -142,24 +143,7 @@ mat-header-cell {
   font-style: italic;
 }
 
-/* Snackbar Styling */
-::ng-deep .success-snackbar {
-  background-color: #4caf50 !important; /* Green for success */
-  color: white !important;
-}
-
-::ng-deep .success-snackbar .mat-mdc-button {
-  color: white !important;
-}
-
-::ng-deep .error-snackbar {
-  background-color: #f44336 !important; /* Red for errors */
-  color: white !important;
-}
-
-::ng-deep .error-snackbar .mat-mdc-button {
-  color: white !important;
-}
+/* Snackbar styling now handled by global utilities in styles.css */
 
 .pilot-select {
   width: 100%;
@@ -169,3 +153,160 @@ mat-header-cell {
 ::ng-deep .pilot-select .mat-mdc-select-trigger {
   min-height: 24px !important;
 }
+
+/* ===== MOBILE RESPONSIVE STYLES ===== */
+/* Breakpoint: screens smaller than 768px (tablets and phones) */
+@media screen and (max-width: 768px) {
+  /* Reduce container padding on mobile to maximize screen space */
+  .status-container {
+    padding: 8px;
+    /* Use full viewport width */
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+  }
+
+  /* Ensure section and filter containers are full width */
+  .filter-container,
+  .section-header {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Ensure table uses full width */
+  mat-table {
+    width: 100% !important;
+    max-width: 100%;
+    margin: 0;
+    box-sizing: border-box;
+    display: block;
+    overflow-x: auto;
+  }
+
+  /* Reset any Material table wrapper constraints */
+  ::ng-deep .mat-mdc-table {
+    width: 100% !important;
+    min-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Ensure rows are full width */
+  ::ng-deep mat-row,
+  ::ng-deep mat-header-row {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Reduce cell padding to fit more content */
+  mat-cell,
+  mat-header-cell {
+    padding: 0 6px;
+    font-size: 12px;
+    box-sizing: border-box;
+  }
+
+  /* Smaller section headers */
+  .section-header h2 {
+    font-size: 1.2rem;
+  }
+
+  /* Make table scrollable horizontally on mobile */
+  mat-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  /* Hide less critical columns on mobile to save space */
+  .mat-column-note,
+  .mat-column-updated {
+    display: none;
+  }
+
+  /* Adjust remaining column sizes for mobile */
+  .mat-column-ship {
+    flex: 2.5;
+    min-width: 100px;
+  }
+
+  .mat-column-marine-traffic {
+    flex: 0.6;
+    min-width: 40px;
+  }
+
+  .mat-column-officeTime {
+    flex: 2;
+    min-width: 90px;
+  }
+
+  .mat-column-port {
+    flex: 1.2;
+    min-width: 60px;
+  }
+
+  .mat-column-pilot {
+    flex: 1.5;
+    min-width: 80px;
+  }
+
+  .mat-column-actions {
+    flex: 0.6;
+    min-width: 40px;
+  }
+
+  /* Smaller update info text on mobile */
+  .update-info {
+    font-size: 10px;
+  }
+
+  /* Reduce filter button sizes */
+  .filter-container {
+    margin-bottom: 10px;
+  }
+
+  ::ng-deep mat-button-toggle {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+}
+
+/* Extra small screens (phones in portrait, < 480px) */
+@media screen and (max-width: 480px) {
+  .status-container {
+    padding: 4px;
+    margin: 0;
+    width: 100vw;
+    max-width: 100vw;
+    /* Negative margin to counteract any parent padding */
+    margin-left: -4px;
+    margin-right: -4px;
+  }
+
+  mat-cell,
+  mat-header-cell {
+    padding: 0 4px;
+    font-size: 11px;
+  }
+
+  .section-header h2 {
+    font-size: 1rem;
+  }
+
+  /* Further reduce column sizes for very small screens */
+  .mat-column-ship {
+    flex: 2;
+    min-width: 80px;
+  }
+
+  .mat-column-officeTime {
+    flex: 1.8;
+    min-width: 80px;
+  }
+
+  ::ng-deep mat-button-toggle {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+}
+

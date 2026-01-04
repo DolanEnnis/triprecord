@@ -1,5 +1,8 @@
 <mat-nav-list>
   @if (authService.isAuthenticated()) {
+    <a mat-list-item routerLink="/" (click)="onClose()">
+      <mat-icon>home</mat-icon> Home
+    </a>
     @if(authService.canCreateVisit()) {
       <a mat-list-item routerLink="/new-visit" (click)="onClose()">
         <mat-icon>add_box</mat-icon> New Visit
