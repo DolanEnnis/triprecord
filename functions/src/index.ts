@@ -218,26 +218,43 @@ Port codes in this PDF ALWAYS follow this EXACT pattern:
 5. If no valid [LETTER][DIGIT][DIGIT] pattern found → set port to null
 6. **Disambiguation:** If multiple valid codes exist, prefer the one that appears AFTER status markers like "Etc" or time stamps
 
-ETA Format Examples:
-- "Eta 21/1150" = day 21 of current month, time 11:50
-- "Eta 15/0830" = day 15, time 08:30
-- "Etc04/Am 04/0515" = Estimated Time of COMPLETION (not arrival), day 4, time 05:15
-- Extract ONLY if format matches "Eta DD/HHMM" for arrival times
-- If you see "Etc" instead of "Eta", this is a completion time (ship already alongside)
-- If no ETA found, set to null
+**CRITICAL: ETA Extraction - MANDATORY**
+
+For EVERY ship row, scan the ENTIRE text for patterns matching "Eta DD/HHMM":
+- "Eta 21/1150" → etaDay: 21, etaTime: "11:50"
+- "Eta 15/0830" → etaDay: 15, etaTime: "08:30"
+- "Eta 13/1200" → etaDay: 13, etaTime: "12:00"
+
+**IMPORTANT ETA RULES:**
+1. ALWAYS extract "Eta DD/HHMM" patterns as structured data (etaDay + etaTime)
+2. The ETA might appear ANYWHERE in the ship's row (often between draft and berth code)
+3. Extract the day (DD) as a number → etaDay
+4. Extract the time (HHMM) in HH:MM format → etaTime
+5. If NO "Eta DD/HHMM" pattern found → set etaDay and etaTime to null
+6. "Etc" patterns are NOT ETAs (those are completion times for ships already alongside)
+
+**Example:**
+Row: "Kethi ARGO Helsingborg 8369 4996 118.55 15.43 4.6 Eta 13/1200 A02 8000 Alumina Export"
+→ etaDay: 13, etaTime: "12:00"
 
 Rules:
 1. The "GT" is usually a 3-5 digit number (e.g., 4500, 15900).
 2. Ignore small tugs (like "Celtic Rebel") unless they have a clear GT.
 3. Port code MUST match [LETTER][DIGIT][DIGIT] format - ignore everything else.
-4. ETA must be in format "Eta DD/HHMM" - extract day and time separately.
-5. **IMPORTANT: Include ALL ships even if ETA is missing - just set etaDay and etaTime to null.**
-6. **Notes Field:**
-   - Extract ANY text between ship dimensions (draft/beam/length) and port code
-   - This may include: "@ Anchor in after [ship]", "Eta DD/HHMM", "in after...", waiting indicators
-   - Example: "@ Anchor in after Volgaborg" or "Eta 03/1200"
+4. **IMPORTANT: Include ALL ships even if ETA is missing - just set etaDay and etaTime to null.**
+5. **Notes Field:**
+   - Extract ALL text between ship dimensions (draft/beam/length) and port code
+   - This includes: "@ Anchor in after [ship]", "Eta DD/HHMM", "in after...", waiting indicators
+   - Example from "Kethi" row: everything between "4.6" and "A02" → notes: "Eta 13/1200"
    - Set to null if no text found between dimensions and port code
-6. **Status Indicators - Understanding Maritime Terminology:**
+   - **NOTE:** The ETA pattern will appear in BOTH notes AND as structured etaDay/etaTime - this is intentional
+6. **Pilot Assignment (Outward Trips Only):**
+   - Look for pattern: DD/HHMM [PILOT_CODE] after "Etc"
+   - Example: "04/1400 MSt" → etsDay: 4, etsTime: "14:00", pilotCode: "MSt"
+   - Pilot codes to recognize: MSt, WMCN, PG, CB, BM, BD, PB, MW
+   - This indicates an OUTWARD trip (sailing) with assigned pilot
+   - If no pilot code found → set etsDay, etsTime, pilotCode to null
+7. **Status Indicators - Understanding Maritime Terminology:**
    - **"ETC"** = Estimated Time of Completion
      * Means the ship is ALREADY ALONGSIDE at berth
      * Actively loading/unloading cargo
@@ -262,7 +279,10 @@ Output Schema:
       "etaDay": 21,
       "etaTime": "11:50",
       "statusMarker": "anchor" | "etc" | null,
-      "notes": "@ Anchor in after Volgaborg" | "Eta 03/1200" | null
+      "notes": "@ Anchor in after Volgaborg" | "Eta 03/1200" | null,
+      "etsDay": 4,
+      "etsTime": "14:00",
+      "pilotCode": "MSt" | "WMCN" | "PG" | "CB" | "BM" | "BD" | "PB" | "MW" | null
     }
   ]
 }
@@ -286,6 +306,24 @@ ${rawText.substring(0, 20000)}`;
     const currentDay = now.getDate();
     const currentMonth = now.getMonth(); // 0-based
     const currentYear = now.getFullYear();
+    
+    // Helper function to map pilot codes to full names
+    function mapPilotCode(code: string | null): string | null {
+      if (!code) return null;
+      
+      const pilotMap: Record<string, string> = {
+        'MSt': 'Mark',
+        'WMCN': 'William',
+        'PG': 'Paddy',
+        'CB': 'Cyril',
+        'BM': 'Brendan',
+        'BD': 'Brian',
+        'PB': 'Peter',
+        'MW': 'Matt'
+      };
+      
+      return pilotMap[code] || null;
+    }
     
     const shipsFound = rawShips.map((ship: any) => {
       let eta: string | null = null;
@@ -349,6 +387,47 @@ ${rawText.substring(0, 20000)}`;
         status = 'Due';
       }
       
+      // Process ETS (Estimated Time of Sailing) for outward trips
+      let ets: string | null = null;
+      if (ship.etsDay && ship.etsTime) {
+        const etsDay = parseInt(ship.etsDay, 10);
+        
+        // Validate etsDay
+        if (!isNaN(etsDay) && etsDay >= 1 && etsDay <= 31) {
+          let etsMonth = currentMonth;
+          let etsYear = currentYear;
+          
+          // If the day has already passed this month, assume next month
+          if (etsDay < currentDay) {
+            etsMonth = currentMonth + 1;
+            if (etsMonth > 11) {
+              etsMonth = 0; // January
+              etsYear++;
+            }
+          }
+          
+          // Parse time (HH:MM format) with error handling
+          try {
+            const timeParts = ship.etsTime.split(':');
+            if (timeParts.length >= 2) {
+              const hours = parseInt(timeParts[0], 10);
+              const minutes = parseInt(timeParts[1], 10);
+              
+              // Validate hours and minutes
+              if (!isNaN(hours) && !isNaN(minutes) && 
+                  hours >= 0 && hours < 24 && 
+                  minutes >= 0 && minutes < 60) {
+                // Create ISO datetime string
+                const etsDate = new Date(etsYear, etsMonth, etsDay, hours, minutes);
+                ets = etsDate.toISOString();
+              }
+            }
+          } catch (error) {
+            console.error(`Error parsing ETS time for ship ${ship.name}:`, error);
+          }
+        }
+      }
+      
       return {
         name: ship.name,
         gt: ship.gt,
@@ -356,6 +435,8 @@ ${rawText.substring(0, 20000)}`;
         eta: eta, // ISO string or null
         status: status,
         notes: ship.notes || null, // Contextual notes from PDF
+        ets: ets, // Estimated Time of Sailing (outward trips)
+        assignedPilot: mapPilotCode(ship.pilotCode), // Map pilot code to name
         source: 'Other' // 'Auto from Daydairy' concept - using 'Other' from Source type
       };
     });

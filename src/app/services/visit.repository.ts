@@ -247,6 +247,7 @@ export class VisitRepository {
                         visitId: visit.id!,
                         tripId: tripData?.id, // Populate tripId
                         shipName: visit.shipName,
+                        grossTonnage: visit.grossTonnage || 0,
                         status: visit.currentStatus,
                         date: activeDate,
                         isTimeSet: isTimeSet, // Flag to indicate if time is set

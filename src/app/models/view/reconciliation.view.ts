@@ -74,8 +74,8 @@ export interface ReconciliationResult {
   /** PDF ship data (null if system-only) */
   pdfShip: PdfShip | null;
   
-  /** System visit data (null if pdf-only) - using Visit entity not EnrichedVisit */
-  systemVisit: any | null;  // Using any because we're storing Visit, not EnrichedVisit
+  /** System visit data (null if pdf-only) - using StatusListRow which includes trip data */
+  systemVisit: import('./status-list-row.view').StatusListRow | null;
   
   /** List of field discrepancies (empty if matched or only in one source) */
   discrepancies: FieldDiscrepancy[];

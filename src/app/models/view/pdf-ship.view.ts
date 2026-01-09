@@ -68,6 +68,21 @@ export interface PdfShip {
    */
   notes: string | null;
   
+  /** 
+   * Estimated Time of Sailing (ETS) for outward trips in ISO 8601 format.
+   * Extracted from patterns like "04/1400 MSt" in the PDF.
+   * `null` if ship is inbound or no ETS specified.
+   */
+  ets: string | null;
+  
+  /** 
+   * Assigned pilot for outward trip.
+   * Mapped from PDF codes: MSt → Mark, WMCN → William, PG → Paddy, CB → Cyril, 
+   * BM → Brendan, BD → Brian, PB → Peter, MW → Matt.
+   * `null` if no pilot assigned or inbound trip.
+   */
+  assignedPilot: string | null;
+  
   /** Source identifier (typically 'CarGoPro Daily Diary') */
   source: string;
 }

@@ -1,11 +1,265 @@
 <div class="reconciliation-container">
+ 
+
+  <!-- DAY DIARY ONLY SHIPS (Not in Our System) -->
+  @if (pdfShips().length > 0 && pdfOnlyResults().length > 0) {
+    <mat-card class="pdf-only-card">
+      <mat-card-header>
+        <mat-card-title>
+          Ships on Day Diary - Not in Current Data ({{ pdfOnlyResults().length }})
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <table class="pdf-only-table">
+          <thead>
+            <tr>
+              <th>Vessel Name</th>
+              <th>GT</th>
+              <th>Next Movement</th>
+              <th>Port</th>
+              <th>Notes</th>
+              <th>Pilot (Out)</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (result of pdfOnlyResults(); track result.shipName) {
+              <tr>
+                <td>{{ result.pdfShip!.name }}</td>
+                <td>{{ result.pdfShip!.gt | number }}</td>
+                <td>@if (result.pdfShip!.eta) { {{ result.pdfShip!.eta | date:'EEE dd/MM HH:mm' }} } @else { - }</td>
+                <td>{{ result.pdfShip!.port }}</td>
+                <td>@if (result.pdfShip!.notes) { {{ result.pdfShip!.notes }} } @else { - }</td>
+                <td>@if (result.pdfShip!.assignedPilot) { {{ result.pdfShip!.assignedPilot }} } @else { - }</td>
+                <td>{{ result.pdfShip!.status }}</td>
+                <td>
+                  <button mat-raised-button color="primary" (click)="createVisitFromPdf(result.pdfShip!)">
+                    <mat-icon>add</mat-icon>
+                    Create Visit
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </mat-card-content>
+    </mat-card>
+  }
+
+  <!-- SYSTEM-ONLY SHIPS (In Current Data but Not on Day Diary) -->
+  @if (pdfShips().length > 0 && systemOnlyResults().length > 0) {
+    <mat-card class="system-only-card">
+      <mat-card-header>
+        <mat-card-title>
+          In Current Data - Not on Day Diary ({{ systemOnlyResults().length }})
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <p class="info-text">These ships are active in our system but don't appear on the Day Diary.</p>
+        <table class="system-only-table">
+          <thead>
+            <tr>
+              <th>Vessel Name</th>
+              <th>GT</th>
+              <th>Next Movement</th>
+              <th>Port</th>
+              <th>Notes</th>
+              <th>Pilot</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (result of systemOnlyResults(); track result.shipName) {
+              <tr>
+                <td (click)="editVisit(result)" style="cursor: pointer; color: #1976d2;">
+                  {{ result.shipName }}
+                </td>
+                <td>{{ getSystemGt(result) | number }}</td>
+                <td class="clickable-cell"
+                    (click)="openEtaDialog(result)"
+                    [matTooltip]="'Click to update ' + getTimeLabel(result)">
+                  @if (result.systemVisit?.isTimeSet) {
+                    {{ result.systemVisit!.date | date:'EEE dd/MM HH:mm' }}
+                  } @else {
+                    <span class="not-set">Not Set</span>
+                  }
+                </td>
+                <td>{{ getSystemPort(result) }}</td>
+                <td>{{ getSystemNotes(result) }}</td>
+                <td>
+                  <mat-select
+                    [value]="getSystemPilot(result)"
+                    (selectionChange)="updatePilot(result, $event.value)"
+                    class="inline-select pilot-select"
+                    [disabled]="!result.systemVisit?.visitId">
+                    <mat-option value="">Unassigned</mat-option>
+                    @for (pilot of pilotService.pilotNames(); track pilot) {
+                      <mat-option [value]="pilot">{{ pilot }}</mat-option>
+                    }
+                  </mat-select>
+                </td>
+                <td>
+                  <mat-select
+                    [value]="getSystemStatus(result)"
+                    (selectionChange)="updateStatus(result, $event.value)"
+                    class="inline-select"
+                    [disabled]="!result.systemVisit?.visitId">
+                    @for (status of getAllStatusOptions(getSystemStatus(result)); track status) {
+                      <mat-option [value]="status">{{ status }}</mat-option>
+                    }
+                  </mat-select>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </mat-card-content>
+    </mat-card>
+  }
+
+  <!-- MATCHED SHIPS - PDF vs System Comparison -->
+  @if (pdfShips().length > 0 && comparisonResults().length > 0) {
+    <mat-card class="comparison-card">
+      <mat-card-header>
+        <mat-card-title>
+          Day Diary vs Current Data
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <p class="info-text">Ships appearing in both the Day Diary and our system. Gray text shows our system data - turns <strong>bold</strong> when different from Day Diary.</p>
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Vessel Name</th>
+              <th>GT</th>
+              <th>Next Movement</th>
+              <th>Port</th>
+              <th>Notes</th>
+              <th>Pilot</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (result of comparisonResults(); track $index) {
+              <!-- PDF Row (Day Diary data) - Bold if CHANGED from previous PDF -->
+              <tr class="pdf-row">
+                <td>{{ result.pdfShip!.name }}</td>
+                <td>{{ result.pdfShip!.gt | number }}</td>
+                <td>
+                  @if (result.pdfShip!.eta) { {{ result.pdfShip!.eta | date:'EEE dd/MM HH:mm' }} } @else { - }
+                </td>
+                <td>{{ result.pdfShip!.port }}</td>
+                <td>
+                  @if (result.pdfShip!.notes) { {{ result.pdfShip!.notes }} } @else { - }
+                </td>
+                <td>
+                  @if (result.pdfShip!.assignedPilot) { {{ result.pdfShip!.assignedPilot }} } @else { - }
+                </td>
+                <td>{{ result.pdfShip!.status }}</td>
+              </tr>
+              <!-- System Row (Our database data) - BOLD if DIFFERENT from Day Diary -->
+              <tr class="system-row">
+                <td class="system-label" 
+                    [class.name-different]="hasDiscrepancy(result, 'name')"
+                    (click)="editVisit(result)">
+                  {{ getSystemLabel(result) }}
+                </td>
+                <td [class.different]="hasDiscrepancy(result, 'gt')">{{ getSystemGt(result) | number }}</td>
+                <td [class.different]="hasDiscrepancy(result, 'eta')" 
+                    class="clickable-cell"
+                    (click)="openEtaDialog(result)"
+                    [matTooltip]="'Click to update ' + getTimeLabel(result)">
+                  @if (result.systemVisit?.isTimeSet) {
+                    {{ result.systemVisit!.date | date:'EEE dd/MM HH:mm' }}
+                  } @else {
+                    <span class="not-set">Not Set</span>
+                  }
+                </td>
+                <td [class.different]="hasDiscrepancy(result, 'port')">{{ getSystemPort(result) }}</td>
+                <td [class.different]="hasDiscrepancy(result, 'notes')">{{ getSystemNotes(result) }}</td>
+                <td [class.different]="hasDiscrepancy(result, 'assignedPilot')">
+                  <mat-select
+                    [value]="getSystemPilot(result)"
+                    (selectionChange)="updatePilot(result, $event.value)"
+                    class="inline-select pilot-select"
+                    [disabled]="!result.systemVisit?.visitId">
+                    <mat-option value="">Unassigned</mat-option>
+                    @for (pilot of pilotService.pilotNames(); track pilot) {
+                      <mat-option [value]="pilot">{{ pilot }}</mat-option>
+                    }
+                  </mat-select>
+                </td>
+                <td [class.different]="hasDiscrepancy(result, 'status')">
+                  <mat-select
+                    [value]="getSystemStatus(result)"
+                    (selectionChange)="updateStatus(result, $event.value)"
+                    class="inline-select"
+                    [disabled]="!result.systemVisit?.visitId">
+                    @for (status of getAllStatusOptions(getSystemStatus(result)); track status) {
+                      <mat-option [value]="status">{{ status }}</mat-option>
+                    }
+                  </mat-select>
+                </td>
+              </tr>
+            }
+            
+            <!-- REMOVED SHIPS (Were in previous PDF, not in current) - No header -->
+            @if (removedFromPdfResults().length > 0) {
+              @for (ship of removedFromPdfResults(); track ship.name) {
+                <tr class="removed-ship-row">
+                  <td class="removed-ship">{{ ship.name }}</td>
+                  <td class="removed-ship">{{ ship.gt | number }}</td>
+                  <td class="removed-ship">
+                    @if (ship.eta) { {{ ship.eta | date:'EEE dd/MM HH:mm' }} } @else { - }
+                  </td>
+                  <td class="removed-ship">{{ ship.port }}</td>
+                  <td class="removed-ship">
+                    @if (ship.notes) { {{ ship.notes }} } @else { - }
+                  </td>
+                  <td class="removed-ship">
+                    @if (ship.assignedPilot) { {{ ship.assignedPilot }} } @else { - }
+                  </td>
+                  <td class="removed-ship">{{ ship.status }}</td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </mat-card-content>
+    </mat-card>
+  }
+
   <!-- PDF Daily Diary Section -->
   <mat-card class="pdf-card">
     <mat-card-header>
-      <mat-card-title>
-        <mat-icon>picture_as_pdf</mat-icon>
-        <a href="http://www.cargopro.ie/sfpc/download/rpt_daydiary.pdf" target="_blank" rel="noopener noreferrer">Day Diary PDF</a>
+      <mat-card-title class="pdf-title-row">
+        <div class="pdf-link-section">
+          <mat-icon>picture_as_pdf</mat-icon>
+          <a href="http://www.cargopro.ie/sfpc/download/rpt_daydiary.pdf" target="_blank" rel="noopener noreferrer">Day Diary PDF</a>
+        </div>
+        <div class="ai-disclaimer">
+          <mat-icon class="disclaimer-icon">info</mat-icon>
+          This page is generated with the help of AI - please verify all data against the original PDF
+        </div>
       </mat-card-title>
+      @if (pdfShips().length > 0) {
+        <mat-card-subtitle class="stats-section">
+          <span class="stat-label">Day Diary Only: <span class="stat-number" [class.alert]="pdfOnlyResults().length > 0">{{ pdfOnlyResults().length }}</span></span>
+          <span class="stat-divider">|</span>
+          <span class="stat-label">Matched: <span class="stat-number">{{ matchedResults().length }}</span></span>
+          <span class="stat-divider">|</span>
+          <span class="stat-label">Different Data: <span class="stat-number" [class.alert]="mismatchResults().length > 0">{{ mismatchResults().length }}</span></span>
+          <span class="stat-divider">|</span>
+          <span class="stat-label">System Only: <span class="stat-number">{{ systemOnlyResults().length }}</span></span>
+          <span class="stat-divider">|</span>
+          <span class="stat-label">Total Day Diary: <span class="stat-number">{{ pdfShips().length }}</span></span>
+          <span class="stat-divider">|</span>
+          <span class="stat-label">Total Active: <span class="stat-number">{{ activeVisits().length }}</span></span>
+          <span class="stat-divider">|</span>
+          <a href="javascript:void(0)" class="raw-text-link" (click)="rawTextExpanded.set(!rawTextExpanded())">{{ rawTextExpanded() ? 'Hide' : 'Show' }} Raw PDF Text</a>
+        </mat-card-subtitle>
+      }
     </mat-card-header>
 
     <mat-card-content>
@@ -31,95 +285,25 @@
       }
 
       @if (pdfShips().length > 0) {
-        <div class="ships-section">
-          <div class="ships-header">
-            <h3>Extracted Ships ({{ pdfShipsCount() }})</h3>
-            <div class="timestamp-container">
-              @if (lastProcessed()) {
-                <span class="last-updated">Last updated: {{ lastProcessed() | date:'dd/MM/yyyy HH:mm' }}</span>
-              }
-              @if (previousProcessed()) {
-                <span class="previous-updated">Previous: {{ previousProcessed() | date:'dd/MM/yyyy HH:mm' }}</span>
-              }
-            </div>
+        <div class="timestamp-container">
+          <div class="timestamp-left">
+            @if (pdfPublicationDate()) {
+              <span class="pdf-published">PDF Published: {{ pdfPublicationDate() | date:'dd/MM/yyyy HH:mm' }}</span>
+            }
+            @if (previousProcessed()) {
+              <span class="previous-updated">Previous: {{ previousProcessed() | date:'dd/MM/yyyy HH:mm' }}</span>
+            }
           </div>
-          <table mat-table [dataSource]="shipComparisons()" class="ships-table">
-            
-            <ng-container matColumnDef="name">
-              <th mat-header-cell *matHeaderCellDef>Vessel Name</th>
-              <td mat-cell *matCellDef="let comparison"
-                  [class.new-ship]="comparison.changeType === 'new'"
-                  [class.removed-ship]="comparison.changeType === 'removed'">
-                <span [class.bold]="comparison.changedFields.has('name')">{{ comparison.ship.name }}</span>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="gt">
-              <th mat-header-cell *matHeaderCellDef>GT</th>
-              <td mat-cell *matCellDef="let comparison"
-                  [class.new-ship]="comparison.changeType === 'new'"
-                  [class.removed-ship]="comparison.changeType === 'removed'">
-                <span [class.bold]="comparison.changedFields.has('gt')">{{ comparison.ship.gt | number }}</span>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="port">
-              <th mat-header-cell *matHeaderCellDef>Port</th>
-              <td mat-cell *matCellDef="let comparison"
-                  [class.new-ship]="comparison.changeType === 'new'"
-                  [class.removed-ship]="comparison.changeType === 'removed'">
-                <span [class.bold]="comparison.changedFields.has('port')">{{ comparison.ship.port }}</span>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="notes">
-              <th mat-header-cell *matHeaderCellDef>Notes</th>
-              <td mat-cell *matCellDef="let comparison"
-                  [class.new-ship]="comparison.changeType === 'new'"
-                  [class.removed-ship]="comparison.changeType === 'removed'">
-                <span [class.bold]="comparison.changedFields.has('notes')">
-                  @if (comparison.ship.notes) {
-                    {{ comparison.ship.notes }}
-                  } @else {
-                    -
-                  }
-                </span>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="status">
-              <th mat-header-cell *matHeaderCellDef>Status</th>
-              <td mat-cell *matCellDef="let comparison"
-                  [class.new-ship]="comparison.changeType === 'new'"
-                  [class.removed-ship]="comparison.changeType === 'removed'">
-                <span [class.bold]="comparison.changedFields.has('status')">{{ comparison.ship.status }}</span>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="eta">
-              <th mat-header-cell *matHeaderCellDef>Next Movement</th>
-              <td mat-cell *matCellDef="let comparison"
-                  [class.new-ship]="comparison.changeType === 'new'"
-                  [class.removed-ship]="comparison.changeType === 'removed'">
-                <span [class.bold]="comparison.changedFields.has('eta')">
-                  @if (comparison.ship.eta) {
-                    {{ comparison.ship.eta | date:'dd/MM HH:mm' }}
-                  } @else {
-                    -
-                  }
-                </span>
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-          </table>
+          <div class="timestamp-right">
+            @if (lastProcessed()) {
+              <span class="last-updated">Last updated: {{ lastProcessed() | date:'dd/MM/yyyy HH:mm' }}</span>
+            }
+          </div>
         </div>
 
-        <details class="raw-text-details">
-          <summary class="raw-text-summary">Show Raw PDF Text</summary>
+        @if (rawTextExpanded()) {
           <pre class="raw-text-content">{{ pdfText() }}</pre>
-        </details>
+        }
       } @else if (pdfText()) {
         <div class="no-ships-section">
           <h3>PDF Content (Raw Text - No Ships Found)</h3>
@@ -128,87 +312,3 @@
       }
     </mat-card-content>
   </mat-card>
-
-  <!-- PDF-ONLY SHIPS (Not in Our System) -->
-  @if (pdfShips().length > 0 && pdfOnlyResults().length > 0) {
-    <mat-card class="pdf-only-card">
-      <mat-card-header>
-        <mat-card-title>
-          <mat-icon color="warn">add_circle_outline</mat-icon>
-          Ships in PDF - Not in Our System ({{ pdfOnlyResults().length }})
-        </mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <table class="pdf-only-table">
-          <thead>
-            <tr>
-              <th>Vessel Name</th>
-              <th>GT</th>
-              <th>Next Movement</th>
-              <th>Port</th>
-              <th>Notes</th>
-              <th>Status</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (result of pdfOnlyResults(); track result.shipName) {
-              <tr>
-                <td>{{ result.pdfShip!.name }}</td>
-                <td>{{ result.pdfShip!.gt | number }}</td>
-                <td>@if (result.pdfShip!.eta) { {{ result.pdfShip!.eta | date:'dd/MM HH:mm' }} } @else { - }</td>
-                <td>{{ result.pdfShip!.port }}</td>
-                <td>@if (result.pdfShip!.notes) { {{ result.pdfShip!.notes }} } @else { - }</td>
-                <td>{{ result.pdfShip!.status }}</td>
-                <td>
-                  <button mat-raised-button color="primary" (click)="createVisitFromPdf(result.pdfShip!)">
-                    <mat-icon>add</mat-icon>
-                    Create Visit
-                  </button>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </mat-card-content>
-    </mat-card>
-  }
-
-  <!-- SYSTEM-ONLY SHIPS (In Our System but Not in PDF) -->
-  @if (pdfShips().length > 0 && systemOnlyResults().length > 0) {
-    <mat-card class="system-only-card">
-      <mat-card-header>
-        <mat-card-title>
-          <mat-icon color="accent">info_outline</mat-icon>
-          In Our System - Not in PDF ({{ systemOnlyResults().length }})
-        </mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <p class="info-text">These ships are active in our system but don't appear in the PDF. They may have sailed, been cancelled, or the PDF may be outdated.</p>
-        <table class="system-only-table">
-          <thead>
-            <tr>
-              <th>Vessel Name</th>
-              <th>GT</th>
-              <th>Next Movement</th>
-              <th>Port</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (result of systemOnlyResults(); track result.shipName) {
-              <tr>
-                <td>{{ result.shipName }}</td>
-                <td>{{ getSystemGt(result) | number }}</td>
-                <td>{{ getSystemEta(result) | date:'dd/MM HH:mm' }}</td>
-                <td>{{ getSystemPort(result) }}</td>
-                <td>{{ getSystemStatus(result) }}</td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </mat-card-content>
-    </mat-card>
-  }
-</div>
-

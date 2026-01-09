@@ -132,7 +132,7 @@
           [ngClass]="getSourceClass(element)"
         >
           <div>
-            Updated {{ getDate(element.updatedAt) | timeAgo }} by
+            {{ getDate(element.updatedAt) | timeAgo }} by
             {{ element.updatedBy }}
           </div>
           <div>from {{ getSource(element) }}</div>

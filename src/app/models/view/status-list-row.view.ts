@@ -63,6 +63,9 @@ export interface StatusListRow {
   /** Vessel name */
   shipName: string;
   
+  /** Gross Tonnage of the vessel (from Visit entity) */
+  grossTonnage?: number;
+  
   /** Current visit status (determines which trip is joined) */
   status: VisitStatus;
 

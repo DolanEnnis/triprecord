@@ -35,6 +35,7 @@ export class VisitWorkflowService {
         initialEta: initialEtaTimestamp,  // Ship's ETA to port
         berthPort: data.berthPort,
         visitNotes: data.visitNotes,
+        source: data.source,  // Track where this visit information came from
         statusLastUpdated: now,
         updatedBy: recordedBy,
       };
@@ -106,6 +107,7 @@ export class VisitWorkflowService {
         initialEta: boardingTimestamp,
         berthPort: chargeData.port,
         visitNotes: `Trip confirmed directly by pilot: ${chargeData.pilot}`,
+        source: 'Pilot',  // This visit was created from a pilot's direct confirmation
         statusLastUpdated: now,
         updatedBy: recordedBy,
       };

@@ -217,7 +217,13 @@ Rules:
    - This may include: "@ Anchor in after [ship]", "Eta DD/HHMM", "in after...", waiting indicators
    - Example: "@ Anchor in after Volgaborg" or "Eta 03/1200"
    - Set to null if no text found between dimensions and port code
-6. **Status Indicators - Understanding Maritime Terminology:**
+7. **Pilot Assignment (Outward Trips Only):**
+   - Look for pattern: DD/HHMM [PILOT_CODE] after "Etc"
+   - Example: "04/1400 MSt" → etsDay: 4, etsTime: "14:00", pilotCode: "MSt"
+   - Pilot codes to recognize: MSt, WMCN, PG, CB, BM, BD, PB, MW
+   - This indicates an OUTWARD trip (sailing) with assigned pilot
+   - If no pilot code found → set etsDay, etsTime, pilotCode to null
+8. **Status Indicators - Understanding Maritime Terminology:**
    - **"ETC"** = Estimated Time of Completion
      * Means the ship is ALREADY ALONGSIDE at berth
      * Actively loading/unloading cargo
@@ -242,7 +248,10 @@ Output Schema:
       "etaDay": 21,
       "etaTime": "11:50",
       "statusMarker": "anchor" | "etc" | null,
-      "notes": "@ Anchor in after Volgaborg" | "Eta 03/1200" | null
+      "notes": "@ Anchor in after Volgaborg" | "Eta 03/1200" | null,
+      "etsDay": 4,
+      "etsTime": "14:00",
+      "pilotCode": "MSt" | "WMCN" | "PG" | "CB" | "BM" | "BD" | "PB" | "MW" | null
     }
   ]
 }
@@ -263,6 +272,22 @@ ${rawText.substring(0, 20000)}`;
         const currentDay = now.getDate();
         const currentMonth = now.getMonth(); // 0-based
         const currentYear = now.getFullYear();
+        // Helper function to map pilot codes to full names
+        function mapPilotCode(code) {
+            if (!code)
+                return null;
+            const pilotMap = {
+                'MSt': 'Mark',
+                'WMCN': 'William',
+                'PG': 'Paddy',
+                'CB': 'Cyril',
+                'BM': 'Brendan',
+                'BD': 'Brian',
+                'PB': 'Peter',
+                'MW': 'Matt'
+            };
+            return pilotMap[code] || null;
+        }
         const shipsFound = rawShips.map((ship) => {
             let eta = null;
             let status;
@@ -325,6 +350,43 @@ ${rawText.substring(0, 20000)}`;
                 // Default to Due if no other indicator
                 status = 'Due';
             }
+            // Process ETS (Estimated Time of Sailing) for outward trips
+            let ets = null;
+            if (ship.etsDay && ship.etsTime) {
+                const etsDay = parseInt(ship.etsDay, 10);
+                // Validate etsDay
+                if (!isNaN(etsDay) && etsDay >= 1 && etsDay <= 31) {
+                    let etsMonth = currentMonth;
+                    let etsYear = currentYear;
+                    // If the day has already passed this month, assume next month
+                    if (etsDay < currentDay) {
+                        etsMonth = currentMonth + 1;
+                        if (etsMonth > 11) {
+                            etsMonth = 0; // January
+                            etsYear++;
+                        }
+                    }
+                    // Parse time (HH:MM format) with error handling
+                    try {
+                        const timeParts = ship.etsTime.split(':');
+                        if (timeParts.length >= 2) {
+                            const hours = parseInt(timeParts[0], 10);
+                            const minutes = parseInt(timeParts[1], 10);
+                            // Validate hours and minutes
+                            if (!isNaN(hours) && !isNaN(minutes) &&
+                                hours >= 0 && hours < 24 &&
+                                minutes >= 0 && minutes < 60) {
+                                // Create ISO datetime string
+                                const etsDate = new Date(etsYear, etsMonth, etsDay, hours, minutes);
+                                ets = etsDate.toISOString();
+                            }
+                        }
+                    }
+                    catch (error) {
+                        console.error(`Error parsing ETS time for ship ${ship.name}:`, error);
+                    }
+                }
+            }
             return {
                 name: ship.name,
                 gt: ship.gt,
@@ -332,6 +394,8 @@ ${rawText.substring(0, 20000)}`;
                 eta: eta, // ISO string or null
                 status: status,
                 notes: ship.notes || null, // Contextual notes from PDF
+                ets: ets, // Estimated Time of Sailing (outward trips)
+                assignedPilot: mapPilotCode(ship.pilotCode), // Map pilot code to name
                 source: 'Other' // 'Auto from Daydairy' concept - using 'Other' from Source type
             };
         });

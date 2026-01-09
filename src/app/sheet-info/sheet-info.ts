@@ -6,16 +6,24 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { SystemSettingsRepository } from '../services/system-settings.repository';
 import { VisitRepository } from '../services/visit.repository';
 import { UserRepository } from '../services/user.repository';
 import { Auth } from '@angular/fire/auth';
-import { skip, filter, take } from 'rxjs/operators';
+import { skip, filter, take, combineLatest } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { PdfShip, ShipComparisonResult, ChangeType, ReconciliationResult, EnrichedVisit } from '../models';
+import { PdfShip, ShipComparisonResult, ChangeType, ReconciliationResult, EnrichedVisit, VisitStatus, StatusListRow } from '../models';
 import { Visit } from '../models/entities';
+import { PilotService } from '../services/pilot.service';
+import { TripRepository } from '../services/trip.repository';
+import { UpdateEtaDialogComponent } from '../dialogs/update-eta-dialog/update-eta-dialog.component';
+
 
 @Component({
   selector: 'app-sheet-info',
@@ -27,7 +35,11 @@ import { Visit } from '../models/entities';
     MatProgressSpinnerModule,
     MatIconModule,
     MatTableModule,
-    MatSnackBarModule
+    MatSelectModule,
+    MatSnackBarModule,
+    MatMenuModule,
+    MatTooltipModule,
+    MatDialogModule
   ],
   templateUrl: './sheet-info.html',
   styleUrls: ['./sheet-info.css']
@@ -39,8 +51,12 @@ export class SheetInfoComponent implements OnInit {
   private userRepo = inject(UserRepository);
   private auth = inject(Auth);
   private snackBar = inject(MatSnackBar);
+  private dialog = inject(MatDialog);
   private destroyRef = inject(DestroyRef);
   private router = inject(Router);
+  public pilotService = inject(PilotService);
+  private tripRepo = inject(TripRepository);
+ 
   
   // PDF-related state
   pdfText = signal<string | null>(null);
@@ -50,6 +66,8 @@ export class SheetInfoComponent implements OnInit {
   pdfShips = signal<PdfShip[]>([]);
   pdfShipsCount = signal(0);
   lastProcessed = signal<Date | null>(null); // Track when data was last updated
+  rawTextExpanded = signal(false); // Track if raw text section is expanded
+  pdfPublicationDate = signal<Date | null>(null); // Publication date from PDF
   
   // Previous PDF data (for change detection)
   previousShips = signal<PdfShip[]>([]);
@@ -69,8 +87,8 @@ export class SheetInfoComponent implements OnInit {
     return this.compareShipLists(this.previousShips(), this.pdfShips());
   });
   
-  // Active visits from our system (for reconciliation)
-  activeVisits = signal<Visit[]>([]);
+  // Active visits from our system with trip details (for reconciliation)
+  activeVisits = signal<StatusListRow[]>([]);
   
   /**
    * Computed reconciliation between PDF ships and our active visits.
@@ -107,6 +125,13 @@ export class SheetInfoComponent implements OnInit {
   });
   
   /**
+   * Ships that exist in both but have data differences.
+   */
+  mismatchResults = computed(() => {
+    return this.reconciliationResults().filter(r => r.matchType === 'mismatch');
+  });
+  
+  /**
    * Ships in our system but not in the PDF.
    */
   systemOnlyResults = computed(() => {
@@ -120,9 +145,58 @@ export class SheetInfoComponent implements OnInit {
     return this.reconciliationResults().filter(r => r.matchType === 'pdf-only');
   });
   
+  /**
+   * Ships in both PDF and system (for comparison display).
+   * 
+   * Sorted by number of discrepancies (descending):
+   * - Ships with most differences appear FIRST (highest priority for review)
+   * - Ships with no differences appear LAST
+   * 
+   * This client-side sorting is trivial performance-wise since we typically
+   * have only 10-50 ships, making the O(n log n) sort negligible.
+   */
+  comparisonResults = computed(() => {
+    const results = this.reconciliationResults().filter(r => 
+      r.matchType === 'matched' || r.matchType === 'mismatch'
+    );
+    
+    // Sort by number of discrepancies (descending)
+    // Ships with MORE differences appear FIRST
+    return results.sort((a, b) => {
+      const aCount = a.discrepancies.length;
+      const bCount = b.discrepancies.length;
+      return bCount - aCount; // Descending order
+    });
+  });
+  
+  /**
+   * Ships that were in previous PDF but not in current PDF (likely sailed).
+   */
+  removedFromPdfResults = computed(() => {
+    const currentShips = this.pdfShips();
+    const previousShips = this.previousShips();
+    
+    if (previousShips.length === 0) return [];
+    
+    const currentShipNames = new Set(currentShips.map(s => s.name.toLowerCase()));
+    
+    return previousShips.filter((prevShip: PdfShip) => 
+      !currentShipNames.has(prevShip.name.toLowerCase())
+    );
+  });
+  
   // Helper methods for template
-  hasDiscrepancy(result: ReconciliationResult, field: 'name' | 'eta' | 'status' | 'port'): boolean {
+  hasDiscrepancy(result: ReconciliationResult, field: 'name' | 'eta' | 'status' | 'port' | 'gt' | 'notes' | 'assignedPilot'): boolean {
     return result.discrepancies.some(d => d.field === field);
+  }
+  
+  /**
+   * Get all ships that appear in both PDF and system (matched + mismatched).
+   */
+  getAllComparisonResults(): ReconciliationResult[] {
+    return this.reconciliationResults().filter(r => 
+      r.matchType === 'matched' || r.matchType === 'mismatch'
+    );
   }
   
   /**
@@ -142,25 +216,208 @@ export class SheetInfoComponent implements OnInit {
     });
   }
   
+  /**
+   * Navigate to edit-trip page for a visit
+   */
+  editVisit(result: ReconciliationResult): void {
+    if (result.systemVisit?.visitId) {
+      this.router.navigate(['/edit', result.systemVisit.visitId], {
+        queryParams: { returnUrl: '/sheet-info' }
+      });
+    }
+  }
+  
+  /**
+   * Open dialog to update ETA/ETB/ETS
+   */
+  openEtaDialog(result: ReconciliationResult): void {
+    if (!result.systemVisit) return;
+    
+    const dialogRef = this.dialog.open(UpdateEtaDialogComponent, {
+      data: {
+        shipName: result.systemVisit.shipName,
+        currentEta: result.systemVisit.date,
+        status: result.systemVisit.status
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(async (newDate: Date | undefined) => {
+      if (newDate && result.systemVisit) {
+        const currentUser = this.auth.currentUser?.displayName || 'Unknown';
+        try {
+          await this.visitRepo.updateVisitDate(
+            result.systemVisit.visitId,
+            result.systemVisit.tripId,
+            result.systemVisit.status,
+            newDate,
+            currentUser
+          );
+          
+          this.snackBar.open(
+            `✓ ${result.systemVisit.shipName} time updated successfully`,
+            'Close',
+            {
+              duration: 4000,
+              horizontalPosition: 'center',
+              verticalPosition: 'bottom',
+              panelClass: ['success-snackbar']
+            }
+          );
+        } catch (error) {
+          console.error('Failed to update date:', error);
+          this.snackBar.open(
+            `✗ Failed to update ${result.systemVisit.shipName} time. Please try again.`,
+            'Close',
+            {
+              duration: 5000,
+              horizontalPosition: 'center',
+              verticalPosition: 'bottom',
+              panelClass: ['error-snackbar']
+            }
+          );
+        }
+      }
+    });
+  }
+  
+  /**
+   * Update pilot assignment
+   */
+  async updatePilot(result: ReconciliationResult, newPilot: string): Promise<void> {
+    const visitId = result.systemVisit?.tripId;
+    if (!visitId) {
+      this.snackBar.open('✗ Cannot update pilot: Trip not found', 'Close', {
+        duration: 5000,
+        panelClass: ['error-snackbar']
+      });
+      return;
+    }
+
+    try {
+      await this.tripRepo.updateTrip(visitId, { pilot: newPilot });
+      this.snackBar.open(`✓ Pilot updated to ${newPilot || 'Unassigned'}`, 'Close', {
+        duration: 3000,
+        panelClass: ['success-snackbar']
+      });
+    } catch (error) {
+      console.error('Failed to update pilot:', error);
+      this.snackBar.open('✗ Failed to update pilot. Please try again.', 'Close', {
+        duration: 5000,
+        panelClass: ['error-snackbar']
+      });
+    }
+  }
+
+  /**
+   * Update visit status
+   */
+  async updateStatus(result: ReconciliationResult, newStatus: VisitStatus): Promise<void> {
+    const visitId = result.systemVisit?.visitId;
+    if (!visitId) {
+      this.snackBar.open('✗ Cannot update status: Visit not found', 'Close', {
+        duration: 5000,
+        panelClass: ['error-snackbar']
+      });
+      return;
+    }
+
+    const currentUser = this.auth.currentUser?.displayName || 'Unknown';
+    try {
+      // Update the status and set source = "Sheet" (representing updates from sheet/diary)
+      await this.visitRepo.updateVisitStatus(visitId, newStatus, currentUser);
+      
+      // Update the source field separately to track that this was updated from Sheet-Info page
+      await this.visitRepo.updateVisit(visitId, { source: 'Sheet' });
+      
+      this.snackBar.open(`✓ ${result.shipName} status changed to ${newStatus}`, 'Close', {
+        duration: 3000,
+        panelClass: ['success-snackbar']
+      });
+    } catch (error) {
+      console.error('Failed to update status:', error);
+      this.snackBar.open('✗ Failed to change status. Please try again.', 'Close', {
+        duration: 5000,
+        panelClass: ['error-snackbar']
+      });
+    }
+  }
+
+  /**
+   * Get the next valid statuses based on current status
+   */
+  getNextStatuses(currentStatus: VisitStatus): VisitStatus[] {
+    switch (currentStatus) {
+      case 'Due':
+        return ['Awaiting Berth', 'Cancelled'];
+      case 'Awaiting Berth':
+        return ['Alongside', 'Cancelled'];
+      case 'Alongside':
+        return ['Sailed', 'Cancelled'];
+      case 'Sailed':
+        return ['Cancelled'];
+      case 'Cancelled':
+        return [];
+      default:
+        return [];
+    }
+  }
+  
+  /**
+   * Get current status + next statuses for dropdown (shows current selection)
+   */
+  getAllStatusOptions(currentStatus: VisitStatus): VisitStatus[] {
+    return [currentStatus, ...this.getNextStatuses(currentStatus)];
+  }
+  
   // Helper methods for system-only ships template
   getSystemGt(result: ReconciliationResult): number {
     return result.systemVisit?.grossTonnage || 0;
   }
   
   getSystemEta(result: ReconciliationResult): Date | null {
-    return result.systemVisit?.initialEta?.toDate() || null;
+    // StatusListRow.date contains the active date
+    return result.systemVisit?.date || null;
   }
   
   getSystemPort(result: ReconciliationResult): string {
-    return result.systemVisit?.berthPort || '-';
+    return result.systemVisit?.port || '-';
   }
   
-  getSystemStatus(result: ReconciliationResult): string {
-    return result.systemVisit?.currentStatus || '-';
+  getSystemStatus(result: ReconciliationResult): VisitStatus {
+    return result.systemVisit?.status || 'Due';
+  }
+  
+  getSystemNotes(result: ReconciliationResult): string {
+    return result.systemVisit?.note || '-';
+  }
+  
+  getSystemPilot(result: ReconciliationResult): string {
+    return result.systemVisit?.pilot || '-';
+  }
+  
+  /**
+   * Get the appropriate time label based on status (ETA/ETB/ETS)
+   */
+  getTimeLabel(result: ReconciliationResult): string {
+    const status = result.systemVisit?.status;
+    if (status === 'Due') return 'ETA';
+    if (status === 'Awaiting Berth') return 'ETB';
+    if (status === 'Alongside') return 'ETS';
+    return 'Time';
+  }
+  
+  /**
+   * Returns system ship name if there's a name discrepancy, otherwise 'Current Data:'
+   */
+  getSystemLabel(result: ReconciliationResult): string {
+    if (this.hasDiscrepancy(result, 'name')) {
+      return result.systemVisit?.shipName || 'Current Data:';
+    }
+    return 'Current Data:';
   }
   
   // Table configuration - reordered to match status page
-  displayedColumns = ['name', 'gt', 'eta', 'port', 'notes', 'status'] as const;
+  displayedColumns = ['name', 'gt', 'eta', 'port', 'notes', 'assignedPilot', 'status'] as const;
   
   // Create the Cloud Function callable during initialization
   private fetchDailyDiaryCallable = httpsCallable<void, { 
@@ -177,16 +434,20 @@ export class SheetInfoComponent implements OnInit {
     // Mark that user viewed this page (for green nav indicator)
     this.markAsViewed();
     
-    // CRITICAL FIX: Load active visits FIRST before doing anything else
-    // This prevents the race condition where reconciliation runs with empty visit data
-    this.visitRepo.getActiveVisits()
-      .pipe(
+    // CRITICAL FIX: Load active visits with trip details FIRST
+    // We need to combine all three status queries to get complete data
+    combineLatest([
+      this.visitRepo.getVisitsWithTripDetails('Due'),
+      this.visitRepo.getVisitsWithTripDetails('Awaiting Berth'),
+      this.visitRepo.getVisitsWithTripDetails('Alongside')
+    ]).pipe(
         take(1), // Take first emission to initialize data
-        takeUntilDestroyed(this.destroyRef) // Then continue listening for updates
+        takeUntilDestroyed(this.destroyRef)
       )
-      .subscribe(visits => {
-        this.activeVisits.set(visits);
-        console.log(`Loaded ${visits.length} active visits for reconciliation`);
+      .subscribe(([due, awaitingBerth, alongside]) => {
+        const allVisits = [...due, ...awaitingBerth, ...alongside];
+        this.activeVisits.set(allVisits);
+        console.log(`Loaded ${allVisits.length} active visits for reconciliation`);
         
         // NOW that we have visit data, load PDF data
         // Check if we need to fetch new data or can use cached version
@@ -204,6 +465,14 @@ export class SheetInfoComponent implements OnInit {
               this.pdfShips.set(metadata.cached_ships);
               this.pdfShipsCount.set(metadata.cached_ships.length);
               this.pdfLoading.set(false);
+              
+              // Extract publication date from cached text
+              if (metadata.cached_text) {
+                const pubDate = this.extractPublicationDate(metadata.cached_text);
+                if (pubDate) {
+                  this.pdfPublicationDate.set(pubDate);
+                }
+              }
               
               // Set last processed timestamp if available
               if (metadata.last_processed) {
@@ -229,14 +498,18 @@ export class SheetInfoComponent implements OnInit {
     this.watchForUpdates();
     
     // Continue listening for visit updates (reactive)
-    this.visitRepo.getActiveVisits()
-      .pipe(
+    combineLatest([
+      this.visitRepo.getVisitsWithTripDetails('Due'),
+      this.visitRepo.getVisitsWithTripDetails('Awaiting Berth'),
+      this.visitRepo.getVisitsWithTripDetails('Alongside')
+    ]).pipe(
         skip(1), // Skip the first emission (we already handled it above)
         takeUntilDestroyed(this.destroyRef)
       )
-      .subscribe(visits => {
-        this.activeVisits.set(visits);
-        console.log(`Updated ${visits.length} active visits for reconciliation`);
+      .subscribe(([due, awaitingBerth, alongside]) => {
+        const allVisits = [...due, ...awaitingBerth, ...alongside];
+        this.activeVisits.set(allVisits);
+        console.log(`Updated ${allVisits.length} active visits for reconciliation`);
       });
   }
 
@@ -314,6 +587,14 @@ export class SheetInfoComponent implements OnInit {
       this.pdfShips.set(result.data.ships || []);
       this.pdfShipsCount.set(result.data.shipsCount || 0);
       
+      // Extract publication date from PDF text (second line format: "Date:08/01/2026 17:00:46")
+      if (result.data.text) {
+        const pubDate = this.extractPublicationDate(result.data.text);
+        if (pubDate) {
+          this.pdfPublicationDate.set(pubDate);
+        }
+      }
+      
       // Set last processed timestamp to now
       this.lastProcessed.set(new Date());
       
@@ -344,6 +625,43 @@ export class SheetInfoComponent implements OnInit {
       this.pdfLoading.set(false);
       this.loadingStep.set('');
     }
+  }
+
+  /**
+   * Extracts publication date from PDF text.
+   * 
+   * @remarks
+   * The PDF text second line contains: "Date:08/01/2026 17:00:46"
+   * We need to extract this and convert it to a Date object.
+   * 
+   * Format: Date:DD/MM/YYYY HH:MM:SS
+   * 
+   * @param pdfText - Raw PDF text
+   * @returns Date object or null if not found
+   */
+  private extractPublicationDate(pdfText: string): Date | null {
+    try {
+      // Look for pattern "Date:DD/MM/YYYY HH:MM:SS" in the PDF text
+      const dateMatch = pdfText.match(/Date:(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/);
+      
+      if (dateMatch) {
+        const [, day, month, year, hour, minute, second] = dateMatch;
+        // JavaScript Date months are 0-indexed
+        const date = new Date(
+          parseInt(year),
+          parseInt(month) - 1,
+          parseInt(day),
+          parseInt(hour),
+          parseInt(minute),
+          parseInt(second)
+        );
+        return date;
+      }
+    } catch (error) {
+      console.error('Failed to extract publication date from PDF:', error);
+    }
+    
+    return null;
   }
 
   /**
@@ -452,6 +770,8 @@ export class SheetInfoComponent implements OnInit {
     if (previous.status !== current.status) changedFields.add('status');
     if (previous.eta !== current.eta) changedFields.add('eta');
     if (previous.notes !== current.notes) changedFields.add('notes');
+    if (previous.assignedPilot !== current.assignedPilot) changedFields.add('assignedPilot');
+    if (previous.ets !== current.ets) changedFields.add('ets');
     
     return changedFields;
   }
@@ -473,10 +793,10 @@ export class SheetInfoComponent implements OnInit {
    * - Port: Must match exactly
    * 
    * @param pdfShips - Ships from CarGoPro PDF
-   * @param visits - Active visits from our system
+   * @param visits - Active visits from our system (with trip details)
    * @returns Categorized reconciliation results
    */
-  private reconcileShipsWithVisits(pdfShips: PdfShip[], visits: Visit[]): ReconciliationResult[] {
+  private reconcileShipsWithVisits(pdfShips: PdfShip[], visits: StatusListRow[]): ReconciliationResult[] {
     const results: ReconciliationResult[] = [];
     
     // If no PDF data yet, return empty
@@ -485,7 +805,7 @@ export class SheetInfoComponent implements OnInit {
     }
     
     // Create map of visits by normalized ship name for exact matching
-    const visitMap = new Map<string, Visit>();
+    const visitMap = new Map<string, StatusListRow>();
     for (const visit of visits) {
       visitMap.set(visit.shipName.toLowerCase(), visit);
     }
@@ -501,13 +821,16 @@ export class SheetInfoComponent implements OnInit {
       // Try exact match first
       let visit = visitMap.get(normalizedPdfName);
       let matchedSystemName = normalizedPdfName;
-      
 
-      // If no exact match, try fuzzy matching (partial name)
+      // If no exact match, try fuzzy matching (partial name) with GT validation
       if (!visit) {
-
         for (const [systemName, systemVisit] of visitMap.entries()) {
-          const isMatch = this.isPartialMatch(normalizedPdfName, systemName);
+          const isMatch = this.isPartialMatch(
+            normalizedPdfName, 
+            systemName, 
+            pdfShip.gt, 
+            systemVisit.grossTonnage
+          );
 
           if (isMatch) {
             visit = systemVisit;
@@ -515,13 +838,10 @@ export class SheetInfoComponent implements OnInit {
             break;
           }
         }
-      } else {
-
       }
       
       if (!visit) {
         // PDF-only: Ship in PDF but not in our system
-
         results.push({
           matchType: 'pdf-only',
           pdfShip,
@@ -533,12 +853,11 @@ export class SheetInfoComponent implements OnInit {
         // Ship exists in both - check for discrepancies
         matchedVisits.add(matchedSystemName);
         const discrepancies = this.detectVisitDiscrepancies(pdfShip, visit);
-        
 
         results.push({
           matchType: discrepancies.length > 0 ? 'mismatch' : 'matched',
           pdfShip,
-          systemVisit: null, // We'll use Visit for now, not EnrichedVisit
+          systemVisit: visit, // Pass the actual visit object
           discrepancies,
           shipName: pdfShip.name
         });
@@ -552,7 +871,7 @@ export class SheetInfoComponent implements OnInit {
         results.push({
           matchType: 'system-only',
           pdfShip: null,
-          systemVisit: null, // Will use Visit
+          systemVisit: visit, // Actually pass the visit object
           discrepancies: [],
           shipName: visit.shipName
         });
@@ -566,10 +885,10 @@ export class SheetInfoComponent implements OnInit {
    * Detect discrepancies between PDF ship data and system visit data.
    * 
    * @param pdfShip - Ship from PDF
-   * @param visit - Visit from our system
+   * @param visit - Visit from our system (StatusListRow with trip data)
    * @returns Array of field discrepancies
    */
-  private detectVisitDiscrepancies(pdfShip: PdfShip, visit: Visit): import('../models/view/reconciliation.view').FieldDiscrepancy[] {
+  private detectVisitDiscrepancies(pdfShip: PdfShip, visit: StatusListRow): import('../models/view/reconciliation.view').FieldDiscrepancy[] {
     const discrepancies: import('../models/view/reconciliation.view').FieldDiscrepancy[] = [];
     
     // Compare ship names (exact match required to avoid discrepancy)
@@ -582,9 +901,10 @@ export class SheetInfoComponent implements OnInit {
     }
     
     // Compare ETA (allow 2 hour tolerance)
-    if (pdfShip.eta && visit.initialEta) {
+    // StatusListRow.date contains the active date (ETA/ETB/ETS)
+    if (pdfShip.eta && visit.date) {
       const pdfDate = new Date(pdfShip.eta);
-      const visitDate = visit.initialEta.toDate();
+      const visitDate = visit.date;
       const hoursDiff = Math.abs(pdfDate.getTime() - visitDate.getTime()) / (1000 * 60 * 60);
       
       if (hoursDiff > 2) {
@@ -597,20 +917,20 @@ export class SheetInfoComponent implements OnInit {
     }
     
     // Compare status
-    if (pdfShip.status !== visit.currentStatus) {
+    if (pdfShip.status !== visit.status) {
       discrepancies.push({
         field: 'status',
         pdfValue: pdfShip.status,
-        systemValue: visit.currentStatus
+        systemValue: visit.status
       });
     }
     
     // Compare port
-    if (pdfShip.port !== visit.berthPort) {
+    if (pdfShip.port !== visit.port) {
       discrepancies.push({
         field: 'port',
         pdfValue: pdfShip.port,
-        systemValue: visit.berthPort || 'Unknown'
+        systemValue: visit.port || 'Unknown'
       });
     }
     
@@ -618,41 +938,55 @@ export class SheetInfoComponent implements OnInit {
   }
 
   /**
-   * Checks if two ship names are a partial match.
+   * Checks if two ship names are a partial match with optional GT validation.
    * 
    * @remarks
-   * This enables fuzzy matching where:
+   * **Dual-Layer Matching Strategy:**
+   * 
+   * **Layer 1: Name Matching**
    * - "Nightingale Isl" matches "Nightingale Island" (trailing abbreviation)
    * - "Polstream" matches "Polstream Pile" (prefix match)
    * - "Federal Nakagaw" matches "Federal Nakagawa" (trailing truncation)
+   * - Requires at least 4 characters OR 50% of word length
    * 
-   * **Algorithm:**
-   * 1. Try exact prefix match with word boundary
-   * 2. Try matching all shared words (handles trailing abbreviations)
-   * 3. Check for trailing letter differences (truncations like "Nakagaw" vs "Nakagawa")
+   * **Layer 2: GT Validation (Safety Net)**
+   * - If name fuzzy matches AND GT values provided, check tonnage difference
+   * - Reject match if GT differs by more than ±10%
+   * - Prevents false positives like "Star" (5,000 GT) matching "Star Princess" (85,000 GT)
    * 
-   * **Why this matters:**
-   * PDFs often truncate ship names due to space constraints, so we need
-   * intelligent fuzzy matching to avoid false "PDF-ONLY" alerts.
+   * **Why This Matters:**
+   * PDFs truncate ship names, but GT rarely changes. Using both layers gives
+   * accurate matching while preventing false positives with sister ships or
+   * similarly-named vessels.
    * 
    * @param name1 - First ship name (normalized/lowercase)
    * @param name2 - Second ship name (normalized/lowercase)
-   * @returns true if names are partial matches
+   * @param gt1 - Optional gross tonnage for first ship
+   * @param gt2 - Optional gross tonnage for second ship
+   * @returns true if names are partial matches AND GT validates (if provided)
    */
-  private isPartialMatch(name1: string, name2: string): boolean {
+  private isPartialMatch(name1: string, name2: string, gt1?: number, gt2?: number): boolean {
+    // Minimum characters required for a prefix match to be valid
+    const MIN_MATCH_LENGTH = 4;
+    // Minimum percentage of word that must match (50% - lowered to support "Isl" → "Island")
+    const MIN_MATCH_PERCENTAGE = 0.5;
+    // Maximum GT difference percentage (10%)
+    const MAX_GT_DIFFERENCE = 0.1;
+    
     const shorter = name1.length < name2.length ? name1 : name2;
     const longer = name1.length < name2.length ? name2 : name1;
     
     // Strategy 1: Simple prefix match with word boundary
     // Example: "Polstream" matches "Polstream Pile"
-    if (longer.startsWith(shorter)) {
+    // But now requires at least MIN_MATCH_LENGTH chars
+    if (longer.startsWith(shorter) && shorter.length >= MIN_MATCH_LENGTH) {
       // If exact match (same length), that's fine
       if (shorter.length === longer.length) {
-        return true;
+        return this.validateGT(gt1, gt2, MAX_GT_DIFFERENCE);
       }
       // If different length, make sure there's a word boundary
       if (longer.charAt(shorter.length) === ' ') {
-        return true;
+        return this.validateGT(gt1, gt2, MAX_GT_DIFFERENCE);
       }
     }
     
@@ -668,24 +1002,80 @@ export class SheetInfoComponent implements OnInit {
       const word1 = words1[i];
       const word2 = words2[i];
       
-      // Words must either be exact match OR one is a prefix of the other
-      // This handles "Isl" vs "Island", "Nakagaw" vs "Nakagawa"
-      const isWordMatch = word1 === word2 || 
-                          word1.startsWith(word2) || 
-                          word2.startsWith(word1);
+      // Exact match is always OK
+      if (word1 === word2) {
+        continue;
+      }
       
-      if (!isWordMatch) {
+      // For prefix matching, enforce stricter rules
+      const shorterWord = word1.length < word2.length ? word1 : word2;
+      const longerWord = word1.length < word2.length ? word2 : word1;
+      
+      // Check if one is a prefix of the other
+      const isPrefix = longerWord.startsWith(shorterWord);
+      
+      if (!isPrefix) {
+        allWordsMatch = false;
+        break;
+      }
+      
+      // CRITICAL FIX: Require minimum match length OR percentage
+      // This prevents "K" from matching "Kelly" (1/5 = 20%)
+      // But allows "Isl" to match "Island" (3/6 = 50%)
+      const matchPercentage = shorterWord.length / longerWord.length;
+      const hasMinLength = shorterWord.length >= MIN_MATCH_LENGTH;
+      const hasMinPercentage = matchPercentage >= MIN_MATCH_PERCENTAGE;
+      
+      if (!hasMinLength && !hasMinPercentage) {
+        // Match is too short/weak, reject it
         allWordsMatch = false;
         break;
       }
     }
     
-    // If all compared words match, we have a fuzzy match
+    // If all compared words match, validate with GT (if provided)
     if (allWordsMatch && minLength > 0) {
-      return true;
+      return this.validateGT(gt1, gt2, MAX_GT_DIFFERENCE);
     }
     
     return false;
+  }
+
+  /**
+   * Validates that two ships' gross tonnage values are within acceptable tolerance.
+   * 
+   * @remarks
+   * This is a secondary validation layer for fuzzy name matches.
+   * If GT values aren't provided, validation passes (assumes name match is sufficient).
+   * If GT values are provided, they must be within MAX_GT_DIFFERENCE percentage.
+   * 
+   * **Example:**
+   * - validateGT(35000, 35200, 0.1) → true (0.5% difference, within 10%)
+   * - validateGT(5000, 85000, 0.1) → false (94% difference, exceeds 10%)
+   * 
+   * @param gt1 - First ship's gross tonnage (optional)
+   * @param gt2 - Second ship's gross tonnage (optional)
+   * @param maxDifference - Maximum allowed percentage difference (0.1 = 10%)
+   * @returns true if GT validates or no GT provided, false if GT differs too much
+   */
+  private validateGT(gt1?: number, gt2?: number, maxDifference: number = 0.1): boolean {
+    // If either GT is missing, can't validate - assume match is OK based on name alone
+    if (gt1 === undefined || gt2 === undefined || gt1 === 0 || gt2 === 0) {
+      return true;
+    }
+    
+    // Calculate percentage difference
+    const larger = Math.max(gt1, gt2);
+    const smaller = Math.min(gt1, gt2);
+    const difference = (larger - smaller) / larger;
+    
+    const isValid = difference <= maxDifference;
+    
+    if (!isValid) {
+      console.log(`  🚫 GT validation failed: ${gt1} vs ${gt2} (${(difference * 100).toFixed(1)}% difference, max ${(maxDifference * 100)}%)`);
+    }
+    
+    return isValid;
   }
 
 }
