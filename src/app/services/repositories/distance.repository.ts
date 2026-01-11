@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { Firestore, collection, addDoc, serverTimestamp, query, orderBy, limit, collectionData } from '@angular/fire/firestore';
-import { Distance } from '../models';
+import { Distance } from '../../models';
 import { Observable } from 'rxjs';
 
 

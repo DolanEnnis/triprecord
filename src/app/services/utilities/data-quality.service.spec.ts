@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 
-import { DataQualityService } from './data-quality';
+import { DataQualityService } from './data-quality.service';
 
 describe('DataQuality', () => {
   let service: DataQualityService;

@@ -1,5 +1,5 @@
 import { Component, OnInit, ViewChild, inject, AfterViewInit, effect } from '@angular/core';
-import { UserRepository } from '../services/user.repository';
+import { UserRepository } from '../services/repositories/user.repository';
 import { CommonModule } from '@angular/common';
 import { UserInterface } from '../auth/types/userInterface';
 import { FormsModule } from '@angular/forms';
@@ -17,7 +17,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatCardModule } from '@angular/material/card';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { SystemSettingsRepository } from '../services/system-settings.repository';
+import { SystemSettingsRepository } from '../services/repositories/system-settings.repository';
 
 @Component({
   selector: 'app-admin',

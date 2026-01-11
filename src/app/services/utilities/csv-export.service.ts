@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
-import { TripWithWarnings } from './data-quality';
+import { TripWithWarnings } from './data-quality.service';
 import * as Papa from 'papaparse';
 
 @Injectable({

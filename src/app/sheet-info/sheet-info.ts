@@ -12,16 +12,16 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { Functions, httpsCallable } from '@angular/fire/functions';
-import { SystemSettingsRepository } from '../services/system-settings.repository';
-import { VisitRepository } from '../services/visit.repository';
-import { UserRepository } from '../services/user.repository';
+import { SystemSettingsRepository } from '../services/repositories/system-settings.repository';
+import { VisitRepository } from '../services/repositories/visit.repository';
+import { UserRepository } from '../services/repositories/user.repository';
 import { Auth } from '@angular/fire/auth';
 import { skip, filter, take, combineLatest } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { PdfShip, ShipComparisonResult, ChangeType, ReconciliationResult, EnrichedVisit, VisitStatus, StatusListRow } from '../models';
 import { Visit } from '../models/entities';
-import { PilotService } from '../services/pilot.service';
-import { TripRepository } from '../services/trip.repository';
+import { PilotService } from '../services/state/pilot.service';
+import { TripRepository } from '../services/repositories/trip.repository';
 import { UpdateEtaDialogComponent } from '../dialogs/update-eta-dialog/update-eta-dialog.component';
 
 

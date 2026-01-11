@@ -2,7 +2,7 @@ import { inject, Injectable, Injector, runInInjectionContext } from '@angular/co
 import { Firestore, doc, docData } from '@angular/fire/firestore';
 import { Observable } from 'rxjs';
 import { Timestamp } from '@angular/fire/firestore';
-import { PdfShip } from '../models';
+import { PdfShip } from '../../models';
 
 /**
  * Metadata for Shannon Daily Diary monitoring system.

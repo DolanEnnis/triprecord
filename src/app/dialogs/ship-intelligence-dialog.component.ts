@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { MAT_DIALOG_DATA, MatDialogRef, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { ShipIntelligenceData } from '../services/ship-intelligence.service';
+import { ShipIntelligenceData } from '../services/integrations/ship-intelligence.service';
 
 /**
  * Data structure for the ship information currently in the form.

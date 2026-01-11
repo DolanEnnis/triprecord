@@ -22,7 +22,14 @@ export class MapComponent implements OnInit, AfterViewInit {
   markerOptions: google.maps.MarkerOptions = { draggable: false };
   shipMarkerOptions: google.maps.MarkerOptions = {
     draggable: false,
-    icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+    icon: {
+      path: 'M 0,0 m -8,0 a 8,8 0 1,0 16,0 a 8,8 0 1,0 -16,0', // SVG circle path
+      fillColor: '#1976D2', // Nautical blue
+      fillOpacity: 1,
+      strokeColor: '#FFFFFF',
+      strokeWeight: 2,
+      scale: 1.5
+    },
     title: 'Ship Position'
   };
 

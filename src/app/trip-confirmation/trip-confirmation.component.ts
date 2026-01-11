@@ -1,6 +1,6 @@
 import { AfterViewInit, Component, computed, effect, inject, OnInit, signal, ViewChild, WritableSignal } from '@angular/core';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
-import { DataService } from '../services/data.service';
+import { DataService } from '../services/core/data.service';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../auth/auth';
 import {  UnifiedTrip } from '../models';
@@ -17,8 +17,8 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatPaginatorModule } from '@angular/material/paginator';
-import { DataQualityService, TripWithWarnings } from '../services/data-quality';
-import { CsvExportService } from '../services/csv-export';
+import { DataQualityService, TripWithWarnings } from '../services/utilities/data-quality.service';
+import { CsvExportService } from '../services/utilities/csv-export.service';
 import { HelpPopupComponent } from '../help-popup/help-popup.component';
 
 

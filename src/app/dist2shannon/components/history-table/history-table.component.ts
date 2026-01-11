@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatTableModule } from '@angular/material/table';
-import { DistanceRepository } from '../../../services/distance.repository';
+import { DistanceRepository } from '../../../services/repositories/distance.repository';
 import { Distance } from '../../../models';
 import { Observable } from 'rxjs';
 import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';

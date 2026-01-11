@@ -7,14 +7,16 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog } from '@angular/material/dialog';
 import { MaritimeCalculatorService } from '../../services/maritime-calculator.service';
 import { CalculationResult, ShipPosition, Waypoint } from '../../interfaces/waypoint';
 import { Observable } from 'rxjs';
 import { take } from 'rxjs/operators';
 
-import { DistanceRepository } from '../../../services/distance.repository';
+import { DistanceRepository } from '../../../services/repositories/distance.repository';
 
 import { AuthService } from '../../../auth/auth';
+import { HelpDialogComponent } from '../help-dialog/help-dialog.component';
 
 @Component({
   selector: 'app-control-panel',
@@ -48,10 +50,18 @@ export class ControlPanelComponent implements OnInit {
   constructor(
     private maritimeService: MaritimeCalculatorService,
     private distanceRepository: DistanceRepository,
-    private authService: AuthService
+    private authService: AuthService,
+    private dialog: MatDialog
   ) {
     this.calculation$ = this.maritimeService.getCalculation();
     this.waypoints = this.maritimeService.getWaypoints();
+  }
+
+  openHelp() {
+    this.dialog.open(HelpDialogComponent, {
+      width: '800px',
+      maxHeight: '90vh'
+    });
   }
 
   ngOnInit(): void {

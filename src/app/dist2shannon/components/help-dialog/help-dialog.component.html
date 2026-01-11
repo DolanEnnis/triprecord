@@ -1,0 +1,77 @@
+<div class="help-dialog">
+  <h2 mat-dialog-title>
+    <mat-icon>help_outline</mat-icon>
+    How to Use Distance to Shannon Calculator
+  </h2>
+  
+  <mat-dialog-content>
+    <section>
+      <h3><mat-icon>pin_drop</mat-icon> Getting Ship Position</h3>
+      
+      <h4>From Marine Traffic:</h4>
+      <ol>
+        <li>Find your vessel on <strong>Marine Traffic</strong></li>
+        <li>Right-click on the vessel icon</li>
+        <li>Select <strong>"Copy Coordinates"</strong> from the menu</li>
+        <li>Paste the coordinates directly into the position input box</li>
+      </ol>
+      
+      <div class="screenshot-container">
+        <img src="help/marine-traffic-coordinates.png" alt="Marine Traffic Copy Coordinates menu">
+        <p class="caption">Marine Traffic "Copy Coordinates" feature</p>
+      </div>
+      
+      <h4>Manual Entry:</h4>
+      <p>You can also enter the position manually by filling in the Latitude and Longitude fields (degrees and minutes).</p>
+    </section>
+
+    <section>
+      <h3><mat-icon>speed</mat-icon> Setting Ship Speed</h3>
+      <p><strong>Important:</strong> Remember to set the vessel's speed in knots. The calculator uses this to estimate arrival times.</p>
+    </section>
+
+    <section>
+      <h3><mat-icon>route</mat-icon> Waypoint Selection</h3>
+      <p>The calculator automatically selects the next waypoint based on the ship's position. A red line shows the route from the ship's position to the next waypoint.</p>
+      
+      <h4>Override Waypoint Selection:</h4>
+      <p>If the automatic waypoint selection looks incorrect, simply <strong>click on any waypoint marker on the map</strong> to manually select it as the next waypoint. The route will update immediately.</p>
+    </section>
+
+    <section>
+      <h3><mat-icon>schedule</mat-icon> Time Delay</h3>
+      <p>Use the "Delay" fields (hours and minutes) if you want to calculate from a time in the past. The "From" time in the results will reflect this adjustment.</p>
+    </section>
+
+    <section>
+      <h3><mat-icon>save</mat-icon> Saving Calculations</h3>
+      <p>To save your calculation for later reference:</p>
+      <ol>
+        <li>Enter a <strong>Ship Name</strong> in the input field</li>
+        <li>Click the <strong>Save</strong> button</li>
+        <li>Your calculation will appear in the "Recent Calculations" table below</li>
+      </ol>
+      <p><em>Note: Saving is optional - you can use the calculator without saving.</em></p>
+    </section>
+
+    <section>
+      <h3><mat-icon>info_outline</mat-icon> Understanding Results</h3>
+      <ul>
+        <li><strong>From:</strong> Calculation time (current time minus any delay)</li>
+        <li><strong>Next Waypoint:</strong> The selected navigation waypoint</li>
+        <li><strong>Dist to WP:</strong> Distance to the next waypoint in nautical miles</li>
+        <li><strong>Dist to Scattery:</strong> Total distance to Scattery Island</li>
+        <li><strong>Time to Scattery:</strong> Estimated travel time in hours</li>
+        <li><strong>ETA Kilcredaun:</strong> Estimated time of arrival at Kilcredaun Point</li>
+        <li><strong>ETA Scattery:</strong> Estimated time of arrival at Scattery Island</li>
+      </ul>
+    </section>
+  </mat-dialog-content>
+  
+  <mat-dialog-actions align="end">
+    <button mat-raised-button color="primary" mat-dialog-close>
+      <mat-icon>check</mat-icon>
+      Got it!
+    </button>
+  </mat-dialog-actions>
+</div>

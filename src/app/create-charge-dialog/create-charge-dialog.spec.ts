@@ -1,7 +1,7 @@
 import { Component, inject, Inject, OnInit, Optional } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { DataService } from '../services/data.service';
+import { DataService } from '../services/core/data.service';
 import { AuthService } from '../auth/auth';
 import { Charge, ChargeableEvent } from '../models';
 import { Port, TripType } from '../models';

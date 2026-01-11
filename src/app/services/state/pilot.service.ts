@@ -1,6 +1,6 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
-import { UserRepository } from './user.repository';
-import { UserInterface } from '../auth/types/userInterface';
+import { UserRepository } from '../repositories/user.repository';
+import { UserInterface } from '../../auth/types/userInterface';
 
 /**
  * Service to manage the list of pilots.

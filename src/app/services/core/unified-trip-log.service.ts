@@ -9,11 +9,11 @@ import {
   Visit as NewVisit, 
   TripType, 
   Port 
-} from '../models';
+} from '../../models';
 
-import { ChargeRepository } from './charge.repository';
-import { TripRepository } from './trip.repository';
-import { VisitRepository } from './visit.repository';
+import { ChargeRepository } from '../repositories/charge.repository';
+import { TripRepository } from '../repositories/trip.repository';
+import { VisitRepository } from '../repositories/visit.repository';
 
 
 /**

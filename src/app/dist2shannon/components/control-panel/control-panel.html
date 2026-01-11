@@ -49,6 +49,9 @@
     </div>
 
     <div class="actions">
+      <button mat-mini-fab class="gray-button" (click)="openHelp()" matTooltip="How to use this calculator">
+        <mat-icon>help_outline</mat-icon>
+      </button>
       <div [matTooltip]="saveTooltip">
         <button mat-mini-fab color="primary" (click)="saveCalculation()" [disabled]="isSaving || !shipName">
           <mat-icon>save</mat-icon>

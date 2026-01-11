@@ -2,16 +2,16 @@ import { inject, Injectable} from '@angular/core';
 import { Observable, of } from 'rxjs';
 import { Timestamp } from '@angular/fire/firestore';
 // Only import DTO models
-import { Charge, UnifiedTrip, NewVisitData, VisitStatus } from '../models';
+import { Charge, UnifiedTrip, NewVisitData, VisitStatus } from '../../models';
 
 
-import { AuthService } from '../auth/auth';
-import { ChargeRepository } from './charge.repository';
-import { ShipRepository } from './ship.repository';
+import { AuthService } from '../../auth/auth';
+import { ChargeRepository } from '../repositories/charge.repository';
+import { ShipRepository } from '../repositories/ship.repository';
 import { UnifiedTripLogService } from './unified-trip-log.service';
-import { VisitWorkflowService } from './visit-workflow.service';
-import { TripRepository } from './trip.repository';
-import { VisitRepository } from './visit.repository';
+import { VisitWorkflowService } from '../workflows/visit-workflow.service';
+import { TripRepository } from '../repositories/trip.repository';
+import { VisitRepository } from '../repositories/visit.repository';
 
 
 
@@ -57,7 +57,6 @@ export class DataService {
     // This is the source of truth for billing.
     // TODO: Re-enable writing to /charges once the old app is decommissioned or the data flow is finalized.
     // This is the source of truth for billing on the old system.
-    console.log('SKIPPING: Writing to /charges collection for old app compatibility.', chargeData);
     await this.chargeRepository.addCharge(chargeData);
 
     // 2. Update the operational trip record with the final details and mark as confirmed.
@@ -97,7 +96,6 @@ export class DataService {
     // TODO: Re-enable writing to /charges once the old app is decommissioned or the data flow is finalized.
     // This is the source of truth for billing on the old system.
     // NOTE: When re-enabling, ensure `chargeData.boarding` is converted to a Timestamp if the repository requires it.
-    console.log('SKIPPING: Writing to /charges collection for old app compatibility.', chargeData);
     // await this.chargeRepository.addCharge(chargeData);
 
     return tripId;

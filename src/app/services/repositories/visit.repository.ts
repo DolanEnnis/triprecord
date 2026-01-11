@@ -22,7 +22,8 @@ import {
 } from '@angular/fire/firestore';
 import { combineLatest, from, Observable, of } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
-import { Trip, Visit, VisitStatus, StatusListRow, EnrichedVisit } from '../models';
+import { Trip, Visit, VisitStatus, StatusListRow, EnrichedVisit, Port } from '../../models';
+import type { Query, QueryConstraint, QueryDocumentSnapshot } from '@angular/fire/firestore';
 
 
 @Injectable({
@@ -128,9 +129,13 @@ export class VisitRepository {
     });
   }
 
+  /**
+   * Updates the berth port for a visit.
+   * TYPE SAFETY: Now uses proper Port type instead of any
+   */
   async updateVisitLocation(
     visitId: string,
-    newPort: any, // Using any to avoid circular dependency if Port is not imported, but better to import Port
+    newPort: Port,
     updatedBy: string
   ): Promise<void> {
     return runInInjectionContext(this.injector, async () => {
@@ -291,7 +296,7 @@ export class VisitRepository {
     return runInInjectionContext(this.injector, async () => {
       // 1. Always update the Visit's audit fields
       const visitDocRef = doc(this.firestore, `${this.VISITS_COLLECTION}/${visitId}`);
-      const visitUpdatePayload: any = {
+      const visitUpdatePayload: Partial<Visit> = {
         statusLastUpdated: serverTimestamp(),
         updatedBy: updatedBy,
       };
@@ -406,7 +411,7 @@ export class VisitRepository {
       );
 
       // Build query constraints based on parameters
-      const constraints: any[] = [];
+      const constraints: QueryConstraint[] = [];
       
       // If date range is provided, filter by it
       if (startDate) {
@@ -501,10 +506,14 @@ export class VisitRepository {
     });
   }
 
-  private executeVisitsQuery(visitsQuery: any): Observable<EnrichedVisit[]> {
+  /**
+   * Executes a Firestore query and enriches visits with trip data.
+   * TYPE SAFETY: Uses unknown instead of any (requires runtime type assertion)
+   */
+  private executeVisitsQuery(visitsQuery: unknown): Observable<EnrichedVisit[]> {
     return runInInjectionContext(this.injector, () => {
       return (
-        collectionData(visitsQuery, { idField: 'id' }) as Observable<Visit[]>
+        collectionData(visitsQuery as any, { idField: 'id' }) as Observable<Visit[]>
       ).pipe(
         catchError((error) => {
           console.error('Error fetching visits:', error);
@@ -535,13 +544,13 @@ export class VisitRepository {
               return from(getDocs(tripQuery)).pipe(
                 catchError((error) => {
                   console.error(`Error fetching trips for visit ${visit.id}:`, error);
-                  return of({ docs: [] } as any);
+                  return of({ docs: [] });
                 }),
                 map((snapshot) => {
                   let inTrip: Trip | undefined;
                   let outTrip: Trip | undefined;
 
-                  snapshot.docs.forEach((doc: any) => {
+                  snapshot.docs.forEach((doc: QueryDocumentSnapshot<unknown>) => {
                     const trip = doc.data() as Trip;
                     if (trip.typeTrip === 'In') {
                       inTrip = trip;

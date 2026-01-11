@@ -1,9 +1,9 @@
 import { Component, inject, Inject, OnInit, Optional, signal, computed } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, ValidatorFn, AbstractControl, ValidationErrors } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { DataService } from '../services/data.service';
+import { DataService } from '../services/core/data.service';
 import { AuthService } from '../auth/auth';
-import { PilotService } from '../services/pilot.service';
+import { PilotService } from '../services/state/pilot.service';
 import { Charge, ChargeableEvent } from '../models';
 import { Port, TripType } from '../models';
 import { CommonModule } from '@angular/common';

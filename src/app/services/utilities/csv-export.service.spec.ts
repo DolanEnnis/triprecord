@@ -1,7 +1,7 @@
 
 import { DatePipe } from '@angular/common';
-import { CsvExportService } from './csv-export' ;
-import { TripWithWarnings } from './data-quality';
+import { CsvExportService } from './csv-export.service' ;
+import { TripWithWarnings } from './data-quality.service';
 import * as Papa from 'papaparse';
 import {TestBed} from '@angular/core/testing';
 

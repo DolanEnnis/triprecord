@@ -10,7 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatRadioModule } from '@angular/material/radio';
 import { RouterModule } from '@angular/router';
 import { PreviousVisitsListComponent } from './previous-visits-list/previous-visits-list.component';
-import { VisitRepository } from '../services/visit.repository';
+import { VisitRepository } from '../services/repositories/visit.repository';
 import { Observable, of } from 'rxjs';
 import { EnrichedVisit } from '../models';
 

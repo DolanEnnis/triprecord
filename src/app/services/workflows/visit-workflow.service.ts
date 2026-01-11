@@ -1,10 +1,10 @@
 import { inject, Injectable, Injector, runInInjectionContext } from '@angular/core';
 import { serverTimestamp, Timestamp, doc, updateDoc } from '@angular/fire/firestore';
-import { AuthService } from '../auth/auth';
-import { NewVisitData, Trip, TripType, Visit, VisitStatus, Charge } from '../models';
-import { ShipRepository } from './ship.repository';
-import { VisitRepository } from './visit.repository';
-import { TripRepository } from './trip.repository';
+import { AuthService } from '../../auth/auth';
+import { NewVisitData, Trip, TripType, Visit, VisitStatus, Charge, Port } from '../../models';
+import { ShipRepository } from '../repositories/ship.repository';
+import { VisitRepository } from '../repositories/visit.repository';
+import { TripRepository } from '../repositories/trip.repository';
 
 
 @Injectable({
@@ -136,7 +136,11 @@ export class VisitWorkflowService {
     });
   }
 
-  async arriveShip(visitId: string, port: any): Promise<void> {
+  /**
+   * Updates a visit status to 'Alongside' when ship arrives.
+   * TYPE SAFETY: Now uses Port type instead of any
+   */
+  async arriveShip(visitId: string, port: Port): Promise<void> {
     return runInInjectionContext(this.injector, async () => {
       const user = this.authService.currentUserSig();
       const now = serverTimestamp();
@@ -147,7 +151,11 @@ export class VisitWorkflowService {
     });
   }
 
-  async shiftShip(visitId: string, fromPort: any, toPort: any, pilot: string): Promise<void> {
+  /**
+   * Creates a shift trip and updates visit location.
+   * TYPE SAFETY: Now uses Port type instead of any
+   */
+  async shiftShip(visitId: string, fromPort:  Port, toPort: Port, pilot: string): Promise<void> {
     return runInInjectionContext(this.injector, async () => {
       const user = this.authService.currentUserSig();
       const now = serverTimestamp();

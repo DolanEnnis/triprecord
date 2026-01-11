@@ -24,12 +24,12 @@ import { DateTimePickerComponent } from '../date-time-picker/date-time-picker.co
 import { Observable, of, tap } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, startWith } from 'rxjs/operators';
 
-import { VisitWorkflowService } from '../services/visit-workflow.service';
+import { VisitWorkflowService } from '../services/workflows/visit-workflow.service';
 import { AuthService} from '../auth/auth';
 import { Port, Ship, Visit, NewVisitData, Source } from '../models';
-import { ShipRepository } from '../services/ship.repository';
-import { VisitRepository } from '../services/visit.repository';
-import { UserRepository } from '../services/user.repository';
+import { ShipRepository } from '../services/repositories/ship.repository';
+import { VisitRepository } from '../services/repositories/visit.repository';
+import { UserRepository } from '../services/repositories/user.repository';
 import { IFormComponent } from '../guards/form-component.interface';
 
 @Component({

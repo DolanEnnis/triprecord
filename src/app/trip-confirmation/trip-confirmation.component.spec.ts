@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { of } from 'rxjs';
-import { DataService } from '../services/data.service';
+import { DataService } from '../services/core/data.service';
 import { MatDialog } from '@angular/material/dialog';
 import { AuthService } from '../auth/auth';
 

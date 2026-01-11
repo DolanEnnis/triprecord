@@ -17,16 +17,16 @@
 .split-container {
   display: flex;
   flex: 1;
-  min-height: 400px; /* Ensure map has height */
+  min-height: 700px; /* Ensure map has good height */
   
   app-results-panel {
-    width: 300px;
+    width: 320px; /* Comfortable width for calculation results */
     flex-shrink: 0;
     border-right: 1px solid #e0e0e0;
   }
   
   app-map {
-    flex-grow: 1;
+    flex-grow: 1; /* Map takes remaining space */
     display: block; /* Important for custom element */
     height: 100%;
   }
