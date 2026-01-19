@@ -4,7 +4,9 @@
     
     <div class="split-container">
       <app-results-panel></app-results-panel>
-      <app-map *ngIf="apiLoaded"></app-map>
+      @if (apiLoaded) {
+        <app-map></app-map>
+      }
     </div>
 
     <app-history-table></app-history-table>

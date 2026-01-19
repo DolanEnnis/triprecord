@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { MatSidenavModule } from '@angular/material/sidenav';
+import { MatIconModule } from '@angular/material/icon';
 import { HeaderComponent } from './navigation/header/header';
 import { SidenavListComponent } from './navigation/sidenav-list/sidenav-list';
 import { FooterComponent } from './footer/footer.component'; // 1. Import the footer
@@ -11,6 +12,7 @@ import { FooterComponent } from './footer/footer.component'; // 1. Import the fo
 
   imports: [RouterOutlet,
             MatSidenavModule,
+            MatIconModule,
             HeaderComponent,
             SidenavListComponent,
             FooterComponent],

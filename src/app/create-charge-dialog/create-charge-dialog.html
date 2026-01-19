@@ -47,9 +47,11 @@
           </mat-option>
         }
       </mat-autocomplete>
-      <mat-error *ngIf="form.get('pilot')?.hasError('invalidPilot')">
-        Please select a valid pilot from the list
-      </mat-error>
+      @if (form.get('pilot')?.hasError('invalidPilot')) {
+        <mat-error>
+          Please select a valid pilot from the list
+        </mat-error>
+      }
     </mat-form-field>
 
     <mat-form-field>

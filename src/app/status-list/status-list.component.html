@@ -17,24 +17,25 @@
   <!-- Dynamic Sections Loop - Single table definition for all sections -->
   <ng-container *ngFor="let section of sections()">
     <!-- Section Header -->
-    <div class="section-header" *ngIf="section.data.length > 0">
-      <h2>{{ section.title }}</h2>
-    </div>
+    @if (section.data.length > 0) {
+      <div class="section-header">
+        <h2>{{ section.title }}</h2>
+      </div>
+    }
 
     <!-- Empty State for Filtered View -->
-    <div
-      class="empty-state"
-      *ngIf="section.data.length === 0 && portFilter() !== 'All'"
-    >
-      <p>No ships {{ section.title.toLowerCase() }} for {{ section.portFilterName }}</p>
-    </div>
+    @if (section.data.length === 0 && portFilter() !== 'All') {
+      <div class="empty-state">
+        <p>No ships {{ section.title.toLowerCase() }} for {{ section.portFilterName }}</p>
+      </div>
+    }
 
     <!-- Data Table - Now defined ONCE instead of 3 times -->
-    <mat-table
-      *ngIf="section.data.length > 0"
-      [dataSource]="section.data"
-      class="mat-elevation-z2"
-    >
+    @if (section.data.length > 0) {
+      <mat-table
+        [dataSource]="section.data"
+        class="mat-elevation-z2"
+      >
       <!-- Ship Column -->
       <ng-container matColumnDef="ship">
         <mat-header-cell *matHeaderCellDef> Vessel Name </mat-header-cell>
@@ -55,22 +56,25 @@
         <mat-header-cell *matHeaderCellDef> Marine Traffic </mat-header-cell>
         <mat-cell *matCellDef="let element">
           <!-- Only display link if marineTrafficLink exists in the data -->
-          <a 
-            *ngIf="element.marineTrafficLink"
-            [href]="element.marineTrafficLink" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            class="marine-traffic-link"
-            matTooltip="View on Marine Traffic"
-          >
-            <img 
-              src="/MarineTraffic.png" 
-              alt="Marine Traffic" 
-              style="height: 20px; width: auto; display: block;"
-            />
-          </a>
+          @if (element.marineTrafficLink) {
+            <a 
+              [href]="element.marineTrafficLink" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              class="marine-traffic-link"
+              matTooltip="View on Marine Traffic"
+            >
+              <img 
+                src="/MarineTraffic.png" 
+                alt="Marine Traffic" 
+                style="height: 20px; width: auto; display: block;"
+              />
+            </a>
+          }
           <!-- Show dash/placeholder if no link available -->
-          <span *ngIf="!element.marineTrafficLink" style="color: #ccc;">—</span>
+          @if (!element.marineTrafficLink) {
+            <span style="color: #ccc;">—</span>
+          }
         </mat-cell>
       </ng-container>
 
@@ -88,8 +92,12 @@
               : 'inherit'
           "
         >
-          <span *ngIf="element.isTimeSet">{{ getDate(element.date) | date : "EEE dd/MM HH:mm" }}</span>
-          <span *ngIf="!element.isTimeSet" class="not-set">Not Set</span>
+          @if (element.isTimeSet) {
+            <span>{{ getDate(element.date) | date : "EEE dd/MM HH:mm" }}</span>
+          }
+          @if (!element.isTimeSet) {
+            <span class="not-set">Not Set</span>
+          }
         </mat-cell>
       </ng-container>
 
@@ -165,6 +173,7 @@
 
       <mat-header-row *matHeaderRowDef="displayedColumns"></mat-header-row>
       <mat-row *matRowDef="let row; columns: displayedColumns"></mat-row>
-    </mat-table>
+      </mat-table>
+    }
   </ng-container>
 </div>

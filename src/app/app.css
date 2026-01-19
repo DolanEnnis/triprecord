@@ -1,0 +1,77 @@
+/* Beta Warning Banner Styles */
+.beta-warning-banner {
+  background-color: #3f51b5; /* Material Indigo 500 - matches mat-toolbar primary */
+  color: #ffffff;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 64px; /* Position below header (adjust based on your header height) */
+  z-index: 999;
+  font-size: 14px;
+  animation: slideDown 0.4s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.beta-icon {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.beta-text {
+  text-align: center;
+  line-height: 1.4;
+}
+
+.beta-text strong {
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .beta-warning-banner {
+    padding: 10px 16px;
+    font-size: 12px;
+    top: 56px; /* Adjust for smaller header on mobile */
+  }
+
+  .beta-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .beta-warning-banner {
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 12px;
+  }
+}

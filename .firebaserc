@@ -5,6 +5,9 @@
   "targets": {
     "shannonpilots-6fedd": {
       "hosting": {
+        "oldsite": [
+          "shannonpilots-6fedd"
+        ],
         "trip": [
           "shannonpilots-6fedd-trip"
         ]

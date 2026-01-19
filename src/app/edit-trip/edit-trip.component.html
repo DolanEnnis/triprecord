@@ -1,19 +1,22 @@
-<div class="container" *ngIf="!loading(); else loader">
-  <div class="header">
-    <button mat-icon-button (click)="cancel()" matTooltip="Go back">
-      <mat-icon>arrow_back</mat-icon>
-    </button>
-    <h2>Edit Visit</h2>
-  </div>
-
-  <!-- OLD TRIP WARNING BANNER -->
-  <div *ngIf="isOldTrip()" class="old-trip-warning">
-    <mat-icon>warning</mat-icon>
-    <div class="warning-content">
-      <strong>Warning: This trip is {{ tripAgeDays() }} days old</strong>
-      <p>Editing trips older than 60 days is discouraged. Historical records should generally remain unchanged.</p>
+@if (!loading()) {
+  <div class="container">
+    <div class="header">
+      <button mat-icon-button (click)="cancel()" matTooltip="Go back">
+        <mat-icon>arrow_back</mat-icon>
+      </button>
+      <h2>Edit Visit</h2>
     </div>
-  </div>
+
+    <!-- OLD TRIP WARNING BANNER -->
+    @if (isOldTrip()) {
+      <div class="old-trip-warning">
+        <mat-icon>warning</mat-icon>
+        <div class="warning-content">
+          <strong>Warning: This trip is {{ tripAgeDays() }} days old</strong>
+          <p>Editing trips older than 60 days is discouraged. Historical records should generally remain unchanged.</p>
+        </div>
+      </div>
+    }
 
   <form [formGroup]="form" class="edit-form">
     
@@ -26,15 +29,23 @@
         <mat-form-field appearance="outline">
           <mat-label>Ship Name</mat-label>
           <input matInput formControlName="shipName" placeholder="e.g. MAERSK SHANNON">
-          <mat-error *ngIf="form.get('ship.shipName')?.hasError('required')">Ship Name is required</mat-error>
+          @if (form.get('ship.shipName')?.hasError('required')) {
+            <mat-error>Ship Name is required</mat-error>
+          }
         </mat-form-field>
 
         <mat-form-field appearance="outline">
           <mat-label>Gross Tonnage</mat-label>
           <input matInput type="number" formControlName="grossTonnage">
-          <mat-error *ngIf="form.get('ship.grossTonnage')?.hasError('required')">Gross Tonnage is required</mat-error>
-          <mat-error *ngIf="form.get('ship.grossTonnage')?.hasError('min')">Min value is 50</mat-error>
-          <mat-error *ngIf="form.get('ship.grossTonnage')?.hasError('max')">Max value is 200,000</mat-error>
+          @if (form.get('ship.grossTonnage')?.hasError('required')) {
+            <mat-error>Gross Tonnage is required</mat-error>
+          }
+          @if (form.get('ship.grossTonnage')?.hasError('min')) {
+            <mat-error>Min value is 50</mat-error>
+          }
+          @if (form.get('ship.grossTonnage')?.hasError('max')) {
+            <mat-error>Max value is 200,000</mat-error>
+          }
         </mat-form-field>
 
         <mat-form-field appearance="outline">
@@ -45,19 +56,27 @@
                all failed due to lack of web browsing capabilities in API mode, resulting in hallucinations or null data.
                Future options: MarineTraffic API, VesselFinder API, or other maritime database services.
           <button mat-icon-button matSuffix (click)="fetchShipInfo()" [disabled]="fetchLoading()" matTooltip="Fetch Ship Info from AI">
-            <mat-icon *ngIf="!fetchLoading()">auto_awesome</mat-icon>
-            <mat-icon *ngIf="fetchLoading()" class="spin">sync</mat-icon>
+            @if (!fetchLoading()) {
+              <mat-icon>auto_awesome</mat-icon>
+            }
+            @if (fetchLoading()) {
+              <mat-icon class="spin">sync</mat-icon>
+            }
           </button>
           -->
-          <mat-error *ngIf="form.get('ship.imoNumber')?.hasError('min') || form.get('ship.imoNumber')?.hasError('max')">IMO must be 7 digits</mat-error>
+          @if (form.get('ship.imoNumber')?.hasError('min') || form.get('ship.imoNumber')?.hasError('max')) {
+            <mat-error>IMO must be 7 digits</mat-error>
+          }
         </mat-form-field>
 
         <mat-form-field appearance="outline">
           <mat-label>Marine Traffic Link</mat-label>
           <input matInput formControlName="marineTrafficLink" #mtLink>
-          <a mat-icon-button matSuffix [href]="mtLink.value" target="_blank" *ngIf="mtLink.value" title="Open Link">
-            <mat-icon>open_in_new</mat-icon>
-          </a>
+          @if (mtLink.value) {
+            <a mat-icon-button matSuffix [href]="mtLink.value" target="_blank" title="Open Link">
+              <mat-icon>open_in_new</mat-icon>
+            </a>
+          }
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="full-width">
@@ -80,7 +99,9 @@
               {{ status }}
             </mat-option>
           </mat-select>
-          <mat-error *ngIf="form.get('visit.currentStatus')?.hasError('required')">Status is required</mat-error>
+          @if (form.get('visit.currentStatus')?.hasError('required')) {
+            <mat-error>Status is required</mat-error>
+          }
         </mat-form-field>
 
         <app-date-time-picker formControlName="initialEta" class="span-2"></app-date-time-picker>
@@ -130,9 +151,11 @@
               </mat-option>
             }
           </mat-autocomplete>
-          <mat-error *ngIf="form.get('inwardTrip.pilot')?.hasError('invalidPilot')">
-            Please select a valid pilot from the list
-          </mat-error>
+          @if (form.get('inwardTrip.pilot')?.hasError('invalidPilot')) {
+            <mat-error>
+              Please select a valid pilot from the list
+            </mat-error>
+          }
         </mat-form-field>
 
         <app-date-time-picker formControlName="boarding" class="span-2"></app-date-time-picker>
@@ -152,7 +175,8 @@
         </mat-form-field>
 
         <!-- PILOT'S OWN INFO - Only visible to assigned pilot -->
-        <div *ngIf="isCurrentUserInwardPilot()" class="pilot-own-section">
+        @if (isCurrentUserInwardPilot()) {
+          <div class="pilot-own-section">
           <h4 class="pilot-section-title">Pilot's Own Info</h4>
           
           <!-- Extra and Own Note - Full width, NOT in grid -->
@@ -193,7 +217,8 @@
 
             <app-date-time-picker formControlName="timeOff" label="Time Off"></app-date-time-picker>
           </div>
-        </div>
+          </div>
+        }
       </mat-card-content>
     </mat-card>
 
@@ -217,9 +242,11 @@
               </mat-option>
             }
           </mat-autocomplete>
-          <mat-error *ngIf="form.get('outwardTrip.pilot')?.hasError('invalidPilot')">
-            Please select a valid pilot from the list
-          </mat-error>
+          @if (form.get('outwardTrip.pilot')?.hasError('invalidPilot')) {
+            <mat-error>
+              Please select a valid pilot from the list
+            </mat-error>
+          }
         </mat-form-field>
 
         <app-date-time-picker formControlName="boarding" class="span-2"></app-date-time-picker>
@@ -239,7 +266,8 @@
         </mat-form-field>
 
         <!-- PILOT'S OWN INFO - Only visible to assigned pilot -->
-        <div *ngIf="isCurrentUserOutwardPilot()" class="pilot-own-section">
+        @if (isCurrentUserOutwardPilot()) {
+          <div class="pilot-own-section">
           <h4 class="pilot-section-title">Pilot's Own Info</h4>
           
           <!-- Extra and Own Note - Full width, NOT in grid -->
@@ -280,7 +308,8 @@
 
             <app-date-time-picker formControlName="timeOff" label="Time Off"></app-date-time-picker>
           </div>
-        </div>
+          </div>
+        }
       </mat-card-content>
     </mat-card>
 
@@ -313,9 +342,11 @@
                       <mat-option [value]="type">{{ type }}</mat-option>
                     }
                   </mat-select>
-                  <mat-error *ngIf="trip.get('typeTrip')?.hasError('required')">
-                    Trip type is required
-                  </mat-error>
+                  @if (trip.get('typeTrip')?.hasError('required')) {
+                    <mat-error>
+                      Trip type is required
+                    </mat-error>
+                  }
                 </mat-form-field>
 
                 <mat-form-field appearance="outline">
@@ -330,12 +361,16 @@
                     }
                     <mat-option value="">Unassigned</mat-option>
                   </mat-autocomplete>
-                  <mat-error *ngIf="trip.get('pilot')?.hasError('required')">
-                    Pilot is required
-                  </mat-error>
-                  <mat-error *ngIf="trip.get('pilot')?.hasError('invalidPilot')">
-                    Please select a valid pilot
-                  </mat-error>
+                  @if (trip.get('pilot')?.hasError('required')) {
+                    <mat-error>
+                      Pilot is required
+                    </mat-error>
+                  }
+                  @if (trip.get('pilot')?.hasError('invalidPilot')) {
+                    <mat-error>
+                      Please select a valid pilot
+                    </mat-error>
+                  }
                 </mat-form-field>
 
                 <app-date-time-picker formControlName="boarding" class="span-2"></app-date-time-picker>
@@ -409,10 +444,9 @@
       </button>
     </div>
   </div>
-</div>
-
-<ng-template #loader>
+  </div>
+} @else {
   <div class="loader-container">
     <p>Loading visit details...</p>
   </div>
-</ng-template>
+}

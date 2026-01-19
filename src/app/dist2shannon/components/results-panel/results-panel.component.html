@@ -1,39 +1,41 @@
-<div class="results-panel" *ngIf="calculation$ | async as calc">
-  <h3>Calculation Results</h3>
-  
-  <div class="result-row">
-    <span class="label">From:</span>
-    <span class="value">{{ calc.fromTime | date:'EEE HH:mm' }}</span>
-  </div>
-  
-  <div class="result-row">
-    <span class="label">Next Waypoint:</span>
-    <span class="value">{{ calc.nextWP.name }}</span>
-  </div>
-  
-  <div class="result-row">
-    <span class="label">Dist to WP:</span>
-    <span class="value">{{ calc.distToWP | number:'1.2-2' }} NM</span>
-  </div>
-  
-  <div class="result-row">
-    <span class="label">Dist to Scattery:</span>
-    <span class="value highlight">{{ calc.distToScattery | number:'1.2-2' }} NM</span>
-  </div>
+@if (calculation$ | async; as calc) {
+  <div class="results-panel">
+    <h3>Calculation Results</h3>
+    
+    <div class="result-row">
+      <span class="label">From:</span>
+      <span class="value">{{ calc.fromTime | date:'EEE HH:mm' }}</span>
+    </div>
+    
+    <div class="result-row">
+      <span class="label">Next Waypoint:</span>
+      <span class="value">{{ calc.nextWP.name }}</span>
+    </div>
+    
+    <div class="result-row">
+      <span class="label">Dist to WP:</span>
+      <span class="value">{{ calc.distToWP | number:'1.2-2' }} NM</span>
+    </div>
+    
+    <div class="result-row">
+      <span class="label">Dist to Scattery:</span>
+      <span class="value highlight">{{ calc.distToScattery | number:'1.2-2' }} NM</span>
+    </div>
 
-  <div class="result-row">
-    <span class="label">Time to Scattery:</span>
-    <span class="value">{{ (calc.distToScattery / (position$ | async)?.speed!) | number:'1.2-2' }} hrs</span>
-  </div>
-  
-  <div class="result-row">
-    <span class="label">ETA Kilcredaun:</span>
-    <span class="value">{{ calc.etaKil | date:'EEE (dd) HH:mm' }}</span>
-  </div>
-  
-  <div class="result-row">
-    <span class="label">ETA Scattery:</span>
-    <span class="value highlight">{{ calc.etaScattery | date:'EEE (dd) HH:mm' }}</span>
-  </div>
+    <div class="result-row">
+      <span class="label">Time to Scattery:</span>
+      <span class="value">{{ (calc.distToScattery / (position$ | async)?.speed!) | number:'1.2-2' }} hrs</span>
+    </div>
+    
+    <div class="result-row">
+      <span class="label">ETA Kilcredaun:</span>
+      <span class="value">{{ calc.etaKil | date:'EEE (dd) HH:mm' }}</span>
+    </div>
+    
+    <div class="result-row">
+      <span class="label">ETA Scattery:</span>
+      <span class="value highlight">{{ calc.etaScattery | date:'EEE (dd) HH:mm' }}</span>
+    </div>
 
-</div>
+  </div>
+}

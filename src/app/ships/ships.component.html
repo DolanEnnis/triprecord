@@ -51,12 +51,11 @@
 
           <tr class="mat-row" *matNoDataRow>
             <td class="mat-cell no-results" [attr.colspan]="displayedColumns.length">
-              <ng-container *ngIf="searchControl.value && searchControl.value.length >= 3; else hint">
+              @if (searchControl.value && searchControl.value.length >= 3) {
                 No ships found matching "{{searchControl.value}}"
-              </ng-container>
-              <ng-template #hint>
+              } @else {
                 Enter at least 3 characters to search
-              </ng-template>
+              }
             </td>
           </tr>
         </table>

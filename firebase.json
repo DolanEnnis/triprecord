@@ -13,6 +13,15 @@
   },
   "hosting": [
     {
+      "target": "oldsite",
+      "public": "public/we-moved",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ]
+    },
+    {
       "target": "trip",
       "public": "dist/triprecord-app/browser",
       "ignore": [

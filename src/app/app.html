@@ -5,6 +5,15 @@
     </mat-sidenav>
     <mat-sidenav-content>
       <app-header (sidenavToggle)="sidenav.toggle()"></app-header>
+      
+      <!-- Beta Warning Banner -->
+      <div class="beta-warning-banner">
+        <mat-icon class="beta-icon">science</mat-icon>
+        <span class="beta-text">
+          <strong>BETA VERSION</strong> - This site is currently in testing. Please report any issues to Brian.
+        </span>
+      </div>
+      
       <main>
         <router-outlet></router-outlet>
       </main>
