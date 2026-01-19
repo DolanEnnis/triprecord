@@ -13,8 +13,10 @@ export type VisitStatus =
  */
 export type Source = 
   | 'Sheet' 
+  | 'Sheet-Info'
   | 'AIS' 
   | 'Good Guess' 
   | 'Agent' 
   | 'Pilot' 
   | 'Other';
+

@@ -138,7 +138,7 @@ export class EditTripComponent implements OnInit, IFormComponent {
   // Enums/Options for template
   ports: Port[] = ['Anchorage', 'Cappa', 'Moneypoint', 'Tarbert', 'Foynes', 'Aughinish', 'Shannon', 'Limerick'];
   visitStatuses: VisitStatus[] = ['Due', 'Awaiting Berth', 'Alongside', 'Sailed', 'Cancelled'];
-  sources: Source[] = ['Sheet', 'AIS', 'Good Guess', 'Agent', 'Pilot', 'Other'];
+  sources: Source[] = ['Sheet', 'Sheet-Info', 'AIS', 'Good Guess', 'Agent', 'Pilot', 'Other'];
 
   // IDs to track for updates
   shipId: string | null = null;
@@ -843,6 +843,33 @@ export class EditTripComponent implements OnInit, IFormComponent {
     const status = this.form.get('visit.currentStatus')?.value;
     return status === 'Alongside';
   }
+
+  /**
+   * Gets the available source options for the dropdown.
+   * 
+   * LEARNING: CONDITIONAL UI OPTIONS
+   * 'Sheet-Info' is an automated source (set by AI-assisted updates from Sheet-Info page).
+   * We don't want users to manually select it, but we need to show it if it's already set.
+   * 
+   * This method includes 'Sheet-Info' ONLY if it's the current value, so:
+   * - Users can see it's set to 'Sheet-Info' (transparency)
+   * - They can change it to something else if needed (override capability)
+   * - But they can't manually select 'Sheet-Info' for new entries (prevents misuse)
+   * 
+   * @returns Array of Source values available for selection
+   */
+  getAvailableSources(): Source[] {
+    const currentSource = this.form.get('visit.source')?.value;
+    const manualSources: Source[] = ['Sheet', 'AIS', 'Good Guess', 'Agent', 'Pilot', 'Other'];
+    
+    // Include Sheet-Info only if it's the current value
+    if (currentSource === 'Sheet-Info') {
+      return ['Sheet-Info', ...manualSources];
+    }
+    
+    return manualSources;
+  }
+
 
   /**
    * Checks if the current logged-in user is the pilot assigned to the inward trip.

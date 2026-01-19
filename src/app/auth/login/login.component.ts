@@ -71,7 +71,9 @@ export class LoginComponent {
         // resolved the user's profile, preventing the race condition.
         next: (profile) => {
           if (profile) {
-            this.router.navigate(['/']);
+            // Redirect Viewers to /sheet-info, all other roles to home page
+            const redirectPath = profile.userType === 'viewer' ? '/sheet-info' : '/';
+            this.router.navigate([redirectPath]);
           } else {
             // This case is a fallback for unexpected errors during profile resolution.
             this.snackBar.open('Login succeeded, but failed to retrieve user profile.', 'Close', {

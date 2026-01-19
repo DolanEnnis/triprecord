@@ -2,73 +2,193 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- Helper Functions ---
+    // ========================================
+    // HELPER FUNCTIONS
+    // ========================================
     
+    // Check if user is authenticated
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Look up the REQUESTER'S document to check if they are an admin.
-    function isAdmin() {
+    // Get the current user's document from /users collection
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Check if user exists in the database
+    function userExists() {
       return isSignedIn() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userType == 'admin';
+             exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
-    // --- Users Collection ---
+    // Check if user has one of the specified roles
+    // Usage: hasRole(['admin', 'pilot']) returns true if user is admin OR pilot
+    function hasRole(roles) {
+      return userExists() && getUserData().userType in roles;
+    }
+
+    // Shorthand helper functions for common role checks
+    function isAdmin() {
+      return hasRole(['admin']);
+    }
+
+    function canWrite() {
+      // SFPC, Pilot, and Admin can create/update most collections
+      return hasRole(['admin', 'sfpc', 'pilot']);
+    }
+
+    function canWriteCharges() {
+      // Only Pilots and Admins can create/modify charges (billing data)
+      return hasRole(['admin', 'pilot']);
+    }
+
+    // ========================================
+    // USERS COLLECTION
+    // ========================================
     
-    match /users/{docId} {
-      // Allow Reading:
-      // 1. Admins can read everything (for the Admin Table).
-      // 2. Users can read their own profile.
-      // 3. We allow listing for login (AuthService.findUserDocByEmail) 
-      allow list: if isSignedIn(); 
-      allow get: if isSignedIn() && (request.auth.uid == docId || isAdmin());
-
-      // Allow Writing:
-      // 1. Admins can update any user (Update Roles).
-      // 2. Users can write to their own document (request.auth.uid == docId).
-      allow write: if (isSignedIn() && request.auth.uid == docId) || isAdmin();
+    match /users/{userId} {
+      // List all users (for admin user management page)
+      allow list: if isAdmin();
+      
+      // Users can read their own profile; Admins can read any profile
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      
+      // Users can create their own profile during signup
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      
+      // Users can update their own profile BUT cannot change their userType
+      // This prevents privilege escalation attacks (e.g., making yourself admin)
+      allow update: if isSignedIn() && 
+                       request.auth.uid == userId &&
+                       request.resource.data.userType == resource.data.userType;
+      
+      // Admins can update any user's profile (including changing userType from /admin page)
+      allow update: if isAdmin();
+      
+      // Only admins can delete user accounts
+      allow delete: if isAdmin();
     }
 
-    // --- Visits & Trips (Protecting the core data) ---
+    // ========================================
+    // USER ACTIVITY TRACKING
+    // ========================================
+    
+    match /user_activity/{userId} {
+      // Only admins can read activity logs (for auditing purposes)
+      allow read: if isAdmin();
+      
+      // Users can create activity log entries for themselves
+      // Note: Only 'create' is allowed, not 'update' or 'delete'
+      // This prevents users from tampering with audit trails
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      
+      // Even admins should not modify/delete activity logs (audit integrity)
+      // If you need to manage logs, do it via Firebase Console
+      allow update, delete: if false;
+    }
+
+    // ========================================
+    // VISITS (DEPRECATED)
+    // ========================================
     
     match /visits/{visitId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn(); // Consider restricting delete to admins
+      // This collection is being phased out
+      // Only admins have access during the migration period
+      allow read, write, delete: if isAdmin();
     }
+    
+    // ========================================
+    // VISITS_NEW (ACTIVE VISIT RECORDS)
+    // ========================================
     
     match /visits_new/{visitId} {
+      // All authenticated users can read visits
+      // (Viewers need this to see Sheet-Info page)
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      
+      // SFPC, Pilots, and Admins can create and update visits
+      allow create, update: if canWrite();
+      
+      // Only admins can delete visits (prevents accidental data loss)
+      allow delete: if isAdmin();
     }
 
+    // ========================================
+    // TRIPS
+    // ========================================
+    
     match /trips/{tripId} {
+      // All authenticated users can read trips
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      
+      // SFPC, Pilots, and Admins can create and update trips
+      allow create, update: if canWrite();
+      
+      // Only admins can delete trips
+      allow delete: if isAdmin();
     }
 
+    // ========================================
+    // SHIPS
+    // ========================================
+    
     match /ships/{shipId} {
+      // All authenticated users can read ship details
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      
+      // SFPC, Pilots, and Admins can create and update ship information
+      // (e.g., when ship dimensions change)
+      allow create, update: if canWrite();
+      
+      // Only admins can delete ships
+      allow delete: if isAdmin();
     }
     
+    // ========================================
+    // CHARGES (BILLING DATA)
+    // ========================================
+    
     match /charges/{chargeId} {
+      // All authenticated users can read charges
+      // (Needed for viewing billing history, reports, etc.)
       allow read: if isSignedIn();
-      allow write: if isSignedIn(); // Ideally only allow creates, disable updates/deletes for audit
+      
+      // Only Pilots and Admins can create/update charges
+      // SFPC users do NOT have access to trip-confirmation or billing
+      allow create, update: if canWriteCharges();
+      
+      // Only admins can delete charges (critical for audit integrity)
+      allow delete: if isAdmin();
     }
 
-    // --- Distance Feature ---
-    match /distance/{document=**} {
-      allow read, write: if isSignedIn();
+    // ========================================
+    // DISTANCE (CALCULATIONS)
+    // ========================================
+    
+    match /distance/{distanceId} {
+      // All authenticated users can read distance calculations
+      // (Needed for /dist2shannon page - accessible to all users)
+      allow read: if isSignedIn();
+      
+      // SFPC, Pilots, and Admins can create/update distance records
+      allow create, update: if canWrite();
+      
+      // Only admins can delete distance records
+      allow delete: if isAdmin();
     }
 
-    // --- System Settings (Shannon Monitoring) ---
-    match /system_settings/{document} {
+    // ========================================
+    // SYSTEM SETTINGS
+    // ========================================
+    
+    match /system_settings/{settingId} {
       // Everyone can read system settings
+      // (e.g., dropdown options, configuration values)
       allow read: if isSignedIn();
-      // Only Cloud Functions can write (no user can write)
-      allow write: if false;
+      
+      // Only admins can modify system settings from the /admin page
+      allow write: if isAdmin();
     }
   }
 }

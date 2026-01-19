@@ -6,7 +6,9 @@ export const routes: Routes = [
   { 
     path: '', 
     loadComponent: () => import('./status-list/status-list.component').then(c => c.StatusListComponent),
-    pathMatch: 'full' 
+    pathMatch: 'full',
+    canActivate: [roleGuard],
+    data: { roles: ['pilot', 'admin', 'sfpc', 'viewer'] }
   },
 
   {
@@ -26,9 +28,8 @@ export const routes: Routes = [
 
   {
     path: 'date-time-picker',
-    loadComponent: () => import('./date-time-picker/date-time-picker.component').then(c => c.DateTimePickerComponent),
-    canActivate: [roleGuard],
-    data: { roles: ['pilot', 'admin'] }
+    loadComponent: () => import('./date-time-picker/date-time-picker.component').then(c => c.DateTimePickerComponent)
+    // No guard needed - utility component used in dialogs
   },
 
   {
@@ -56,7 +57,7 @@ export const routes: Routes = [
     path: 'dist2shannon',
     loadComponent: () => import('./dist2shannon/dist2shannon.component').then(c => c.Dist2ShannonComponent),
     canActivate: [roleGuard],
-    data: { roles: ['pilot', 'admin', 'sfpc'] }
+    data: { roles: ['pilot', 'admin', 'sfpc', 'viewer'] }
   },
 
   {
@@ -85,7 +86,7 @@ export const routes: Routes = [
     path: 'sheet-info',
     loadComponent: () => import('./sheet-info/sheet-info').then(c => c.SheetInfoComponent),
     canActivate: [roleGuard],
-    data: { roles: ['pilot', 'admin', 'sfpc'] }
+    data: { roles: ['pilot', 'admin', 'sfpc', 'viewer'] }
   },
 
   { path: '**', redirectTo: 'auth/login' }

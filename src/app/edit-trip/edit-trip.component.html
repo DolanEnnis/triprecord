@@ -97,7 +97,7 @@
         <mat-form-field appearance="outline" class="source-field">
           <mat-label>Source</mat-label>
           <mat-select formControlName="source">
-            <mat-option *ngFor="let src of sources" [value]="src">
+            <mat-option *ngFor="let src of getAvailableSources()" [value]="src">
               {{ src }}
             </mat-option>
           </mat-select>

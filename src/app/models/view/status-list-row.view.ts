@@ -18,7 +18,7 @@ import type { VisitStatus } from '../types';
  * 
  * The `isTimeSet` flag indicates whether the date is actual (from Trip) or estimated (from Visit).
  * 
- * @firestore Derived from: `/visits` + `/trips`
+ * @firestore Derived from: `/visits_new` + `/trips`
  * 
  * @see {@link Visit} for base entity
  * @see {@link Trip} for joined movement data

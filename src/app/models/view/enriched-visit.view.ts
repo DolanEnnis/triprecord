@@ -12,7 +12,7 @@ import type { Port, Source, VisitStatus } from '../types';
  * - Computed display fields
  * 
  * **Data Sources:**
- * - Base: `/visits` collection
+ * - Base: `/visits_new` collection
  * - Enrichment: `/trips` collection (where `typeTrip === 'In'` or `'Out'`)
  * - Computation: `displayDate` derived from trip boarding times or ETA
  * 
@@ -21,7 +21,7 @@ import type { Port, Source, VisitStatus } from '../types';
  * need a denormalized view showing the complete story. This avoids N+1 queries and
  * complex template logic.
  * 
- * @firestore Derived from: `/visits` + `/trips`
+ * @firestore Derived from: `/visits_new` + `/trips`
  * 
  * @see {@link Visit} for the base entity
  * @see {@link Trip} for the related movement records

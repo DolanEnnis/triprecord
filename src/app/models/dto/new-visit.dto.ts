@@ -8,7 +8,7 @@ import type { Port, Source } from '../types';
  * When submitted, it triggers the creation of up to three documents:
  * 
  * 1. **Ship** - Created/updated in `/ships` if vessel is new or data changed
- * 2. **Visit** - Created in `/visits` with status 'Due'
+ * 2. **Visit** - Created in `/visits_new` with status 'Due'
  * 3. **Trip** - Created in `/trips` for the inward movement (with `boarding = null`)
  * 
  * **Form → Database Transformation:**
@@ -63,7 +63,7 @@ export interface NewVisitData {
   shipNotes: string | null;
 
   // ─────────────────────────────────────────────────────────────
-  // Visit Details (for `/visits` collection)
+  // Visit Details (for `/visits_new` collection)
   // ─────────────────────────────────────────────────────────────
   
   /** 
@@ -82,7 +82,7 @@ export interface NewVisitData {
   source: Source;
 
   // ─────────────────────────────────────────────────────────────
-  // Trip Details (for initial `/trips` 'In' document)
+  // Trip Details (for `/trips` collection - initial 'In' movement)
   // ─────────────────────────────────────────────────────────────
   
   /** Pilot assigned to bring the ship in (optional at creation time) */

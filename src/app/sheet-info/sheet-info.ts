@@ -228,119 +228,135 @@ export class SheetInfoComponent implements OnInit {
   }
   
   /**
-   * Open dialog to update ETA/ETB/ETS
-   */
-  openEtaDialog(result: ReconciliationResult): void {
-    if (!result.systemVisit) return;
-    
-    const dialogRef = this.dialog.open(UpdateEtaDialogComponent, {
-      data: {
-        shipName: result.systemVisit.shipName,
-        currentEta: result.systemVisit.date,
-        status: result.systemVisit.status
-      }
-    });
+ * Open dialog to update ETA/ETB/ETS
+ */
+openEtaDialog(result: ReconciliationResult): void {
+  if (!result.systemVisit) return;
+  
+  const dialogRef = this.dialog.open(UpdateEtaDialogComponent, {
+    data: {
+      shipName: result.systemVisit.shipName,
+      currentEta: result.systemVisit.date,
+      status: result.systemVisit.status
+    }
+  });
 
-    dialogRef.afterClosed().subscribe(async (newDate: Date | undefined) => {
-      if (newDate && result.systemVisit) {
-        const currentUser = this.auth.currentUser?.displayName || 'Unknown';
-        try {
-          await this.visitRepo.updateVisitDate(
-            result.systemVisit.visitId,
-            result.systemVisit.tripId,
-            result.systemVisit.status,
-            newDate,
-            currentUser
-          );
-          
-          this.snackBar.open(
-            `✓ ${result.systemVisit.shipName} time updated successfully`,
-            'Close',
-            {
-              duration: 4000,
-              horizontalPosition: 'center',
-              verticalPosition: 'bottom',
-              panelClass: ['success-snackbar']
-            }
-          );
-        } catch (error) {
-          console.error('Failed to update date:', error);
-          this.snackBar.open(
-            `✗ Failed to update ${result.systemVisit.shipName} time. Please try again.`,
-            'Close',
-            {
-              duration: 5000,
-              horizontalPosition: 'center',
-              verticalPosition: 'bottom',
-              panelClass: ['error-snackbar']
-            }
-          );
-        }
+  dialogRef.afterClosed().subscribe(async (newDate: Date | undefined) => {
+    if (newDate && result.systemVisit) {
+      const currentUser = this.auth.currentUser?.displayName || 'Unknown';
+      try {
+        // Update the visit date (ETA/ETB/ETS)
+        await this.visitRepo.updateVisitDate(
+          result.systemVisit.visitId,
+          result.systemVisit.tripId,
+          result.systemVisit.status,
+          newDate,
+          currentUser
+        );
+        
+        // Update the Visit source to track this came from Sheet-Info (AI-assisted)
+        await this.visitRepo.updateVisit(result.systemVisit.visitId, { 
+          source: 'Sheet-Info' 
+        });
+        
+        this.snackBar.open(
+          `✓ ${result.systemVisit.shipName} time updated successfully`,
+          'Close',
+          {
+            duration: 4000,
+            horizontalPosition: 'center',
+            verticalPosition: 'bottom',
+            panelClass: ['success-snackbar']
+          }
+        );
+      } catch (error) {
+        console.error('Failed to update date:', error);
+        this.snackBar.open(
+          `✗ Failed to update ${result.systemVisit.shipName} time. Please try again.`,
+          'Close',
+          {
+            duration: 5000,
+            horizontalPosition: 'center',
+            verticalPosition: 'bottom',
+            panelClass: ['error-snackbar']
+          }
+        );
       }
-    });
-  }
+    }
+  });
+}
   
   /**
-   * Update pilot assignment
-   */
-  async updatePilot(result: ReconciliationResult, newPilot: string): Promise<void> {
-    const visitId = result.systemVisit?.tripId;
-    if (!visitId) {
-      this.snackBar.open('✗ Cannot update pilot: Trip not found', 'Close', {
-        duration: 5000,
-        panelClass: ['error-snackbar']
-      });
-      return;
-    }
-
-    try {
-      await this.tripRepo.updateTrip(visitId, { pilot: newPilot });
-      this.snackBar.open(`✓ Pilot updated to ${newPilot || 'Unassigned'}`, 'Close', {
-        duration: 3000,
-        panelClass: ['success-snackbar']
-      });
-    } catch (error) {
-      console.error('Failed to update pilot:', error);
-      this.snackBar.open('✗ Failed to update pilot. Please try again.', 'Close', {
-        duration: 5000,
-        panelClass: ['error-snackbar']
-      });
-    }
+ * Update pilot assignment
+ */
+async updatePilot(result: ReconciliationResult, newPilot: string): Promise<void> {
+  const tripId = result.systemVisit?.tripId;
+  const visitId = result.systemVisit?.visitId;
+  
+  if (!tripId || !visitId) {
+    this.snackBar.open('✗ Cannot update pilot: Trip not found', 'Close', {
+      duration: 5000,
+      panelClass: ['error-snackbar']
+    });
+    return;
   }
+
+  try {
+    // Update the Trip with new pilot + audit trail
+    await this.tripRepo.updateTrip(tripId, { 
+      pilot: newPilot,
+      recordedBy: 'Sheet-Info'
+    });
+    
+    // Update the Visit source to track this came from Sheet-Info (AI-assisted)
+    await this.visitRepo.updateVisit(visitId, { source: 'Sheet-Info' });
+    
+    this.snackBar.open(`✓ Pilot updated to ${newPilot || 'Unassigned'}`, 'Close', {
+      duration: 3000,
+      panelClass: ['success-snackbar']
+    });
+  } catch (error) {
+    console.error('Failed to update pilot:', error);
+    this.snackBar.open('✗ Failed to update pilot. Please try again.', 'Close', {
+      duration: 5000,
+      panelClass: ['error-snackbar']
+    });
+  }
+}
 
   /**
-   * Update visit status
-   */
-  async updateStatus(result: ReconciliationResult, newStatus: VisitStatus): Promise<void> {
-    const visitId = result.systemVisit?.visitId;
-    if (!visitId) {
-      this.snackBar.open('✗ Cannot update status: Visit not found', 'Close', {
-        duration: 5000,
-        panelClass: ['error-snackbar']
-      });
-      return;
-    }
-
-    const currentUser = this.auth.currentUser?.displayName || 'Unknown';
-    try {
-      // Update the status and set source = "Sheet" (representing updates from sheet/diary)
-      await this.visitRepo.updateVisitStatus(visitId, newStatus, currentUser);
-      
-      // Update the source field separately to track that this was updated from Sheet-Info page
-      await this.visitRepo.updateVisit(visitId, { source: 'Sheet' });
-      
-      this.snackBar.open(`✓ ${result.shipName} status changed to ${newStatus}`, 'Close', {
-        duration: 3000,
-        panelClass: ['success-snackbar']
-      });
-    } catch (error) {
-      console.error('Failed to update status:', error);
-      this.snackBar.open('✗ Failed to change status. Please try again.', 'Close', {
-        duration: 5000,
-        panelClass: ['error-snackbar']
-      });
-    }
+ * Update visit status
+ */
+async updateStatus(result: ReconciliationResult, newStatus: VisitStatus): Promise<void> {
+  const visitId = result.systemVisit?.visitId;
+  if (!visitId) {
+    this.snackBar.open('✗ Cannot update status: Visit not found', 'Close', {
+      duration: 5000,
+      panelClass: ['error-snackbar']
+    });
+    return;
   }
+
+  const currentUser = this.auth.currentUser?.displayName || 'Unknown';
+  try {
+    // Update the status
+    await this.visitRepo.updateVisitStatus(visitId, newStatus, currentUser);
+    
+    // Update the source field to track that this was updated from Sheet-Info page (AI-assisted)
+    await this.visitRepo.updateVisit(visitId, { source: 'Sheet-Info' });
+    
+    this.snackBar.open(`✓ ${result.shipName} status changed to ${newStatus}`, 'Close', {
+      duration: 3000,
+      panelClass: ['success-snackbar']
+    });
+  } catch (error) {
+    console.error('Failed to update status:', error);
+    this.snackBar.open('✗ Failed to change status. Please try again.', 'Close', {
+      duration: 5000,
+      panelClass: ['error-snackbar']
+    });
+  }
+}
 
   /**
    * Get the next valid statuses based on current status
