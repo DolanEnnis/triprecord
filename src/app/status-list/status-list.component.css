@@ -4,12 +4,37 @@
   padding: 20px;
   max-width: 1600px;
   margin: 0 auto;
+  transition: background-color 0.3s ease; /* Smooth transition */
+}
+
+/* Edit Mode Active State (Mobile Only logic naturally) */
+.status-container.edit-mode-active {
+  background-color: #fff8e1; /* Material Amber 50 - Subtle warning tint */
+  border-radius: 8px; /* Soften edges */
+}
+
+.sticky-header {
+  /* Sticky behavior removed */
+  padding: 10px 0;
+  border-bottom: 1px solid #ddd;
+  margin-bottom: 20px;
+}
+
+.controls-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.edit-mode-toggle {
+  margin-bottom: 5px;
 }
 
 .filter-container {
   display: flex;
   justify-content: center;
-  margin-bottom: 20px;
+  margin-bottom: 0; /* Margin handled by sticky-header padding */
 }
 
 .section-header {
@@ -220,7 +245,8 @@ mat-header-cell {
 
   /* Hide less critical columns on mobile to save space */
   .mat-column-note,
-  .mat-column-updated {
+  .mat-column-updated,
+  .mat-column-marine-traffic {
     display: none;
   }
 
@@ -262,13 +288,55 @@ mat-header-cell {
 
   /* Reduce filter button sizes */
   .filter-container {
+    margin-bottom: 0;
+    overflow-x: auto;
+    white-space: nowrap;
+    justify-content: flex-start; /* Align left to allow scrolling start */
+    padding-bottom: 4px; /* Space for scrollbar if visible */
+    width: 100%;
+  }
+
+  .sticky-header {
+    /* Sticky removed per user request - simplifying layout */
     margin-bottom: 10px;
+    padding: 8px 4px;
+    background-color: transparent;
+  }
+
+  .controls-row {
+    flex-direction: column;
+    align-items: flex-start; /* Align left on mobile */
+    gap: 8px;
+  }
+
+  /* Make toggle smaller on mobile */
+  ::ng-deep .edit-mode-toggle .mdc-form-field {
+    font-size: 14px;
   }
 
   ::ng-deep mat-button-toggle {
     font-size: 11px;
     padding: 4px 8px;
   }
+  
+  /* Show mobile elements */
+  .mobile-view-element {
+    display: block !important;
+  }
+  
+  .desktop-view-element {
+    display: none !important;
+  }
+}
+
+/* Default State (Desktop > 768px) */
+/* Hide mobile elements by default */
+.mobile-view-element {
+  display: none;
+}
+
+.desktop-view-element {
+  display: block; /* or flex/revert depending on usage */
 }
 
 /* Extra small screens (phones in portrait, < 480px) */

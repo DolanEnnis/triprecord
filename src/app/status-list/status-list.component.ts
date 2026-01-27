@@ -10,6 +10,7 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSelectModule } from '@angular/material/select';
 import { Router } from '@angular/router';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { RiverStateService } from '../services/state/river-state.service';
@@ -41,6 +42,7 @@ import { PortFilter, isValidPortFilter } from '../models';
     MatSnackBarModule,
     DatePipe,
     TimeAgoPipe,
+    MatSlideToggleModule,
   ],
   templateUrl: './status-list.component.html',
   styleUrl: './status-list.component.css',
@@ -54,6 +56,25 @@ export class StatusListComponent {
   private readonly visitRepository = inject(VisitRepository);
   private readonly tripRepository = inject(TripRepository);
   readonly pilotService = inject(PilotService);
+
+  // Edit Mode Signal - Defaults to false (Read-Only) for safe scrolling
+  readonly isEditMode = signal(false);
+
+  // Responsive Check for 768px Mobile Breakpoint
+  private mediaQuery = window.matchMedia('(max-width: 768px)');
+  readonly isMobile = signal(this.mediaQuery.matches);
+
+  // Computed: Should we show edit controls (Inputs) or Read-Only Text?
+  // Desktop: Always Show Controls (Legacy behavior)
+  // Mobile: Only Show Controls if Edit Mode is Toggle ON
+  readonly showEditControls = computed(() => !this.isMobile() || this.isEditMode());
+
+  constructor() {
+    // Listen for resize events
+    this.mediaQuery.addEventListener('change', (e) => {
+      this.isMobile.set(e.matches);
+    });
+  }
 
   // Filter Signal - Persisted in localStorage with type-safe validation
   readonly portFilter = signal<PortFilter>(
@@ -212,6 +233,10 @@ export class StatusListComponent {
     this.portFilter.set(newFilter);
     // Persist the filter selection to localStorage
     localStorage.setItem('statusListPortFilter', newFilter);
+  }
+
+  toggleEditMode() {
+    this.isEditMode.update((current) => !current);
   }
 
   // Get a user-friendly name for the current filter

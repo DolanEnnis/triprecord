@@ -50,6 +50,11 @@ export class FooterComponent {
       label: 'Western Roster',
       url: 'https://docs.google.com/spreadsheets/d/1gyhnteXo0hI4L7w-UHxkktNODI_k-WcXPGBbOgSTmo4/preview',
       description: 'Western Roster spreadsheet'
+    },
+    {
+      label: 'Day Diary',
+      url: 'http://www.cargopro.ie/sfpc/download/rpt_daydiary.pdf',
+      description: 'Shannon Foynes Port Company Day Diary Report'
     }
   ];
 }

@@ -1,17 +1,49 @@
-<div class="status-container">
+<div class="status-container" [class.edit-mode-active]="isEditMode()">
   <!-- Port Filter -->
-  <div class="filter-container">
-    <mat-button-toggle-group
-      [value]="portFilter()"
-      (valueChange)="onPortFilterChange($event)"
-      aria-label="Filter by port"
-    >
-      <mat-button-toggle value="All">All Ports</mat-button-toggle>
-      <mat-button-toggle value="Aughinish">Aughinish</mat-button-toggle>
-      <mat-button-toggle value="Foynes">Foynes</mat-button-toggle>
-      <mat-button-toggle value="Limerick">Limerick</mat-button-toggle>
-      <mat-button-toggle value="Other">Other</mat-button-toggle>
-    </mat-button-toggle-group>
+  <div class="sticky-header">
+    <div class="controls-row">
+      <!-- Edit Mode Toggle (Mobile Only) -->
+       @if (!isViewer()) {
+        <mat-slide-toggle
+          [checked]="showEditControls()"
+          (change)="toggleEditMode()"
+          color="primary"
+          class="edit-mode-toggle mobile-view-element"
+        >
+          {{ showEditControls() ? 'Edit Mode' : 'Read Only' }}
+        </mat-slide-toggle>
+       }
+
+      <!-- Port Filter (Desktop: Full Names) -->
+      <div class="filter-container desktop-view-element">
+        <mat-button-toggle-group
+          [value]="portFilter()"
+          (valueChange)="onPortFilterChange($event)"
+          aria-label="Filter by port"
+        >
+          <mat-button-toggle value="All">All Ports</mat-button-toggle>
+          <mat-button-toggle value="Aughinish">Aughinish</mat-button-toggle>
+          <mat-button-toggle value="Foynes">Foynes</mat-button-toggle>
+          <mat-button-toggle value="Limerick">Limerick</mat-button-toggle>
+          <mat-button-toggle value="Other">Other</mat-button-toggle>
+        </mat-button-toggle-group>
+      </div>
+
+      <!-- Port Filter (Mobile: Short Names & Scrollable) -->
+      <div class="filter-container mobile-view-element">
+        <mat-button-toggle-group
+          [value]="portFilter()"
+          (valueChange)="onPortFilterChange($event)"
+          aria-label="Filter by port"
+        >
+          <mat-button-toggle value="All">All</mat-button-toggle>
+          <mat-button-toggle value="Aughinish">AUG</mat-button-toggle>
+          <mat-button-toggle value="Foynes">FOV</mat-button-toggle>
+          <mat-button-toggle value="Limerick">LMK</mat-button-toggle>
+          <mat-button-toggle value="Other">OTH</mat-button-toggle>
+        </mat-button-toggle-group>
+      </div>
+    </div>
   </div>
 
   <!-- Dynamic Sections Loop - Single table definition for all sections -->
@@ -45,14 +77,19 @@
             <!-- Viewers see plain text, no click handler -->
             <span>{{ element.shipName }}</span>
           } @else {
-            <!-- Non-viewers can click to edit trip details -->
-            <span 
-              class="ship-name-link" 
-              (click)="editTrip(element)"
-              matTooltip="Click to edit trip details"
-            >
-              {{ element.shipName }}
-            </span>
+            <!-- Non-viewers: Clickable only in Edit Mode -->
+             @if (showEditControls()) {
+              <span
+                class="ship-name-link"
+                (click)="editTrip(element)"
+                matTooltip="Click to edit trip details"
+              >
+                {{ element.shipName }}
+              </span>
+             } @else {
+               <!-- Read-Only Mode -->
+               <span>{{ element.shipName }}</span>
+             }
           }
         </mat-cell>
       </ng-container>
@@ -91,9 +128,9 @@
         <mat-header-cell *matHeaderCellDef> {{ section.timeLabel }} </mat-header-cell>
         <mat-cell
           *matCellDef="let element"
-          [class.clickable-cell]="!isViewer()"
-          (click)="!isViewer() && openEtaDialog(element)"
-          [matTooltip]="!isViewer() ? 'Click to update ' + section.timeLabel : ''"
+          [class.clickable-cell]="!isViewer() && showEditControls()"
+          (click)="!isViewer() && showEditControls() && openEtaDialog(element)"
+          [matTooltip]="!isViewer() && showEditControls() ? 'Click to update ' + section.timeLabel : ''"
           [style.color]="
             element.isTimeSet && isPastDue(getDate(element.date))
               ? 'red'
@@ -130,18 +167,24 @@
             <!-- Viewers see plain text, no dropdown -->
             <span>{{ element.pilot || 'Unassigned' }}</span>
           } @else {
-            <!-- Non-viewers can edit via dropdown -->
-            <mat-select 
-              [value]="element.pilot"
-              (selectionChange)="updatePilot(element, $event.value)"
-              class="pilot-select"
-              [disabled]="!element.tripId"
-            >
-              <mat-option value="">Unassigned</mat-option>
-              <mat-option *ngFor="let pilot of pilotService.pilotNames()" [value]="pilot">
-                {{ pilot }}
-              </mat-option>
-            </mat-select>
+            <!-- Non-viewers -->
+             @if (showEditControls()) {
+                <!-- Edit Mode: Show Dropdown -->
+                <mat-select
+                  [value]="element.pilot"
+                  (selectionChange)="updatePilot(element, $event.value)"
+                  class="pilot-select"
+                  [disabled]="!element.tripId"
+                >
+                  <mat-option value="">Unassigned</mat-option>
+                  <mat-option *ngFor="let pilot of pilotService.pilotNames()" [value]="pilot">
+                    {{ pilot }}
+                  </mat-option>
+                </mat-select>
+             } @else {
+               <!-- Read-Only Mode: Show Text -->
+               <span>{{ element.pilot || 'Unassigned' }}</span>
+             }
           }
         </mat-cell>
       </ng-container>
