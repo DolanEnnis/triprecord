@@ -1,5 +1,5 @@
 @if (!loading()) {
-  <div class="container">
+  <div class="container" [class.old-trip-container]="isOldTrip()">
     <div class="header">
       <button mat-icon-button (click)="cancel()" matTooltip="Go back">
         <mat-icon>arrow_back</mat-icon>
@@ -411,8 +411,24 @@
 
       </mat-card-content>
     </mat-card>
+    </form>
+    <!-- TRIP HISTORY SECTION - Shows previous visits for this ship -->
+    @if (shipVisits().length > 0) {
+      <div class="visits-section">
+        <h3>Trip History for this Ship ({{shipVisits().length}} Total)</h3>
+        <app-previous-visits-list 
+          [data]="shipVisits()" 
+          [filterValue]="''"
+          [sortOrder]="'inward'"
+ 
+          [highlightMode]="'2'"
+          (visitClicked)="openVisitDialog($event)">
+        </app-previous-visits-list>
+      </div>
+    }
 
-  </form>
+
+  
 
   <!-- 
     Floating Action Buttons - Horizontal Layout

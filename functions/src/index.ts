@@ -15,6 +15,23 @@ setGlobalOptions({ maxInstances: 10 });
 // Using OpenAI for reliable AI-powered ship lookups
 const openaiApiKey = defineSecret("OPENAI_API_KEY");
 
+/**
+ * TypeScript interface for ship data returned from AI parsing.
+ * This ensures type safety when processing AI responses.
+ */
+interface ShipFromAI {
+  name: string;
+  gt: number;
+  statusMarker: 'anchor' | 'etc' | 'eta' | null;
+  notes: string | null;
+  port: string;
+  etaDay: string | null;
+  etaTime: string | null;
+  etsDay: string | null;
+  etsTime: string | null;
+  pilotCode?: string; // Optional: may not always be present
+}
+
 export const fetchShipDetails = onCall({ cors: true, region: "europe-west1", secrets: [openaiApiKey] }, async (request) => {
   // 1. Validate Input
   const imo = request.data.imo;
@@ -173,30 +190,50 @@ export const fetchDailyDiaryPdf = onCall({
     const OpenAI = openaiModule.default;
     const openai = new OpenAI({ apiKey: openaiApiKey.value() });
 
-    const prompt = `Analyze this raw text from a Shannon Port "Day Diary" PDF.
-It contains a table of ships with columns: Vessel Name, GT (Gross Tonnage), Port/Berth Code, and ETA.
+    const prompt = `Analyze this raw text from a Shannon Port "Day Diary". 
+The PDF contains a table of ships. Due to extraction issues, columns often merge without spaces (e.g., "HAMILTONTT").
 
-Extract ALL ships and structure them as JSON.
+**STRICT ROW SEQUENCE:**
+1. Ship Name (1+ words, e.g., "Arklow Wind")
+2. Agent (MANDATORY: ARGO, DOYLE, HAMILTON, MULLOCK, or SFPC)
+3. Tugs (Blank or a series of 'T' characters, e.g., 'TT', 'TTT')
+4. Last Port (e.g., "Antwerp")
+5. DWT (3-6 digit number)
+6. GT (3-6 digit number)
+7. LOA (Number 25-400)
+8. Beam (Number 5-50)
+9. Draft (Number up to 17.5)
+10. MOVEMENT/NOTES AREA (Everything between Draft and Berth Code)
+11. Berth Code (Pattern: [Letter][Digit][Digit], e.g., A02, F03, L09)
 
-**CRITICAL: Port/Berth Code Format Rules**
+**DE-CLUTTERING RULES:**
+- If Agent and Tugs are merged (e.g., "HAMILTONTT"), split them: Agent="HAMILTON", Tugs="TT".
+- If Tugs and Last Port are merged (e.g., "TTLondon"), split them: Tugs="TT", Last Port="London".
+- If Draft and Notes are merged (e.g., "5.5@Anchor"), split them: Draft="5.5", Notes="@Anchor".
 
-Port codes in this PDF ALWAYS follow this EXACT pattern:
-- Format: ONE LETTER + EXACTLY TWO DIGITS
-- Examples: A02, T15, F07, S01, M03, C12, L05
+**EXTRACTION LOGIC:**
+- **Notes**: Capture ALL text between the Draft and the Berth Code. DO NOT remove "@ Anchor", "Eta", or "Etc".
+- **Status Marker**: 
+    - If Notes contain "@ Anchor" → "anchor"
+    - If Notes contain "Etc" → "etc"
+    - If Notes contain "Eta" → "eta"
+- **Movement (ETA/ETS)**:
+    - Extract "Eta DD/HHMM" or "Eta DD/Am" from the notes area.
+    - Extract "Ets DD/HHMM" if present (usually for outward trips).
+    - CRITICAL: If status is "anchor", etsDay and etsTime MUST be null.
 
-**What IS a port code:**
-- A02 → Aughinish, berth 02
-- F07 → Foynes, berth 07
-- T15 → Tarbert, berth 15
-- S01 → Shannon, berth 01
-
-**What is NOT a port code (IGNORE these):**
-- "MSt" → This is cargo/status, NOT a port (3 letters, no digits)
-- "MT" → This is cargo/status, NOT a port (2 letters, no digits)  
-- "TT" or "T" → This is tug designation, NOT a port (letters only)
-- "Etc" → This is status marker, NOT a port (3 letters)
-- Any text with 3+ letters → NOT a port code
-- Any text without exactly 2 digits → NOT a port code
+**Example for "Arklow Wind":**
+{
+  "name": "Arklow Wind",
+  "gt": 9999,
+  "statusMarker": "anchor",
+  "notes": "@ Anchor in after Foyle",
+  "port": "Aughinish",
+  "etaDay": null,
+  "etaTime": null,
+  "etsDay": null,
+  "etsTime": null
+}
 
 **Port Letter Mapping (first letter of the berth code):**
 - A = Aughinish (e.g., A01, A02)
@@ -207,67 +244,11 @@ Port codes in this PDF ALWAYS follow this EXACT pattern:
 - S = Shannon (e.g., S01)
 - L = Limerick (e.g., L05)
 
-**Instructions:**
-1. Scan the ship's row for ANY **standalone** text matching pattern: [LETTER][DIGIT][DIGIT]
-   - The code MUST be separated by spaces (e.g., " F03 " or at end of line)
-   - NEVER extract from within a longer word (e.g., "MCPORTS" contains "CPO" but is NOT a port)
-   - **Word boundary check:** Look for the pattern surrounded by spaces or punctuation
-2. Use ONLY the first letter to determine the port name
-3. If you see "MSt", "MT", "TT", "Etc" or similar → IGNORE them, keep searching
-4. If you find "F07" → Port is Foynes
-5. If no valid [LETTER][DIGIT][DIGIT] pattern found → set port to null
-6. **Disambiguation:** If multiple valid codes exist, prefer the one that appears AFTER status markers like "Etc" or time stamps
-
-**CRITICAL: ETA Extraction - MANDATORY**
-
-For EVERY ship row, scan the ENTIRE text for patterns matching "Eta DD/HHMM":
-- "Eta 21/1150" → etaDay: 21, etaTime: "11:50"
-- "Eta 15/0830" → etaDay: 15, etaTime: "08:30"
-- "Eta 13/1200" → etaDay: 13, etaTime: "12:00"
-
-**IMPORTANT ETA RULES:**
-1. ALWAYS extract "Eta DD/HHMM" patterns as structured data (etaDay + etaTime)
-2. The ETA might appear ANYWHERE in the ship's row (often between draft and berth code)
-3. Extract the day (DD) as a number → etaDay
-4. Extract the time (HHMM) in HH:MM format → etaTime
-5. If NO "Eta DD/HHMM" pattern found → set etaDay and etaTime to null
-6. "Etc" patterns are NOT ETAs (those are completion times for ships already alongside)
-
-**Example:**
-Row: "Kethi ARGO Helsingborg 8369 4996 118.55 15.43 4.6 Eta 13/1200 A02 8000 Alumina Export"
-→ etaDay: 13, etaTime: "12:00"
-
-Rules:
-1. The "GT" is usually a 3-5 digit number (e.g., 4500, 15900).
-2. Ignore small tugs (like "Celtic Rebel") unless they have a clear GT.
-3. Port code MUST match [LETTER][DIGIT][DIGIT] format - ignore everything else.
-4. **IMPORTANT: Include ALL ships even if ETA is missing - just set etaDay and etaTime to null.**
-5. **Notes Field:**
-   - Extract ALL text between ship dimensions (draft/beam/length) and port code
-   - This includes: "@ Anchor in after [ship]", "Eta DD/HHMM", "in after...", waiting indicators
-   - Example from "Kethi" row: everything between "4.6" and "A02" → notes: "Eta 13/1200"
-   - Set to null if no text found between dimensions and port code
-   - **NOTE:** The ETA pattern will appear in BOTH notes AND as structured etaDay/etaTime - this is intentional
-6. **Pilot Assignment (Outward Trips Only):**
-   - Look for pattern: DD/HHMM [PILOT_CODE] after "Etc"
-   - Example: "04/1400 MSt" → etsDay: 4, etsTime: "14:00", pilotCode: "MSt"
-   - Pilot codes to recognize: MSt, WMCN, PG, CB, BM, BD, PB, MW
-   - This indicates an OUTWARD trip (sailing) with assigned pilot
-   - If no pilot code found → set etsDay, etsTime, pilotCode to null
-7. **Status Indicators - Understanding Maritime Terminology:**
-   - **"ETC"** = Estimated Time of Completion
-     * Means the ship is ALREADY ALONGSIDE at berth
-     * Actively loading/unloading cargo
-     * The time given is when they expect to FINISH the job
-     * → Set statusMarker to "etc"
-   - **"ETA"** = Estimated Time of Arrival  
-     * Means the ship is INBOUND (not yet at berth)
-     * The time given is when they expect to ARRIVE
-     * → This is the etaDay/etaTime fields
-   - **"@ Anchor"** or **"@Anchor"**
-     * Means the ship has arrived but is waiting for a berth
-     * → Set statusMarker to "anchor"
-   - **Otherwise** → set statusMarker to null
+**Pilot Assignment (Outward Trips Only):**
+- Look for pattern: DD/HHMM [PILOT_CODE] after "Etc"
+- Example: "04/1400 MSt" → etsDay: 4, etsTime: "14:00", pilotCode: "MSt"
+- Pilot codes to recognize: MSt, WMCN, PG, CB, BM, BD, PB, MW
+- This indicates an OUTWARD trip (sailing) with assigned pilot
 
 Output Schema:
 {
@@ -279,7 +260,7 @@ Output Schema:
       "etaDay": 21,
       "etaTime": "11:50",
       "statusMarker": "anchor" | "etc" | null,
-      "notes": "@ Anchor in after Volgaborg" | "Eta 03/1200" | null,
+      "notes": "@ Anchor in after Volgaborg Eta 03/1200" | null,
       "etsDay": 4,
       "etsTime": "14:00",
       "pilotCode": "MSt" | "WMCN" | "PG" | "CB" | "BM" | "BD" | "PB" | "MW" | null
@@ -325,8 +306,9 @@ ${rawText.substring(0, 20000)}`;
       return pilotMap[code] || null;
     }
     
-    const shipsFound = rawShips.map((ship: any) => {
+    const shipsFound = rawShips.map((ship: ShipFromAI) => {
       let eta: string | null = null;
+      let ets: string | null = null;
       let status: 'Due' | 'Awaiting Berth' | 'Alongside';
       
       if (ship.etaDay && ship.etaTime) {
@@ -375,20 +357,7 @@ ${rawText.substring(0, 20000)}`;
         }
       }
       
-      // Determine status based on markers and ETA
-      if (ship.statusMarker === 'anchor') {
-        status = 'Awaiting Berth';
-      } else if (ship.statusMarker === 'etc') {
-        status = 'Alongside';
-      } else if (eta) {
-        status = 'Due';
-      } else {
-        // Default to Due if no other indicator
-        status = 'Due';
-      }
-      
       // Process ETS (Estimated Time of Sailing) for outward trips
-      let ets: string | null = null;
       if (ship.etsDay && ship.etsTime) {
         const etsDay = parseInt(ship.etsDay, 10);
         
@@ -428,15 +397,31 @@ ${rawText.substring(0, 20000)}`;
         }
       }
       
+      // DETERMINING SYSTEM STATUS
+      // We use your preferred terms: Due, Awaiting Berth, Alongside
+      if (ship.statusMarker === 'anchor' || (ship.notes && ship.notes.includes('@ Anchor'))) {
+        status = 'Awaiting Berth';
+      } else if (ship.statusMarker === 'etc' || (ship.notes && ship.notes.includes('Etc'))) {
+        status = 'Alongside';
+      } else {
+        status = 'Due';
+      }
+      
+      // BUSINESS RULE ENFORCEMENT
+      // 1. If a ship is Awaiting Berth (Anchored), it CANNOT have a Next Movement (ETS) yet.
+      // 2. We set these to null so the UI displays your "-" requirement.
+      const finalEts = status === 'Awaiting Berth' ? null : ets;
+      const finalPilot = status === 'Awaiting Berth' ? null : mapPilotCode(ship.pilotCode ?? null);
+      
       return {
         name: ship.name,
         gt: ship.gt,
         port: ship.port,
-        eta: eta, // ISO string or null
+        eta: eta, // ISO string from your date logic
         status: status,
-        notes: ship.notes || null, // Contextual notes from PDF
-        ets: ets, // Estimated Time of Sailing (outward trips)
-        assignedPilot: mapPilotCode(ship.pilotCode), // Map pilot code to name
+        notes: ship.notes || null, // Contains "@ Anchor in after Foyle" with ETA/ETS data preserved
+        ets: finalEts, // Estimated Time of Sailing (null for anchored ships)
+        assignedPilot: finalPilot, // null for anchored ships
         source: 'Other' // 'Auto from Daydairy' concept - using 'Other' from Source type
       };
     });

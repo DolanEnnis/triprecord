@@ -1,5 +1,5 @@
 import { inject, Injectable } from '@angular/core';
-import { collection, collectionData, doc, Firestore, query, updateDoc, where, deleteDoc, setDoc, serverTimestamp, docData, Timestamp } from '@angular/fire/firestore';
+import { collection, collectionData, doc, Firestore, query, updateDoc, where, deleteDoc, setDoc, serverTimestamp, docData, Timestamp, limit } from '@angular/fire/firestore';
 import { from, Observable } from 'rxjs';
 import { UserInterface } from '../../auth/types/userInterface';
 
@@ -12,7 +12,9 @@ export class UserRepository {
 
   getPilots(): Observable<UserInterface[]> {
     const usersCollection = collection(this.firestore, this.USERS_COLLECTION);
-    const pilotsQuery = query(usersCollection, where('userType', '==', 'pilot'));
+    // SECURITY: The firestore.rules require a limit() for non-admin queries
+    // We set a generous limit of 100 which is plenty for the number of pilots
+    const pilotsQuery = query(usersCollection, where('userType', '==', 'pilot'), limit(100));
     return collectionData(pilotsQuery, { idField: 'uid' }) as Observable<UserInterface[]>;
   }
 

@@ -296,3 +296,87 @@ body {
     font-size: 0.9rem;
   }
 }
+
+/* ===== RESPONSIVE UTILITIES ===== */
+
+/**
+ * Mobile/Desktop Show/Hide Utilities
+ * 
+ * These classes help control visibility based on screen size.
+ * - Use .mobile-only for elements that should only appear on mobile (< 600px)
+ * - Use .desktop-only for elements that should only appear on desktop (>= 600px)
+ * - Use .mobile-only-flex for mobile-only elements that need flex layout
+ * 
+ * Why no !important?
+ * - Avoids CSS specificity wars
+ * - Allows component-level overrides when needed
+ * - Uses 'revert' to restore natural display behavior
+ * 
+ * Breakpoint: 600px is standard for mobile/tablet threshold
+ */
+
+/* By default, we're on desktop */
+.mobile-only,
+.mobile-only-flex {
+  display: none;
+}
+
+/* .desktop-only used for media query hiding/showing logic only */
+
+/* Mobile breakpoint: screens smaller than 600px */
+@media (max-width: 599px) {
+  .mobile-only {
+    display: revert; /* Restores the element's natural display value */
+  }
+
+  .desktop-only {
+    display: none;
+  }
+
+  /* For mobile-only elements that specifically need flex layout */
+  .mobile-only-flex {
+    display: flex !important; /* !important needed here to override .mobile-only */
+    flex-direction: column;
+    gap: 16px;
+  }
+}
+
+/**
+ * Responsive Container Utilities
+ * 
+ * Use .responsive-padding for containers that need mobile-friendly padding
+ */
+.responsive-padding {
+  padding: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/**
+ * Mobile-Specific Layout Helpers
+ * 
+ * Use these for common mobile layout patterns
+ */
+@media (max-width: 599px) {
+  /* Force single-column on mobile for grid layouts */
+  .mobile-single-column {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px;
+  }
+
+  /* Reduce padding on mobile */
+  .mobile-compact {
+    padding: 8px !important;
+  }
+
+  /* Hide on mobile (for less critical info) */
+  .hide-mobile {
+    display: none !important;
+  }
+
+  /* Make full width on mobile */
+  .mobile-full-width {
+    width: 100% !important;
+  }
+}

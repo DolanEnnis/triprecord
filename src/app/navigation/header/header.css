@@ -60,6 +60,11 @@ a:active,
 
 /* --- Responsive CSS to replace fxHide/fxShow --- */
 
+/* Mobile menu button styling */
+.menu-button button {
+  color: white; /* Ensure hamburger icon is white on the primary toolbar */
+}
+
 /* For mobile (screens <= 600px wide) */
 .nav-links {
   display: none; /* Hide the full navigation on small screens */

@@ -16,10 +16,12 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatAutocompleteModule, MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { Router, RouterLink } from '@angular/router';
 
 // --- Custom Components ---
 import { DateTimePickerComponent } from '../date-time-picker/date-time-picker.component';
+import { ViewVisitDialogComponent } from './view-visit-dialog.component';
 
 import { Observable, of, tap } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, startWith } from 'rxjs/operators';
@@ -43,7 +45,7 @@ import { IFormComponent } from '../guards/form-component.interface';
     // Material
     MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule, MatDatepickerModule,
     MatNativeDateModule, MatSelectModule, MatProgressSpinnerModule, MatAutocompleteModule, MatSnackBarModule,
-    MatTableModule, MatTooltipModule,
+    MatTableModule, MatTooltipModule, MatDialogModule,
   ],
   templateUrl: './new-visit.component.html',
   styleUrl: './new-visit.component.css',
@@ -57,6 +59,7 @@ export class NewVisitComponent implements OnInit, IFormComponent {
   private readonly userRepository = inject(UserRepository);
   private readonly snackBar = inject(MatSnackBar);
   private readonly router = inject(Router);
+  private readonly dialog = inject(MatDialog);
   private readonly adapter = inject(DateAdapter<any>);
 
   visitForm!: FormGroup;
@@ -245,6 +248,21 @@ export class NewVisitComponent implements OnInit, IFormComponent {
   isVisitActive(visit: Visit): boolean {
     const activeStatuses: Visit['currentStatus'][] = ['Due', 'Awaiting Berth', 'Alongside'];
     return activeStatuses.includes(visit.currentStatus);
+  }
+
+  /**
+   * View a previous visit in a read-only dialog.
+   * Opens dialog to show visit details without losing form data or opening tabs.
+   */
+  viewVisit(visit: Visit): void {
+    if (visit.id) {
+      this.dialog.open(ViewVisitDialogComponent, {
+        data: { visitId: visit.id },
+        width: '800px',
+        maxWidth: '95vw',
+        maxHeight: '90vh'
+      });
+    }
   }
 
   async onSubmit(): Promise<void> {

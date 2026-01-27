@@ -37,16 +37,23 @@
         class="mat-elevation-z2"
       >
       <!-- Ship Column -->
+      <!-- For viewers: Ship name is plain text. For others: Clickable link to edit trip -->
       <ng-container matColumnDef="ship">
         <mat-header-cell *matHeaderCellDef> Vessel Name </mat-header-cell>
         <mat-cell *matCellDef="let element">
-          <span 
-            class="ship-name-link" 
-            (click)="editTrip(element)"
-            matTooltip="Click to edit trip details"
-          >
-            {{ element.shipName }}
-          </span>
+          @if (isViewer()) {
+            <!-- Viewers see plain text, no click handler -->
+            <span>{{ element.shipName }}</span>
+          } @else {
+            <!-- Non-viewers can click to edit trip details -->
+            <span 
+              class="ship-name-link" 
+              (click)="editTrip(element)"
+              matTooltip="Click to edit trip details"
+            >
+              {{ element.shipName }}
+            </span>
+          }
         </mat-cell>
       </ng-container>
 
@@ -79,13 +86,14 @@
       </ng-container>
 
       <!-- Office Time (ETA/ETB/ETS) Column - Header changes dynamically -->
+      <!-- For viewers: Read-only display. For others: Clickable to update date/time -->
       <ng-container matColumnDef="officeTime">
         <mat-header-cell *matHeaderCellDef> {{ section.timeLabel }} </mat-header-cell>
         <mat-cell
           *matCellDef="let element"
-          class="clickable-cell"
-          (click)="openEtaDialog(element)"
-          [matTooltip]="'Click to update ' + section.timeLabel"
+          [class.clickable-cell]="!isViewer()"
+          (click)="!isViewer() && openEtaDialog(element)"
+          [matTooltip]="!isViewer() ? 'Click to update ' + section.timeLabel : ''"
           [style.color]="
             element.isTimeSet && isPastDue(getDate(element.date))
               ? 'red'
@@ -114,20 +122,27 @@
       </ng-container>
 
       <!-- Pilot Column -->
+      <!-- For viewers: Plain text display. For others: Editable dropdown -->
       <ng-container matColumnDef="pilot">
         <mat-header-cell *matHeaderCellDef> Pilot </mat-header-cell>
         <mat-cell *matCellDef="let element">
-          <mat-select 
-            [value]="element.pilot"
-            (selectionChange)="updatePilot(element, $event.value)"
-            class="pilot-select"
-            [disabled]="!element.tripId"
-          >
-            <mat-option value="">Unassigned</mat-option>
-            <mat-option *ngFor="let pilot of pilotService.pilotNames()" [value]="pilot">
-              {{ pilot }}
-            </mat-option>
-          </mat-select>
+          @if (isViewer()) {
+            <!-- Viewers see plain text, no dropdown -->
+            <span>{{ element.pilot || 'Unassigned' }}</span>
+          } @else {
+            <!-- Non-viewers can edit via dropdown -->
+            <mat-select 
+              [value]="element.pilot"
+              (selectionChange)="updatePilot(element, $event.value)"
+              class="pilot-select"
+              [disabled]="!element.tripId"
+            >
+              <mat-option value="">Unassigned</mat-option>
+              <mat-option *ngFor="let pilot of pilotService.pilotNames()" [value]="pilot">
+                {{ pilot }}
+              </mat-option>
+            </mat-select>
+          }
         </mat-cell>
       </ng-container>
 
@@ -148,26 +163,29 @@
       </ng-container>
 
       <!-- Actions Column -->
+      <!-- Viewers cannot change status, so we hide this column entirely for them -->
       <ng-container matColumnDef="actions">
         <mat-header-cell *matHeaderCellDef> Actions </mat-header-cell>
         <mat-cell *matCellDef="let element">
-          <!-- Status Change Menu -->
-          <button
-            mat-icon-button
-            [matMenuTriggerFor]="statusMenu"
-            matTooltip="Change Status"
-          >
-            <mat-icon>sync_alt</mat-icon>
-          </button>
-          <mat-menu #statusMenu="matMenu">
-            <button 
-              mat-menu-item 
-              *ngFor="let status of getNextStatuses(element.status)"
-              (click)="changeStatus(element, status)"
+          @if (!isViewer()) {
+            <!-- Status Change Menu (only visible to non-viewers) -->
+            <button
+              mat-icon-button
+              [matMenuTriggerFor]="statusMenu"
+              matTooltip="Change Status"
             >
-              {{ status }}
+              <mat-icon>sync_alt</mat-icon>
             </button>
-          </mat-menu>
+            <mat-menu #statusMenu="matMenu">
+              <button 
+                mat-menu-item 
+                *ngFor="let status of getNextStatuses(element.status)"
+                (click)="changeStatus(element, status)"
+              >
+                {{ status }}
+              </button>
+            </mat-menu>
+          }
         </mat-cell>
       </ng-container>
 

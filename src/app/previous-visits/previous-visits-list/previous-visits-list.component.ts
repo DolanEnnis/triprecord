@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, ViewChild, AfterViewInit } from '@angular/core';
+import { Component, Input, OnInit, ViewChild, AfterViewInit, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatPaginator, MatPaginatorModule } from '@angular/material/paginator';
@@ -55,6 +55,8 @@ export class PreviousVisitsListComponent implements OnInit, AfterViewInit {
   }
   
   private _sortOrder: 'inward' | 'sailing' = 'inward';
+
+  @Output() visitClicked = new EventEmitter<EnrichedVisit>();
 
   dataSource = new MatTableDataSource<EnrichedVisit>();
   displayedColumns: string[] = ['initialEta', 'shipName', 'inwardPort', 'status', 'arrivedDate', 'inwardPilot', 'spacer', 'sailedDate', 'outwardPilot'];
@@ -182,6 +184,10 @@ export class PreviousVisitsListComponent implements OnInit, AfterViewInit {
   }
 
   editVisit(row: EnrichedVisit) {
-    this.router.navigate(['edit', row.visitId]);
+    if (this.visitClicked.observed) {
+      this.visitClicked.emit(row);
+    } else {
+      this.router.navigate(['edit', row.visitId]);
+    }
   }
 }

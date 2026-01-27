@@ -198,32 +198,43 @@ Port codes in this PDF ALWAYS follow this EXACT pattern:
 5. If no valid [LETTER][DIGIT][DIGIT] pattern found → set port to null
 6. **Disambiguation:** If multiple valid codes exist, prefer the one that appears AFTER status markers like "Etc" or time stamps
 
-ETA Format Examples:
-- "Eta 21/1150" = day 21 of current month, time 11:50
-- "Eta 15/0830" = day 15, time 08:30
-- "Etc04/Am 04/0515" = Estimated Time of COMPLETION (not arrival), day 4, time 05:15
-- Extract ONLY if format matches "Eta DD/HHMM" for arrival times
-- If you see "Etc" instead of "Eta", this is a completion time (ship already alongside)
-- If no ETA found, set to null
+**CRITICAL: ETA Extraction - MANDATORY**
+
+For EVERY ship row, scan the ENTIRE text for patterns matching "Eta DD/HHMM":
+- "Eta 21/1150" → etaDay: 21, etaTime: "11:50"
+- "Eta 15/0830" → etaDay: 15, etaTime: "08:30"
+- "Eta 13/1200" → etaDay: 13, etaTime: "12:00"
+
+**IMPORTANT ETA RULES:**
+1. ALWAYS extract "Eta DD/HHMM" patterns as structured data (etaDay + etaTime)
+2. The ETA might appear ANYWHERE in the ship's row (often between draft and berth code)
+3. Extract the day (DD) as a number → etaDay
+4. Extract the time (HHMM) in HH:MM format → etaTime
+5. If NO "Eta DD/HHMM" pattern found → set etaDay and etaTime to null
+6. "Etc" patterns are NOT ETAs (those are completion times for ships already alongside)
+
+**Example:**
+Row: "Kethi ARGO Helsingborg 8369 4996 118.55 15.43 4.6 Eta 13/1200 A02 8000 Alumina Export"
+→ etaDay: 13, etaTime: "12:00"
 
 Rules:
 1. The "GT" is usually a 3-5 digit number (e.g., 4500, 15900).
 2. Ignore small tugs (like "Celtic Rebel") unless they have a clear GT.
 3. Port code MUST match [LETTER][DIGIT][DIGIT] format - ignore everything else.
-4. ETA must be in format "Eta DD/HHMM" - extract day and time separately.
-5. **IMPORTANT: Include ALL ships even if ETA is missing - just set etaDay and etaTime to null.**
-6. **Notes Field:**
-   - Extract ANY text between ship dimensions (draft/beam/length) and port code
-   - This may include: "@ Anchor in after [ship]", "Eta DD/HHMM", "in after...", waiting indicators
-   - Example: "@ Anchor in after Volgaborg" or "Eta 03/1200"
+4. **IMPORTANT: Include ALL ships even if ETA is missing - just set etaDay and etaTime to null.**
+5. **Notes Field:**
+   - Extract ALL text between ship dimensions (draft/beam/length) and port code
+   - This includes: "@ Anchor in after [ship]", "Eta DD/HHMM", "in after...", waiting indicators
+   - Example from "Kethi" row: everything between "4.6" and "A02" → notes: "Eta 13/1200"
    - Set to null if no text found between dimensions and port code
-7. **Pilot Assignment (Outward Trips Only):**
+   - **NOTE:** The ETA pattern will appear in BOTH notes AND as structured etaDay/etaTime - this is intentional
+6. **Pilot Assignment (Outward Trips Only):**
    - Look for pattern: DD/HHMM [PILOT_CODE] after "Etc"
    - Example: "04/1400 MSt" → etsDay: 4, etsTime: "14:00", pilotCode: "MSt"
    - Pilot codes to recognize: MSt, WMCN, PG, CB, BM, BD, PB, MW
    - This indicates an OUTWARD trip (sailing) with assigned pilot
    - If no pilot code found → set etsDay, etsTime, pilotCode to null
-8. **Status Indicators - Understanding Maritime Terminology:**
+7. **Status Indicators - Understanding Maritime Terminology:**
    - **"ETC"** = Estimated Time of Completion
      * Means the ship is ALREADY ALONGSIDE at berth
      * Actively loading/unloading cargo

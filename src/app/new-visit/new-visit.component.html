@@ -121,7 +121,11 @@
               </ng-container>
 
               <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-              <tr mat-row *matRowDef="let row; columns: displayedColumns;" [class.active-visit]="isVisitActive(row)"></tr>
+              <tr mat-row *matRowDef="let row; columns: displayedColumns;" 
+                  [class.active-visit]="isVisitActive(row)"
+                  (click)="viewVisit(row)"
+                  matTooltip="Click to view visit details"
+                  class="clickable-row"></tr>
 
               <tr class="mat-row" *matNoDataRow><td class="mat-cell" [attr.colspan]="displayedColumns.length">No previous visits.</td></tr>
             </table>

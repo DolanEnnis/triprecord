@@ -463,6 +463,15 @@ mat-card {
   margin-right: 4px;
 }
 
+/* Fix for button height in tables to match original desktop design */
+.pdf-only-table button,
+.system-only-table button,
+.comparison-table button {
+  /* Using standard material button sizing */
+  display: inline-flex;
+  align-items: center;
+}
+
 /* SYSTEM-ONLY SHIPS TABLE */
 .system-only-card {
   margin-top: 20px;
@@ -691,3 +700,290 @@ mat-card {
   background-color: #f0f0f0;
   text-decoration: underline;
 }
+
+/* ===== MOBILE RESPONSIVE STYLES (< 600px) ===== */
+
+/**
+ * Why we're transforming tables to cards on mobile:
+ * - Tables with 7+ columns cause horizontal scrolling
+ * - Small text becomes unreadable when zoomed out
+ * - Cards provide better vertical reading flow on small screens
+ * 
+ * Pattern: Hide desktop tables, show mobile cards
+ */
+
+@media (max-width: 599px) {
+  /* Reduce page padding on mobile */
+  .reconciliation-container {
+    padding: 8px;
+  }
+
+  /* Make cards full-width with minimal margin */
+  mat-card {
+    margin: 12px 0;
+  }
+
+  /* Statistics section - stack vertically on mobile */
+  /* Statistics section - grid layout on mobile */
+  .stats-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Two equal columns */
+    gap: 8px 16px; /* row gap 8px, column gap 16px */
+    width: 100%;
+    margin-top: 8px;
+  }
+
+  /* Span full width for specific items if needed */
+  .stats-section .raw-text-link {
+    grid-column: 1 / -1; /* Full width */
+    margin-top: 4px;
+  }
+
+  .stat-divider {
+    display: none; /* Hide dividers on mobile */
+  }
+
+  /* PDF title row - more compact */
+  .pdf-title-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+
+  /* AI disclaimer - smaller text */
+  .ai-disclaimer {
+    font-size: 0.75em;
+    margin-top: 4px;
+  }
+
+  /* Timestamp container - compact */
+  .timestamp-container {
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+  }
+
+  /* === HIDE DESKTOP TABLES ON MOBILE === */
+  .pdf-only-table,
+  .system-only-table,
+  .comparison-table {
+    display: none !important; /* Hide tables entirely on mobile */
+  }
+
+  /* === MOBILE CARD LAYOUTS === */
+  
+  /**
+   * PDF-Only Ships - Mobile Card Layout
+   * Each ship becomes a card with vertical info
+   */
+  .pdf-only-mobile-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .pdf-only-mobile-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .mobile-card-header {
+    font-size: 1.1em;
+    font-weight: 600;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e0e0e0;
+  }
+
+  .mobile-card-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    font-size: 0.95em;
+  }
+
+  .mobile-card-label {
+    font-weight: 500;
+    color: #666;
+    min-width: 80px;
+  }
+
+  .mobile-card-value {
+    text-align: right;
+    flex: 1;
+  }
+
+  .mobile-card-actions {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e0e0e0;
+  }
+
+  /**
+   * System-Only Ships - Mobile Card Layout
+   * Includes editable dropdowns that stay functional
+   */
+  .system-only-mobile-card {
+    background: #fafafa;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .system-only-mobile-card .mobile-card-header {
+    color: #1976d2;
+    cursor: pointer;
+  }
+
+  .system-only-mobile-card .mobile-card-header:active {
+    color: #1565c0;
+  }
+
+  /* Make dropdowns full-width on mobile for easier tapping */
+  .system-only-mobile-card mat-select,
+  .comparison-mobile-card mat-select {
+    width: 100%;
+    font-size: 0.95em;
+  }
+
+  /**
+   * Comparison Table - Mobile Card Layout
+   * Shows PDF data and System data in same card
+   * Highlights differences
+   */
+  .comparison-mobile-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 12px;
+  }
+
+  .comparison-mobile-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .comparison-mobile-card .mobile-card-header {
+    font-size: 1.05em;
+    margin-bottom: 12px;
+  }
+
+  /* PDF Section (Day Diary data) */
+  .mobile-pdf-section {
+    background: #e3f2fd;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+  }
+
+  .mobile-pdf-section-title {
+    font-size: 0.85em;
+    font-weight: 600;
+    color: #1976d2;
+    margin-bottom: 6px;
+  }
+
+  /* System Section (Our database) */
+  .mobile-system-section {
+    background: #fff3e0;
+    padding: 10px;
+    border-radius: 4px;
+  }
+
+  .mobile-system-section-title {
+    font-size: 0.85em;
+    font-weight: 600;
+    color: #e65100;
+    margin-bottom: 6px;
+  }
+
+  /* Highlight different values in system section */
+  .mobile-card-row .different {
+    color: #d32f2f;
+    font-weight: 600;
+    text-decoration: underline;
+  }
+
+  /* Clickable time cell styling */
+  .mobile-card-row .clickable-cell {
+    cursor: pointer;
+    color: #1976d2;
+    text-decoration: underline dotted;
+  }
+
+  /* Not set time styling */
+  .mobile-card-row .not-set {
+    font-style: italic;
+    color: #999;
+  }
+
+  /**
+   * Removed Ships (were in previous PDF)
+   * Shown in comparison section
+   */
+  .removed-mobile-card {
+    background: #fff8e1;
+    border-left: 4px solid #ffc107;
+    opacity: 0.8;
+  }
+
+  .removed-mobile-card .mobile-card-header {
+    text-decoration: line-through;
+    color: #856404;
+  }
+
+  /* Make buttons full-width on mobile for easier tapping */
+  .mobile-card-actions button {
+    width: 100%;
+  }
+
+  /* Info text - smaller on mobile */
+  .info-text {
+    font-size: 0.85em;
+  }
+
+  /* Reduce card title font size */
+  mat-card-title {
+    font-size: 1.1em;
+  }
+
+  mat-card-subtitle {
+    font-size: 0.85em;
+  }
+
+  /* Make inline selects easier to tap on mobile */
+  .inline-select {
+    min-height: 44px; /* iOS minimum tap target */
+  }
+
+  .pilot-select {
+    font-size: 0.9em;
+  }
+}
+
+/**
+ * Teaching Note:
+ * 
+ * The mobile card layout above follows the "Progressive Enhancement" pattern:
+ * 1. Desktop gets full tables (more horizontal space available)
+ * 2. Mobile gets cards (better for vertical scrolling)
+ * 3. All functionality (dropdowns, clicks, buttons) works on both
+ * 
+ * Key CSS techniques used:
+ * - `display: none !important` to completely hide desktop tables
+ * - Flex column layouts for vertical stacking
+ * - Color-coded sections (blue for PDF, orange for System)
+ * - Minimum 44px height for tap targets (iOS guideline)
+ * - Full-width buttons and dropdowns for easier tapping
+ */
+

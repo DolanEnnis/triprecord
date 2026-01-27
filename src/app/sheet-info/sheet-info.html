@@ -10,7 +10,8 @@
         </mat-card-title>
       </mat-card-header>
       <mat-card-content>
-        <table class="pdf-only-table">
+        <!-- Desktop Table (hidden on mobile) -->
+        <table class="pdf-only-table desktop-only">
           <thead>
             <tr>
               <th>Vessel Name</th>
@@ -43,6 +44,43 @@
             }
           </tbody>
         </table>
+
+        <!-- Mobile Card Layout (visible only on mobile) -->
+        <div class="pdf-only-mobile-cards mobile-only-flex">
+          @for (result of pdfOnlyResults(); track result.shipName) {
+            <div class="pdf-only-mobile-card">
+              <div class="mobile-card-header">{{ result.pdfShip!.name }}</div>
+              
+              <div class="mobile-card-row">
+                <span class="mobile-card-label">Next Movement:</span>
+                <span class="mobile-card-value">
+                  @if (result.pdfShip!.eta) {
+                    {{ result.pdfShip!.eta | date:'EEE dd/MM HH:mm' }}
+                  } @else {
+                    -
+                  }
+                </span>
+              </div>
+              
+              <div class="mobile-card-row">
+                <span class="mobile-card-label">Port:</span>
+                <span class="mobile-card-value">{{ result.pdfShip!.port }}</span>
+              </div>
+              
+              <div class="mobile-card-row">
+                <span class="mobile-card-label">Status:</span>
+                <span class="mobile-card-value">{{ result.pdfShip!.status }}</span>
+              </div>
+              
+              <div class="mobile-card-actions">
+                <button mat-raised-button color="primary" (click)="createVisitFromPdf(result.pdfShip!)">
+                  <mat-icon>add</mat-icon>
+                  Create Visit
+                </button>
+              </div>
+            </div>
+          }
+        </div>
       </mat-card-content>
     </mat-card>
   }
@@ -57,7 +95,9 @@
       </mat-card-header>
       <mat-card-content>
         <p class="info-text">These ships are active in our system but don't appear on the Day Diary.</p>
-        <table class="system-only-table">
+        
+        <!-- Desktop Table (hidden on mobile) -->
+        <table class="system-only-table desktop-only">
           <thead>
             <tr>
               <th>Vessel Name</th>
@@ -114,6 +154,33 @@
             }
           </tbody>
         </table>
+
+        <!-- Mobile Card Layout (visible only on mobile) -->
+        <div class="mobile-only-flex">
+          @for (result of systemOnlyResults(); track result.shipName) {
+            <div class="system-only-mobile-card">
+              <div class="mobile-card-header" (click)="editVisit(result)">
+                {{ result.shipName }}
+              </div>
+              
+              <div class="mobile-card-row">
+                <span class="mobile-card-label">{{ getTimeLabel(result) }}:</span>
+                <span class="mobile-card-value clickable-cell" (click)="openEtaDialog(result)">
+                  @if (result.systemVisit?.isTimeSet) {
+                    {{ result.systemVisit!.date | date:'EEE dd/MM HH:mm' }}
+                  } @else {
+                    <span class="not-set">Not Set</span>
+                  }
+                </span>
+              </div>
+              
+              <div class="mobile-card-row">
+                <span class="mobile-card-label">Port:</span>
+                <span class="mobile-card-value">{{ getSystemPort(result) }}</span>
+              </div>
+            </div>
+          }
+        </div>
       </mat-card-content>
     </mat-card>
   }
@@ -128,7 +195,9 @@
       </mat-card-header>
       <mat-card-content>
         <p class="info-text">Ships appearing in both the Day Diary and our system. Gray text shows our system data - turns <strong>bold</strong> when different from Day Diary.</p>
-        <table class="comparison-table">
+        
+        <!-- Desktop Table (hidden on mobile) -->
+        <table class="comparison-table desktop-only">
           <thead>
             <tr>
               <th>Vessel Name</th>
@@ -226,6 +295,162 @@
             }
           </tbody>
         </table>
+
+        <!-- Mobile Card Layout (visible only on mobile) -->
+        <div class="comparison-mobile-cards mobile-only-flex">
+          @for (result of comparisonResults(); track $index) {
+            @if (result.discrepancies.length > 0) {
+              <div class="comparison-mobile-card">
+                <div class="mobile-card-header" (click)="editVisit(result)">
+                  {{ result.shipName }}
+                </div>
+                
+                <!-- PDF Section (Day Diary Data) -->
+                <div class="mobile-pdf-section">
+                  <div class="mobile-pdf-section-title">📄 Day Diary</div>
+                  
+                  @if (hasDiscrepancy(result, 'gt')) {
+                    <div class="mobile-card-row">
+                      <span class="mobile-card-label">GT:</span>
+                      <span class="mobile-card-value">{{ result.pdfShip!.gt | number }}</span>
+                    </div>
+                  }
+                  
+                  @if (hasDiscrepancy(result, 'eta')) {
+                    <div class="mobile-card-row">
+                      <span class="mobile-card-label">Next Movement:</span>
+                      <span class="mobile-card-value">
+                        @if (result.pdfShip!.eta) {
+                          {{ result.pdfShip!.eta | date:'EEE dd/MM HH:mm' }}
+                        } @else {
+                          -
+                        }
+                      </span>
+                    </div>
+                  }
+                  
+                  @if (hasDiscrepancy(result, 'port')) {
+                    <div class="mobile-card-row">
+                      <span class="mobile-card-label">Port:</span>
+                      <span class="mobile-card-value">{{ result.pdfShip!.port }}</span>
+                    </div>
+                  }
+                  
+                  <div class="mobile-card-row">
+                    <span class="mobile-card-label">Notes:</span>
+                    <span class="mobile-card-value">
+                      @if (result.pdfShip!.notes) {
+                        {{ result.pdfShip!.notes }}
+                      } @else {
+                        -
+                      }
+                    </span>
+                  </div>
+                  
+                  @if (hasDiscrepancy(result, 'assignedPilot')) {
+                    <div class="mobile-card-row">
+                      <span class="mobile-card-label">Pilot:</span>
+                      <span class="mobile-card-value">
+                        @if (result.pdfShip!.assignedPilot) {
+                          {{ result.pdfShip!.assignedPilot }}
+                        } @else {
+                          -
+                        }
+                      </span>
+                    </div>
+                  }
+                  
+                  @if (hasDiscrepancy(result, 'status')) {
+                    <div class="mobile-card-row">
+                      <span class="mobile-card-label">Status:</span>
+                      <span class="mobile-card-value">{{ result.pdfShip!.status }}</span>
+                    </div>
+                  }
+                </div>
+                
+                <!-- System Section (Our Database Data) -->
+                <div class="mobile-system-section">
+                  <div class="mobile-system-section-title">💾 Current Data</div>
+                  
+                  @if (hasDiscrepancy(result, 'gt')) {
+                    <div class="mobile-card-row">
+                      <span class="mobile-card-label">GT:</span>
+                      <span class="mobile-card-value" [class.different]="hasDiscrepancy(result, 'gt')">
+                        {{ getSystemGt(result) | number }}
+                      </span>
+                    </div>
+                  }
+                  
+                  @if (hasDiscrepancy(result, 'eta')) {
+                    <div class="mobile-card-row">
+                      <span class="mobile-card-label">{{ getTimeLabel(result) }}:</span>
+                      <span class="mobile-card-value clickable-cell" 
+                            [class.different]="hasDiscrepancy(result, 'eta')"
+                            (click)="openEtaDialog(result)">
+                        @if (result.systemVisit?.isTimeSet) {
+                          {{ result.systemVisit!.date | date:'EEE dd/MM HH:mm' }}
+                        } @else {
+                          <span class="not-set">Not Set</span>
+                        }
+                      </span>
+                    </div>
+                  }
+                  
+                  @if (hasDiscrepancy(result, 'port')) {
+                    <div class="mobile-card-row">
+                      <span class="mobile-card-label">Port:</span>
+                      <span class="mobile-card-value" [class.different]="hasDiscrepancy(result, 'port')">
+                        {{ getSystemPort(result) }}
+                      </span>
+                    </div>
+                  }
+                  
+                  <div class="mobile-card-row">
+                    <span class="mobile-card-label">Notes:</span>
+                    <span class="mobile-card-value" [class.different]="hasDiscrepancy(result, 'notes')">
+                      {{ getSystemNotes(result) }}
+                    </span>
+                  </div>
+                  
+                  @if (hasDiscrepancy(result, 'assignedPilot')) {
+                    <div class="mobile-card-row">
+                      <span class="mobile-card-label">Pilot:</span>
+                      <span class="mobile-card-value" [class.different]="hasDiscrepancy(result, 'assignedPilot')">
+                        <mat-select
+                          [value]="getSystemPilot(result)"
+                          (selectionChange)="updatePilot(result, $event.value)"
+                          class="inline-select pilot-select"
+                          [disabled]="!result.systemVisit?.visitId">
+                          <mat-option value="">Unassigned</mat-option>
+                          @for (pilot of pilotService.pilotNames(); track pilot) {
+                            <mat-option [value]="pilot">{{ pilot }}</mat-option>
+                          }
+                        </mat-select>
+                      </span>
+                    </div>
+                  }
+                  
+                  @if (hasDiscrepancy(result, 'status')) {
+                    <div class="mobile-card-row">
+                      <span class="mobile-card-label">Status:</span>
+                      <span class="mobile-card-value" [class.different]="hasDiscrepancy(result, 'status')">
+                        <mat-select
+                          [value]="getSystemStatus(result)"
+                          (selectionChange)="updateStatus(result, $event.value)"
+                          class="inline-select"
+                          [disabled]="!result.systemVisit?.visitId">
+                          @for (status of getAllStatusOptions(getSystemStatus(result)); track status) {
+                            <mat-option [value]="status">{{ status }}</mat-option>
+                          }
+                        </mat-select>
+                      </span>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          }
+        </div>
       </mat-card-content>
     </mat-card>
   }

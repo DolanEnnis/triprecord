@@ -21,11 +21,13 @@ import { ShipIntelligenceService } from '../services/integrations/ship-intellige
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ShipIntelligenceDialogComponent } from '../dialogs/ship-intelligence-dialog.component';
 import { OldTripWarningDialogComponent } from '../dialogs/old-trip-warning-dialog.component';
-import { Trip, Visit, Ship, Port, VisitStatus, TripType, Source } from '../models';
+import { Trip, Visit, Ship, Port, VisitStatus, TripType, Source, EnrichedVisit } from '../models';
 import { combineLatest, filter, map, switchMap, of, forkJoin, catchError, tap, take, Observable } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Timestamp } from '@angular/fire/firestore';
 import { DateTimePickerComponent } from '../date-time-picker/date-time-picker.component';
+import { PreviousVisitsListComponent } from '../previous-visits/previous-visits-list/previous-visits-list.component';
+import { ViewVisitDialogComponent } from '../new-visit/view-visit-dialog.component';
 import { IFormComponent } from '../guards/form-component.interface';
 import { AuthService } from '../auth/auth';
 import { Location } from '@angular/common';
@@ -90,7 +92,8 @@ function pilotValidator(pilotService: PilotService, originalPilotName?: string |
     MatDialogModule,
     MatAutocompleteModule,
     MatTooltipModule,
-    DateTimePickerComponent
+    DateTimePickerComponent,
+    PreviousVisitsListComponent
   ],
   templateUrl: './edit-trip.component.html',
   styleUrls: ['./edit-trip.component.css']
@@ -134,6 +137,12 @@ export class EditTripComponent implements OnInit, IFormComponent {
   
   isOldTrip = computed(() => this.tripAgeDays() >= 60);
   userAcknowledgedOldTrip = signal(false);
+  
+  // LEARNING: TRIP HISTORY DISPLAY PATTERN
+  // Store enriched visit history for the current ship to show context
+  // This follows the same pattern as ships.component.ts
+  // EnrichedVisit includes both In and Out trip data already joined
+  shipVisits = signal<EnrichedVisit[]>([]);
   
   // Enums/Options for template
   ports: Port[] = ['Anchorage', 'Cappa', 'Moneypoint', 'Tarbert', 'Foynes', 'Aughinish', 'Shannon', 'Limerick'];
@@ -196,14 +205,27 @@ export class EditTripComponent implements OnInit, IFormComponent {
 
   ngOnInit() {
     this.initForm();
-    this.visitId = this.route.snapshot.paramMap.get('id');
-
-    if (this.visitId) {
-      this.loadData(this.visitId);
-    } else {
-      this.snackBar.open('No Visit ID provided', 'Close', { duration: 3000 });
-      this.loading.set(false);
-    }
+    
+    // LEARNING: REACTING TO ROUTE PARAM CHANGES
+    // Using route.snapshot.paramMap only reads params ONCE on component init.
+    // If the user navigates from /edit/ABC to /edit/XYZ (clicking trip history),
+    // Angular REUSES the same component instance, so ngOnInit doesn't run again.
+    // 
+    // Solution: Subscribe to route.paramMap to reactively reload data when visitId changes.
+    // takeUntilDestroyed ensures the subscription is automatically cleaned up.
+    this.route.paramMap.pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(params => {
+      const visitId = params.get('id');
+      
+      if (visitId) {
+        this.visitId = visitId;
+        this.loadData(visitId);
+      } else {
+        this.snackBar.open('No Visit ID provided', 'Close', { duration: 3000 });
+        this.loading.set(false);
+      }
+    });
   }
 
   private initForm() {
@@ -336,6 +358,20 @@ export class EditTripComponent implements OnInit, IFormComponent {
 
   private loadData(visitId: string) {
     this.loading.set(true);
+    
+    // LEARNING: RESETTING FORM STATE WHEN SWITCHING VISITS
+    // When navigating from one visit to another (e.g., clicking trip history),
+    // the component is reused. We need to reset form and state to prevent:
+    // - Old form data appearing briefly
+    // - Stale validation errors
+    // 
+    // NOTE: We do NOT reset shipVisits here because it's loaded asynchronously.
+    // Resetting it here causes a race condition where old subscriptions might
+    // complete after the reset. Instead, let the new subscription naturally update it.
+    this.form.reset();
+    this.additionalTripsArray.clear();
+    this.additionalTripIds = [];
+    this.deletedTripIds = [];
 
     // 1. Get Visit
     // LEARNING: PREVENTING MEMORY LEAKS WITH takeUntilDestroyed
@@ -478,7 +514,37 @@ export class EditTripComponent implements OnInit, IFormComponent {
           this.additionalTripIds.push(trip.id || null);
         });
 
+        // LEARNING: LOAD SHIP VISIT HISTORY FOR CONTEXT
+        // After loading the current visit, fetch all previous visits for this ship
+        // This provides helpful context when editing (e.g., seeing the ship's typical berth/pilot)
+        // Uses getEnrichedVisitsByShipId which returns EnrichedVisit[] with both In/Out trip data
+        if (this.shipId) {
+          this.visitRepo.getEnrichedVisitsByShipId(this.shipId).pipe(
+            take(1),
+            takeUntilDestroyed(this.destroyRef)
+          ).subscribe({
+            next: (enrichedVisits) => {
+              this.shipVisits.set(enrichedVisits);
+            },
+            error: (err) => {
+              console.error('Failed to load ship visit history:', err);
+              // Don't block the main form - history is supplementary
+              this.shipVisits.set([]);
+            }
+          });
+        }
+
         this.loading.set(false);
+        
+        // UX: Show notification to confirm which visit is loaded
+        // This provides clear feedback when navigating between visits via trip history
+        const shipName = ship?.shipName || 'Unknown Ship';
+        const statusText = visit.currentStatus;
+        this.snackBar.open(`Loaded ${shipName} - ${statusText}`, 'Close', { 
+          duration: 3000,
+          horizontalPosition: 'center',
+          verticalPosition: 'top'
+        });
       },
       error: (err) => {
         console.error('Error loading data', err);
@@ -822,8 +888,8 @@ export class EditTripComponent implements OnInit, IFormComponent {
    * they are in the visit workflow: ETA → ETB → ETS
    */
   shouldHighlightVisitStatus(): boolean {
-    const status = this.form.get('visit.currentStatus')?.value;
-    return status === 'Due';
+    // Always highlight visit status as it's the primary driver
+    return true;
   }
 
   /**
@@ -832,7 +898,7 @@ export class EditTripComponent implements OnInit, IFormComponent {
    */
   shouldHighlightInwardTrip(): boolean {
     const status = this.form.get('visit.currentStatus')?.value;
-    return status === 'Awaiting Berth';
+    return status === 'Due' || status === 'Awaiting Berth';
   }
 
   /**
@@ -841,7 +907,7 @@ export class EditTripComponent implements OnInit, IFormComponent {
    */
   shouldHighlightOutwardTrip(): boolean {
     const status = this.form.get('visit.currentStatus')?.value;
-    return status === 'Alongside';
+    return status === 'Alongside' || status === 'Sailed';
   }
 
   /**
@@ -860,16 +926,19 @@ export class EditTripComponent implements OnInit, IFormComponent {
    */
   getAvailableSources(): Source[] {
     const currentSource = this.form.get('visit.source')?.value;
-    const manualSources: Source[] = ['Sheet', 'AIS', 'Good Guess', 'Agent', 'Pilot', 'Other'];
-    
-    // Include Sheet-Info only if it's the current value
-    if (currentSource === 'Sheet-Info') {
-      return ['Sheet-Info', ...manualSources];
+    if (currentSource && !this.sources.includes(currentSource)) {
+      return [...this.sources, currentSource];
     }
-    
-    return manualSources;
+    return this.sources;
   }
 
+  getSourceError(): string {
+    const control = this.form.get('visit.source');
+    if (control?.hasError('required')) {
+      return 'Source is required';
+    }
+    return '';
+  }
 
   /**
    * Checks if the current logged-in user is the pilot assigned to the inward trip.
@@ -882,29 +951,41 @@ export class EditTripComponent implements OnInit, IFormComponent {
    * @returns true if current user matches inward trip pilot name
    */
   isCurrentUserInwardPilot(): boolean {
+    const pilotName = this.form.get('inwardTrip.pilot')?.value;
     const currentUser = this.authService.currentUserSig();
-    const inwardPilot = this.form.get('inwardTrip.pilot')?.value;
     
-    if (!currentUser?.displayName || !inwardPilot) {
-      return false;
-    }
+    if (!pilotName || !currentUser) return false;
     
-    // Match display name with pilot name
-    return currentUser.displayName === inwardPilot;
+    // Check if the pilot name matches the current user's display name
+    // Case insensitive comparison for robustness
+    return pilotName.toLowerCase() === currentUser.displayName?.toLowerCase();
   }
 
   /**
    * Checks if the current logged-in user is the pilot assigned to the outward trip.
    */
   isCurrentUserOutwardPilot(): boolean {
+    const pilotName = this.form.get('outwardTrip.pilot')?.value;
     const currentUser = this.authService.currentUserSig();
-    const outwardPilot = this.form.get('outwardTrip.pilot')?.value;
     
-    if (!currentUser?.displayName || !outwardPilot) {
-      return false;
-    }
+    if (!pilotName || !currentUser) return false;
     
-    return currentUser.displayName === outwardPilot;
+    return pilotName.toLowerCase() === currentUser.displayName?.toLowerCase();
+  }
+
+  // Helper needed for the template to check if there's a valid pilot service
+  // Public accessor for template
+  get pilotServicePublic(): PilotService {
+    return this.pilotService;
+  }
+
+  openVisitDialog(visit: EnrichedVisit) {
+    this.dialog.open(ViewVisitDialogComponent, {
+      width: '800px',
+      maxHeight: '90vh',
+      data: { visitId: visit.visitId },
+      autoFocus: false
+    });
   }
 
   /**

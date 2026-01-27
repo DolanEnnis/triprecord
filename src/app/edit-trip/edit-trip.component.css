@@ -5,6 +5,32 @@
   margin: 0 auto;
 }
 
+/* OLD TRIP WARNING: Full viewport background tint */
+/* When editing trips older than 60 days, apply a subtle yellow background
+   to the entire viewport as a constant visual reminder */
+.container.old-trip-container {
+  position: relative;
+}
+
+/* Use pseudo-element to create full-width background that extends beyond container */
+.container.old-trip-container::before {
+  content: '';
+  position: fixed; /* Fixed to viewport, not container */
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #fff9e6; /* Very light yellow/cream */
+  z-index: -1; /* Behind all content */
+}
+
+/* Ensure form cards remain white background for readability */
+.old-trip-container .section-card,
+.old-trip-container mat-card {
+  background-color: white;
+  position: relative; /* Ensure cards appear above background */
+}
+
 .spin {
   animation: spin 1s linear infinite;
 }
@@ -234,35 +260,35 @@
     margin: 24px -8px 0 -8px;
     padding: 12px;
   }
-  
+
   /* Stack all fields vertically on mobile */
   .pilot-own-section div[style*="grid-template-columns"] {
     display: flex !important;
     flex-direction: column !important;
   }
-  
+
   /* Ensure form fields take full width on mobile */
   .pilot-own-section mat-form-field {
     width: 100% !important;
   }
-  
+
   /* Make Source field full-width on small screens */
   .source-field {
     grid-column: 1 / -1;
   }
-  
+
   /* Additional Trips: Make all fields stack vertically and full-width */
   .additional-trip-card .form-grid {
     display: flex !important;
     flex-direction: column !important;
   }
-  
+
   .additional-trip-card mat-form-field,
   .additional-trip-card app-date-time-picker {
     width: 100% !important;
     max-width: none !important;
   }
-  
+
   /* Reduce padding on additional trip cards */
   .additional-trip-card {
     padding: 12px;
@@ -276,7 +302,7 @@
   .pilot-section-title {
     font-size: 0.85rem;
   }
-  
+
   .pilot-own-section {
     margin: 16px -4px 0 -4px;
     padding: 8px;

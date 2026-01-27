@@ -48,6 +48,11 @@ service cloud.firestore {
     // ========================================
     
     match /users/{userId} {
+      // Allow users with write permissions to query for pilots
+      // This is needed for pilot dropdowns on /edit pages
+      // Viewers are excluded as they don't edit trips
+      allow list: if canWrite() && request.query.limit != null;
+      
       // List all users (for admin user management page)
       allow list: if isAdmin();
       

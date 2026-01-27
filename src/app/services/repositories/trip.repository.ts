@@ -6,6 +6,7 @@ import {
   deleteDoc,
   doc,
   Firestore,
+  getDocs,
   query,
   Timestamp,
   updateDoc,
@@ -61,6 +62,17 @@ export class TripRepository {
   async deleteTrip(tripId: string): Promise<void> {
     const tripDocRef = doc(this.firestore, `trips/${tripId}`);
     await deleteDoc(tripDocRef);
+  }
+
+  /**
+   * Fetches trips for a visit using getDocs (Promise-based).
+   * PREFERRED for one-time loads (like dialogs) to avoid RxJS take(1) race conditions with cache.
+   */
+  async getTripsByVisitIdOnce(visitId: string): Promise<Trip[]> {
+    const tripsCollection = collection(this.firestore, 'trips');
+    const q = query(tripsCollection, where('visitId', '==', visitId));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Trip));
   }
 
   getRecentTrips(threeMonthsAgoTimestamp: Timestamp): Observable<Trip[]> {

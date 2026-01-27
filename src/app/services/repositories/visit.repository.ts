@@ -521,11 +521,8 @@ export class VisitRepository {
         }),
         switchMap((visits) => {
           if (visits.length === 0) {
-            console.log('No visits found in database');
             return of([]);
           }
-
-          console.log(`Found ${visits.length} visits, fetching trip details...`);
 
           // For each visit, fetch both In and Out trips
           const enrichedVisits$ = visits.map((visit) => {
