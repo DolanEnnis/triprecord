@@ -211,6 +211,8 @@
           </thead>
           <tbody>
             @for (result of comparisonResults(); track $index) {
+            <!-- Only show ships with differences (matching mobile behavior) -->
+            @if (result.discrepancies.length > 0) {
               <!-- PDF Row (Day Diary data) - Bold if CHANGED from previous PDF -->
               <tr class="pdf-row">
                 <td>{{ result.pdfShip!.name }}</td>
@@ -272,6 +274,7 @@
                 </td>
               </tr>
             }
+          }
             
             <!-- REMOVED SHIPS (Were in previous PDF, not in current) - No header -->
             @if (removedFromPdfResults().length > 0) {

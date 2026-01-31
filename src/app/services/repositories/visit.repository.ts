@@ -507,6 +507,138 @@ export class VisitRepository {
   }
 
   /**
+   * PROMISE-BASED VERSION: Get enriched visits for a specific ship.
+   * 
+   * LEARNING: WHY USE PROMISES INSTEAD OF OBSERVABLES FOR ONE-SHOT READS?
+   * - collectionData() returns a live Observable that may emit empty first (cache miss)
+   * - take(1) on that Observable can complete with empty before real data arrives
+   * - getDocs() is Promise-based and WAITS for the actual Firestore response
+   * - This eliminates race conditions when you only need one snapshot
+   * 
+   * Use this method for components that need a single read (dialogs, forms).
+   * Use the Observable version for components that need live updates.
+   */
+  async getEnrichedVisitsByShipIdOnce(shipId: string): Promise<EnrichedVisit[]> {
+    const visitsCollection = collection(this.firestore, this.VISITS_COLLECTION);
+    
+    // Query for all visits for this ship, ordered by most recent first
+    const visitsQuery = query(
+      visitsCollection,
+      where('shipId', '==', shipId),
+      orderBy('initialEta', 'desc'),
+      limit(100)
+    );
+
+    try {
+      const visitsSnapshot = await getDocs(visitsQuery);
+      const visits = visitsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Visit));
+      
+      if (visits.length === 0) {
+        return [];
+      }
+
+      // For each visit, fetch both In and Out trips
+      const enrichedVisits: EnrichedVisit[] = await Promise.all(
+        visits.map(async (visit) => {
+          const tripsCollection = collection(this.firestore, this.TRIPS_COLLECTION);
+          const tripQuery = query(tripsCollection, where('visitId', '==', visit.id));
+          
+          try {
+            const tripSnapshot = await getDocs(tripQuery);
+            let inTrip: Trip | undefined;
+            let outTrip: Trip | undefined;
+
+            tripSnapshot.docs.forEach((doc) => {
+              const trip = doc.data() as Trip;
+              if (trip.typeTrip === 'In') {
+                inTrip = trip;
+              } else if (trip.typeTrip === 'Out') {
+                outTrip = trip;
+              }
+            });
+
+            // Determine the primary date (use Out trip boarding if available, otherwise In trip)
+            let displayDate: Date;
+            if (outTrip?.boarding && outTrip.boarding instanceof Timestamp) {
+              displayDate = outTrip.boarding.toDate();
+            } else if (inTrip?.boarding && inTrip.boarding instanceof Timestamp) {
+              displayDate = inTrip.boarding.toDate();
+            } else if (visit.initialEta && visit.initialEta instanceof Timestamp) {
+              displayDate = visit.initialEta.toDate();
+            } else {
+              displayDate = new Date();
+            }
+
+            const updateDate = visit.statusLastUpdated instanceof Timestamp
+              ? visit.statusLastUpdated.toDate()
+              : new Date();
+
+            return {
+              visitId: visit.id!,
+              shipId: visit.shipId,
+              shipName: visit.shipName,
+              grossTonnage: visit.grossTonnage,
+              status: visit.currentStatus,
+              initialEta: visit.initialEta instanceof Timestamp ? visit.initialEta.toDate() : null,
+              displayDate: displayDate,
+              
+              // Inward trip details
+              arrivedDate: inTrip?.boarding instanceof Timestamp ? inTrip.boarding.toDate() : null,
+              inwardPilot: inTrip?.pilot || visit.inwardPilot || 'Unassigned',
+              inwardPort: inTrip?.port || visit.berthPort || 'No Info',
+              
+              // Outward trip details
+              sailedDate: outTrip?.boarding instanceof Timestamp ? outTrip.boarding.toDate() : null,
+              outwardPilot: outTrip?.pilot || 'Unassigned',
+              outwardPort: outTrip?.port || 'No Info',
+              
+              // Other details
+              note: inTrip?.pilotNotes || outTrip?.pilotNotes || visit.visitNotes || '',
+              updatedBy: visit.updatedBy,
+              updatedAt: updateDate,
+              source: visit.source,
+            };
+          } catch (error) {
+            console.error(`Error fetching trips for visit ${visit.id}:`, error);
+            // Return a minimal enriched visit on error
+            return {
+              visitId: visit.id!,
+              shipId: visit.shipId,
+              shipName: visit.shipName,
+              grossTonnage: visit.grossTonnage,
+              status: visit.currentStatus,
+              initialEta: visit.initialEta instanceof Timestamp ? visit.initialEta.toDate() : null,
+              displayDate: new Date(),
+              arrivedDate: null,
+              inwardPilot: 'Unassigned',
+              inwardPort: 'No Info',
+              sailedDate: null,
+              outwardPilot: 'Unassigned',
+              outwardPort: 'No Info',
+              note: '',
+              updatedBy: visit.updatedBy,
+              updatedAt: new Date(),
+              source: visit.source,
+            };
+          }
+        })
+      );
+
+      // Filter out cancelled visits and sort
+      const filteredVisits = enrichedVisits.filter(v => v.status !== 'Cancelled');
+      return filteredVisits.sort((a, b) => {
+        if (!a.initialEta && !b.initialEta) return 0;
+        if (!a.initialEta) return -1;
+        if (!b.initialEta) return 1;
+        return b.displayDate.getTime() - a.displayDate.getTime();
+      });
+    } catch (error) {
+      console.error('Error fetching enriched visits:', error);
+      return [];
+    }
+  }
+
+  /**
    * Executes a Firestore query and enriches visits with trip data.
    * TYPE SAFETY: Uses unknown instead of any (requires runtime type assertion)
    */
@@ -631,5 +763,61 @@ export class VisitRepository {
         })
       );
     });
+  }
+
+  /**
+   * Migrates all visits from one ship to another.
+   * Updates shipId and denormalized shipName/grossTonnage fields.
+   * 
+   * LEARNING: BATCHED WRITES FOR ATOMIC OPERATIONS
+   * Firestore batched writes ensure all-or-nothing updates when modifying
+   * multiple documents. This prevents partial updates if something fails
+   * mid-operation.
+   * 
+   * @param oldShipId The ship ID to migrate visits FROM
+   * @param newShipId The ship ID to migrate visits TO
+   * @param newShipName The target ship's name (for denormalized field)
+   * @param newGrossTonnage The target ship's GT (for denormalized field)
+   * @returns Number of visits migrated
+   */
+  async migrateVisitsToShip(
+    oldShipId: string,
+    newShipId: string,
+    newShipName: string,
+    newGrossTonnage: number
+  ): Promise<number> {
+    const { writeBatch } = await import('@angular/fire/firestore');
+    
+    // Find all visits belonging to the old ship
+    const visitsCollection = collection(this.firestore, this.VISITS_COLLECTION);
+    const visitsQuery = query(
+      visitsCollection,
+      where('shipId', '==', oldShipId)
+    );
+    
+    const snapshot = await getDocs(visitsQuery);
+    
+    if (snapshot.empty) {
+      return 0;
+    }
+    
+    // Use batched writes - Firestore allows up to 500 operations per batch
+    const batch = writeBatch(this.firestore);
+    
+    snapshot.docs.forEach(docSnapshot => {
+      const visitRef = doc(this.firestore, `${this.VISITS_COLLECTION}/${docSnapshot.id}`);
+      batch.update(visitRef, {
+        shipId: newShipId,
+        shipName: newShipName,
+        grossTonnage: newGrossTonnage,
+        // Keep the lowercase field in sync for queries
+        shipName_lowercase: newShipName.toLowerCase(),
+        statusLastUpdated: serverTimestamp()
+      });
+    });
+    
+    await batch.commit();
+    
+    return snapshot.size;
   }
 }

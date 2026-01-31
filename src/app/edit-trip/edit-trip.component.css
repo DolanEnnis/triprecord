@@ -56,6 +56,29 @@
   flex: 1;
 }
 
+/* UPDATED INFO: Read-only metadata showing when/who last updated the visit */
+/* Positioned on the right side of the header, styled as secondary info */
+.updated-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 0.85rem;
+  color: #666;
+  text-align: right;
+  gap: 2px;
+}
+
+.updated-info .updated-time {
+  font-weight: 500;
+  color: #333;
+}
+
+.updated-info .updated-by,
+.updated-info .updated-source {
+  font-size: 0.75rem;
+  color: #888;
+}
+
 .edit-form {
   display: flex;
   flex-direction: column;
@@ -72,6 +95,63 @@
   border-left: 4px solid #1976d2; /* Primary blue accent */
   background-color: #f5f9ff; /* Very light blue tint */
   box-shadow: 0 2px 8px rgba(25, 118, 210, 0.15); /* Subtle shadow */
+}
+
+/* COLLAPSIBLE CARD STYLES */
+
+/* Make card headers clickable */
+.collapsible-header {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s ease;
+}
+
+.collapsible-header:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+/* Title with expand/collapse icon */
+.collapsible-header mat-card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+/* Expand/collapse icon animation */
+.expand-icon {
+  transition: transform 0.3s ease;
+  color: #666;
+}
+
+/* Collapsed summary row - compact info display */
+.collapsed-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+  padding: 8px 16px 16px;
+  color: #666;
+}
+
+.summary-item {
+  display: inline-flex;
+  gap: 0.5rem;
+}
+
+.summary-item strong {
+  color: #333;
+}
+
+/* Inline editable status field in collapsed summary */
+/* Compact size that fits alongside summary text */
+.inline-status-field {
+  max-width: 160px;
+  margin-right: 1rem;
+}
+
+/* Reduce height of inline form field */
+.inline-status-field .mat-mdc-form-field-subscript-wrapper {
+  display: none; /* Hide error/hint space */
 }
 
 .form-grid {
@@ -308,3 +388,98 @@
     padding: 8px;
   }
 }
+
+/* ==================================================================
+   SHIP DETAILS - MOBILE-ONLY COLLAPSIBLE
+   On desktop: Always expanded, no collapse functionality
+   On mobile: Collapsible with ship name + MarineTraffic icon summary
+   ================================================================== */
+
+/* Desktop: Hide the expand/collapse icon, always show content */
+.mobile-only {
+  display: none;
+}
+
+/* Desktop: Ship Details header should NOT look clickable */
+.ship-details-card .mobile-collapsible-header {
+  cursor: default;
+}
+
+.ship-details-card .mobile-collapsible-header:hover {
+  background-color: transparent;
+}
+
+/* Desktop: ALWAYS hide collapsed summary */
+.mobile-ship-summary {
+  display: none !important;
+}
+
+/* Desktop: ALWAYS show form */
+.ship-details-form {
+  display: grid !important;
+}
+
+/* Marine Traffic icon styling */
+.marine-traffic-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+}
+
+.marine-traffic-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.marine-traffic-link:hover {
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+/* Ship name in collapsed summary */
+.ship-name-display {
+  font-weight: 500;
+  font-size: 1rem;
+  color: #333;
+}
+
+/* MOBILE: Enable collapsible behavior for Ship Details */
+@media (max-width: 768px) {
+  /* Show the expand/collapse icon on mobile */
+  .mobile-only {
+    display: inline-block;
+  }
+
+  /* Make header clickable on mobile */
+  .ship-details-card .mobile-collapsible-header {
+    cursor: pointer;
+  }
+
+  .ship-details-card .mobile-collapsible-header:hover {
+    background-color: rgba(0, 0, 0, 0.04);
+  }
+
+  /* Mobile: Control visibility based on .expanded class */
+  /* When COLLAPSED (no .expanded class): show summary, hide form */
+  .ship-details-card:not(.expanded) .mobile-ship-summary {
+    display: flex !important;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ship-details-card:not(.expanded) .ship-details-form {
+    display: none !important;
+  }
+
+  /* When EXPANDED: hide summary, show form */
+  .ship-details-card.expanded .mobile-ship-summary {
+    display: none !important;
+  }
+
+  .ship-details-card.expanded .ship-details-form {
+    display: grid !important;
+  }
+}
+

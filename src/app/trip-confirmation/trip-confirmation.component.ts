@@ -5,6 +5,7 @@ import { CommonModule } from '@angular/common';
 import { AuthService } from '../auth/auth';
 import {  UnifiedTrip } from '../models';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { ConfirmationDialogComponent } from '../shared/confirmation-dialog/confirmation-dialog.component';
 import { CreateChargeDialogComponent } from '../create-charge-dialog/create-charge-dialog.component';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -41,6 +42,7 @@ import { HelpPopupComponent } from '../help-popup/help-popup.component';
     MatTooltipModule,
     MatPaginatorModule,
     HelpPopupComponent,
+    MatSnackBarModule,
   ],
   templateUrl: './trip-confirmation.component.html',
   styleUrl: './trip-confirmation.component.css',
@@ -51,6 +53,7 @@ export class TripConfirmationComponent implements OnInit, AfterViewInit {
   private readonly authService = inject(AuthService);
   private readonly dataQualityService = inject(DataQualityService);
   private readonly csvExportService = inject(CsvExportService);
+  private readonly snackBar = inject(MatSnackBar);
 
   displayedColumns: string[] = ['ship', 'gt', 'boarding', 'typeTrip', 'port', 'extra', 'pilot', 'sailingNote', 'metadata'];
   dataSource = new MatTableDataSource<TripWithWarnings>();
@@ -273,7 +276,8 @@ export class TripConfirmationComponent implements OnInit, AfterViewInit {
     const confirmedTrips = currentTrips.filter(trip => !trip.isActionable);
 
     if (confirmedTrips.length === 0) {
-      alert('There are no confirmed trips to export with the current filters.');
+      // Show info message using MatSnackBar - auto-dismisses after 5 seconds
+      this.snackBar.open('There are no confirmed trips to export with the current filters.', 'Close', { duration: 5000 });
       return;
     }
 

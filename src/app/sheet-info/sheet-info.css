@@ -712,7 +712,7 @@ mat-card {
  * Pattern: Hide desktop tables, show mobile cards
  */
 
-@media (max-width: 599px) {
+@media (max-width: 767px) {
   /* Reduce page padding on mobile */
   .reconciliation-container {
     padding: 8px;

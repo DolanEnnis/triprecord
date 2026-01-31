@@ -5,6 +5,7 @@
 /* ===== BASE RESETS ===== */
 html, body { 
   height: 100%; 
+  overflow-x: hidden; /* Prevent horizontal scroll on mobile */
 }
 
 body { 
@@ -324,7 +325,7 @@ body {
 /* .desktop-only used for media query hiding/showing logic only */
 
 /* Mobile breakpoint: screens smaller than 600px */
-@media (max-width: 599px) {
+@media (max-width: 767px) {
   .mobile-only {
     display: revert; /* Restores the element's natural display value */
   }
@@ -357,7 +358,7 @@ body {
  * 
  * Use these for common mobile layout patterns
  */
-@media (max-width: 599px) {
+@media (max-width: 767px) {
   /* Force single-column on mobile for grid layouts */
   .mobile-single-column {
     display: flex !important;

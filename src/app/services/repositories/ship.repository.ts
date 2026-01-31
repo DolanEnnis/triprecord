@@ -84,6 +84,37 @@ export class ShipRepository {
   }
 
   /**
+   * Forces creation of a new Ship document, even if one with the same name exists.
+   * 
+   * LEARNING: WHEN TO USE THIS
+   * - Different vessels can share the same name (e.g., "ATLANTIC TRADER")
+   * - When user explicitly confirms they want a SEPARATE ship record
+   * - The dialog warns the user before calling this method
+   * 
+   * @param data The form data containing ship details.
+   * @returns The Firestore ID of the newly created Ship document.
+   */
+  async forceCreateShip(data: NewVisitData): Promise<string> {
+    const shipsCollection = collection(this.firestore, 'ships');
+    const shipNameLower = data.shipName.toLowerCase();
+
+    // Always create a new Ship document, bypassing duplicate check
+    const newShip: Omit<Ship, 'id'> = {
+      shipName: data.shipName,
+      shipName_lowercase: shipNameLower,
+      grossTonnage: data.grossTonnage,
+      imoNumber: data.imoNumber,
+      marineTrafficLink: data.marineTrafficLink,
+      shipNotes: data.shipNotes,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    const shipDocRef = await addDoc(shipsCollection, newShip);
+    return shipDocRef.id;
+  }
+
+  /**
    * Fetches a single Ship document by its Firestore ID.
    * @param shipId The ID of the ship to fetch.
    */
@@ -258,4 +289,118 @@ export class ShipRepository {
       updatedAt: serverTimestamp()
     });
   }
+
+  /**
+   * Finds all ships with duplicate IMO numbers.
+   * Returns a Map grouped by IMO number, containing only groups with 2+ ships.
+   * 
+   * LEARNING: WHY CLIENT-SIDE GROUPING?
+   * Firestore doesn't support GROUP BY queries, so we fetch all ships 
+   * with IMO numbers and group them in memory. This is acceptable because:
+   * - Ships with IMO numbers are a finite set (a few hundred at most)
+   * - This is an admin-only operation, not a user-facing query
+   * - The grouping logic is simpler to understand and maintain in code
+   */
+  async findDuplicateShipsByImo(): Promise<Map<number, Ship[]>> {
+    const shipsCollection = collection(this.firestore, 'ships');
+    
+    // Query all ships that have an IMO number (not null/undefined)
+    // Firestore doesn't have "is not null", so we query for imoNumber >= 1000000 (minimum 7-digit IMO)
+    const shipsWithImoQuery = query(
+      shipsCollection,
+      where('imoNumber', '>=', 1000000),
+      orderBy('imoNumber', 'asc')
+    );
+    
+    const snapshot = await getDocs(shipsWithImoQuery);
+    const ships = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Ship));
+    
+    // Group ships by IMO number using a Map
+    const imoGroups = new Map<number, Ship[]>();
+    
+    for (const ship of ships) {
+      if (ship.imoNumber) {
+        const existingGroup = imoGroups.get(ship.imoNumber);
+        if (existingGroup) {
+          existingGroup.push(ship);
+        } else {
+          imoGroups.set(ship.imoNumber, [ship]);
+        }
+      }
+    }
+    
+    // Filter to only return groups with 2+ ships (actual duplicates)
+    const duplicatesOnly = new Map<number, Ship[]>();
+    for (const [imo, shipGroup] of imoGroups) {
+      if (shipGroup.length >= 2) {
+        duplicatesOnly.set(imo, shipGroup);
+      }
+    }
+    
+    return duplicatesOnly;
+  }
+
+  /**
+   * Deletes a ship document from Firestore.
+   * 
+   * CAUTION: Only call this after visits/trips have been migrated to another ship!
+   * This is an irreversible operation.
+   * 
+   * @param shipId The Firestore document ID of the ship to delete
+   */
+  async deleteShip(shipId: string): Promise<void> {
+    const { deleteDoc } = await import('@angular/fire/firestore');
+    const shipDocRef = doc(this.firestore, `ships/${shipId}`);
+    await deleteDoc(shipDocRef);
+  }
+
+  /**
+   * Finds all ships with duplicate names (case-insensitive).
+   * Returns a Map grouped by lowercase name, containing only groups with 2+ ships.
+   * 
+   * LEARNING: WHY FIND SAME-NAME DUPLICATES?
+   * Ships without IMO numbers can only be detected as duplicates by their name.
+   * This helps catch duplicate entries created before IMO validation was added.
+   * 
+   * @param excludeShipIds Optional set of ship IDs to exclude (e.g., already shown in IMO duplicates)
+   */
+  async findDuplicateShipsByName(excludeShipIds?: Set<string>): Promise<Map<string, Ship[]>> {
+    const shipsCollection = collection(this.firestore, 'ships');
+    
+    // Fetch ALL ships - we need to group by name client-side
+    const shipsQuery = query(
+      shipsCollection,
+      orderBy('shipName_lowercase', 'asc')
+    );
+    
+    const snapshot = await getDocs(shipsQuery);
+    const ships = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() } as Ship))
+      // Exclude ships that are already in IMO duplicate groups
+      .filter(ship => !excludeShipIds || !excludeShipIds.has(ship.id!));
+    
+    // Group ships by lowercase name
+    const nameGroups = new Map<string, Ship[]>();
+    
+    for (const ship of ships) {
+      const lowercaseName = (ship.shipName_lowercase || ship.shipName.toLowerCase());
+      const existingGroup = nameGroups.get(lowercaseName);
+      if (existingGroup) {
+        existingGroup.push(ship);
+      } else {
+        nameGroups.set(lowercaseName, [ship]);
+      }
+    }
+    
+    // Filter to only return groups with 2+ ships (actual duplicates)
+    const duplicatesOnly = new Map<string, Ship[]>();
+    for (const [name, shipGroup] of nameGroups) {
+      if (shipGroup.length >= 2) {
+        duplicatesOnly.set(name, shipGroup);
+      }
+    }
+    
+    return duplicatesOnly;
+  }
 }
+

@@ -17,14 +17,23 @@ export class VisitWorkflowService {
   private readonly tripRepository: TripRepository = inject(TripRepository);
   private readonly injector = inject(Injector);
 
-  async createNewVisit(data: NewVisitData): Promise<string> {
+  /**
+   * Creates a new visit with inward and outward trips.
+   * @param data The form data containing ship and visit details.
+   * @param forceNewShip If true, creates a new ship record even if one with the same name exists.
+   *                     Used when user explicitly confirms they want a separate vessel record.
+   */
+  async createNewVisit(data: NewVisitData, forceNewShip: boolean = false): Promise<string> {
     return runInInjectionContext(this.injector, async () => {
       const user = this.authService.currentUserSig();
       const now = serverTimestamp();
       const recordedBy = user?.displayName || 'Unknown';
       const initialEtaTimestamp = Timestamp.fromDate(data.initialEta);
 
-      const shipId = await this.shipRepository.findOrCreateShip(data);
+      // Use forceCreateShip when user explicitly wants a separate ship record
+      const shipId = forceNewShip
+        ? await this.shipRepository.forceCreateShip(data)
+        : await this.shipRepository.findOrCreateShip(data);
 
       // Create the Visit record with ship's ETA
       const newVisit: Omit<Visit, 'id'> = {

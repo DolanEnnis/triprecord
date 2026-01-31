@@ -143,4 +143,109 @@
       </tr>
     </table>
   </div>
+
+  <!-- Ship Deduplication Section -->
+  <h2 style="margin-top: 48px;">Ship Deduplication</h2>
+  
+  <mat-card style="margin-bottom: 24px;">
+    <mat-card-header>
+      <mat-card-title style="display: flex; align-items: center; gap: 8px;">
+        <mat-icon>merge_type</mat-icon>
+        Find & Merge Duplicate Ships
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <p style="color: #666; margin-bottom: 16px;">
+        Find ships with the same IMO number and merge them into a single record.
+        All visits from the merged ship will be transferred to the kept ship.
+      </p>
+      
+      <button 
+        mat-raised-button 
+        color="primary"
+        [disabled]="isLoadingDuplicates()"
+        (click)="findDuplicateShips()">
+        @if (isLoadingDuplicates()) {
+          <mat-spinner diameter="20" style="display: inline-block; margin-right: 8px;"></mat-spinner>
+          Searching...
+        } @else {
+          <ng-container>
+            <mat-icon>search</mat-icon>
+            Find Duplicate Ships (by IMO)
+          </ng-container>
+        }
+      </button>
+      
+      <!-- Duplicate Groups Display -->
+      @if (hasCheckedDuplicates()) {
+        <div style="margin-top: 24px;">
+          @if (duplicateGroups().length === 0) {
+            <div class="no-duplicates-message" style="padding: 16px; background: #e8f5e9; border-radius: 8px; display: flex; align-items: center; gap: 8px;">
+              <mat-icon style="color: #4caf50;">check_circle</mat-icon>
+              <span>No duplicate ships found! Your ship database is clean.</span>
+            </div>
+          } @else {
+          <h3>Found {{ duplicateGroups().length }} Duplicate Group(s)</h3>
+            
+            @for (group of duplicateGroups(); track (group.matchType === 'imo' ? group.imoNumber : group.shipName)) {
+              <div class="duplicate-group" style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px; margin-bottom: 16px; background: #fafafa;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                  <div>
+                    <!-- Show different badge based on match type -->
+                    @if (group.matchType === 'imo') {
+                      <span style="background: #e3f2fd; color: #1565c0; padding: 4px 10px; border-radius: 4px; font-weight: 500; margin-right: 8px;">
+                        IMO: {{ group.imoNumber }}
+                      </span>
+                    } @else {
+                      <span style="background: #fff3e0; color: #e65100; padding: 4px 10px; border-radius: 4px; font-weight: 500; margin-right: 8px;">
+                        Name: {{ group.shipName }}
+                      </span>
+                    }
+                    <span style="color: #666;">({{ group.ships.length }} ships)</span>
+                  </div>
+                  <button 
+                    mat-raised-button 
+                    color="warn"
+                    (click)="openMergeDialog(group)">
+                    <mat-icon>merge_type</mat-icon>
+                    Merge
+                  </button>
+                </div>
+                
+                <div class="ship-list" style="display: flex; flex-wrap: wrap; gap: 12px;">
+                  @for (ship of group.ships; track ship.id) {
+                    <div class="ship-card" style="background: white; padding: 12px 16px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); min-width: 200px;">
+                      <div style="font-weight: 600;">{{ ship.shipName }}</div>
+                      <div style="display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap;">
+                        <span style="background: #e3f2fd; color: #1565c0; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">
+                          {{ ship.grossTonnage | number }} GT
+                        </span>
+                        @if (ship.imoNumber) {
+                          <span style="color: #666; font-size: 0.85em;">
+                            IMO: {{ ship.imoNumber }}
+                          </span>
+                        }
+                        @if (ship.shipNotes) {
+                          <span style="color: #666; font-size: 0.85em; display: flex; align-items: center; gap: 2px;">
+                            <mat-icon inline style="font-size: 14px; width: 14px; height: 14px;">notes</mat-icon>
+                            Notes
+                          </span>
+                        }
+                        @if (ship.marineTrafficLink) {
+                          <span style="color: #666; font-size: 0.85em; display: flex; align-items: center; gap: 2px;">
+                            <mat-icon inline style="font-size: 14px; width: 14px; height: 14px;">link</mat-icon>
+                            MT
+                          </span>
+                        }
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          }
+        </div>
+      }
+    </mat-card-content>
+  </mat-card>
 </div>

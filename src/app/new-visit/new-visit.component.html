@@ -17,8 +17,16 @@
               <mat-label>Ship Name</mat-label>
               <input matInput formControlName="shipName" [matAutocomplete]="autoShip" (blur)="onShipNameBlur()" required>
               <mat-autocomplete #autoShip="matAutocomplete" [displayWith]="displayShip" (optionSelected)="onShipSelected($event)">
+                <!-- Existing ship suggestions -->
                 @for (ship of filteredShips$ | async; track ship.id) {
                   <mat-option [value]="ship">{{ ship.ship }} ({{ ship.gt | number }})</mat-option>
+                }
+                <!-- Special "Create New Ship" option - always at the bottom -->
+                @if (shipNameControl.value && shipNameControl.value.length > 1) {
+                  <mat-option [value]="{ id: 'NEW_SHIP', ship: shipNameControl.value, gt: 0 }" class="create-new-option">
+                    <mat-icon>add_circle</mat-icon>
+                    <strong>Create New Ship: "{{ shipNameControl.value }}"</strong>
+                  </mat-option>
                 }
               </mat-autocomplete>
               @if (shipNameControl.hasError('required') && shipNameControl.touched) {

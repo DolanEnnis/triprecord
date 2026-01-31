@@ -5,6 +5,16 @@
         <mat-icon>arrow_back</mat-icon>
       </button>
       <h2>Edit Visit</h2>
+      
+      <!-- UPDATED INFO: Read-only display of when/who last updated this visit -->
+      <!-- Mirrors the "Updated" column from the status-list page -->
+      @if (visitUpdatedAt()) {
+        <div class="updated-info">
+          <span class="updated-time">{{ visitUpdatedAt() | timeAgo }}</span>
+          <span class="updated-by">by {{ visitUpdatedBy() ?? 'Unknown' }}</span>
+          <span class="updated-source">from {{ visitSource() ?? 'Unknown' }}</span>
+        </div>
+      }
     </div>
 
     <!-- OLD TRIP WARNING BANNER -->
@@ -21,11 +31,34 @@
   <form [formGroup]="form" class="edit-form">
     
     <!-- SHIP INFO -->
-    <mat-card class="section-card" formGroupName="ship">
-      <mat-card-header>
-        <mat-card-title>Ship Details</mat-card-title>
+    <!-- SHIP DETAILS - Collapsible on mobile only -->
+    <!-- Uses CSS-based visibility (not @if) so desktop always shows form regardless of expanded state -->
+    <mat-card class="section-card ship-details-card" [class.expanded]="shipDetailsExpanded()" formGroupName="ship">
+      <mat-card-header class="collapsible-header mobile-collapsible-header" (click)="toggleShipDetails()">
+        <mat-card-title>
+          Ship Details
+          <mat-icon class="expand-icon mobile-only">{{ shipDetailsExpanded() ? 'expand_less' : 'expand_more' }}</mat-icon>
+        </mat-card-title>
       </mat-card-header>
-      <mat-card-content class="form-grid">
+
+      <!-- MOBILE COLLAPSED SUMMARY: Ship Name + MarineTraffic link -->
+      <!-- Hidden on desktop via CSS, shown on mobile when NOT expanded -->
+      <mat-card-content class="collapsed-summary mobile-ship-summary" (click)="$event.stopPropagation()">
+        <span class="ship-name-display">{{ form.get('ship.shipName')?.value || 'Unnamed Ship' }}</span>
+        @if (form.get('ship.marineTrafficLink')?.value) {
+          <a [href]="form.get('ship.marineTrafficLink')?.value" 
+             target="_blank" 
+             class="marine-traffic-link"
+             title="Open MarineTraffic"
+             (click)="$event.stopPropagation()">
+            <img src="https://www.marinetraffic.com/favicon.ico" alt="MarineTraffic" class="marine-traffic-icon">
+          </a>
+        }
+      </mat-card-content>
+
+      <!-- FULL FORM: Always in DOM, CSS controls visibility -->
+      <!-- Desktop: Always visible | Mobile: Hidden when collapsed -->
+      <mat-card-content class="form-grid ship-details-form">
         <mat-form-field appearance="outline">
           <mat-label>Ship Name</mat-label>
           <input matInput formControlName="shipName" placeholder="e.g. MAERSK SHANNON">
@@ -86,330 +119,428 @@
       </mat-card-content>
     </mat-card>
 
-    <!-- VISIT INFO -->
-    <mat-card class="section-card" [class.highlighted]="shouldHighlightVisitStatus()" formGroupName="visit">
-      <mat-card-header>
-        <mat-card-title>Visit Status</mat-card-title>
+    <!-- VISIT STATUS - Collapsible -->
+    <mat-card class="section-card" [class.highlighted]="shouldHighlightVisitStatus()" [class.expanded]="visitStatusExpanded()" formGroupName="visit">
+      <mat-card-header class="collapsible-header" (click)="toggleVisitStatus()">
+        <mat-card-title>
+          Visit Status
+          <mat-icon class="expand-icon">{{ visitStatusExpanded() ? 'expand_less' : 'expand_more' }}</mat-icon>
+        </mat-card-title>
       </mat-card-header>
-      <mat-card-content class="form-grid">
-        <mat-form-field appearance="outline">
-          <mat-label>Current Status</mat-label>
-          <mat-select formControlName="currentStatus">
-            <mat-option *ngFor="let status of visitStatuses" [value]="status">
-              {{ status }}
-            </mat-option>
-          </mat-select>
-          @if (form.get('visit.currentStatus')?.hasError('required')) {
-            <mat-error>Status is required</mat-error>
-          }
-        </mat-form-field>
 
-        <app-date-time-picker formControlName="initialEta" class="span-2"></app-date-time-picker>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Berth / Port</mat-label>
-          <mat-select formControlName="berthPort">
-            <mat-option *ngFor="let port of ports" [value]="port">
-              {{ port }}
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="source-field">
-          <mat-label>Source</mat-label>
-          <mat-select formControlName="source">
-            <mat-option *ngFor="let src of getAvailableSources()" [value]="src">
-              {{ src }}
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Visit Notes</mat-label>
-          <textarea matInput formControlName="visitNotes" rows="2"></textarea>
-        </mat-form-field>
-      </mat-card-content>
-    </mat-card>
-
-    <!-- INWARD TRIP -->
-    <mat-card class="section-card" [class.highlighted]="shouldHighlightInwardTrip()" formGroupName="inwardTrip">
-      <mat-card-header>
-        <mat-card-title>Inward Trip</mat-card-title>
-      </mat-card-header>
-      <mat-card-content class="form-grid">
-        <mat-form-field appearance="outline">
-          <mat-label>Pilot</mat-label>
-          <input 
-            matInput 
-            formControlName="pilot"
-            [matAutocomplete]="inwardPilotAuto"
-            (input)="onInwardPilotInput($any($event.target).value)">
-          <mat-autocomplete #inwardPilotAuto="matAutocomplete">
-            @for (pilot of filteredInwardPilots(); track pilot) {
-              <mat-option [value]="pilot === 'Unassigned' ? '' : pilot">
-                {{ pilot }}
+      <!-- COLLAPSED SUMMARY: Shows key info when card is collapsed -->
+      <!-- Status dropdown is EDITABLE even when collapsed for quick updates -->
+      @if (!visitStatusExpanded()) {
+        <mat-card-content class="collapsed-summary" (click)="$event.stopPropagation()">
+          <mat-form-field appearance="outline" class="inline-status-field">
+            <mat-label>Status</mat-label>
+            <mat-select formControlName="currentStatus">
+              <mat-option *ngFor="let status of visitStatuses" [value]="status">
+                {{ status }}
               </mat-option>
-            }
-          </mat-autocomplete>
-          @if (form.get('inwardTrip.pilot')?.hasError('invalidPilot')) {
-            <mat-error>
-              Please select a valid pilot from the list
-            </mat-error>
-          }
-        </mat-form-field>
-
-        <app-date-time-picker formControlName="boarding" class="span-2"></app-date-time-picker>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Destination Port</mat-label>
-          <mat-select formControlName="port">
-            <mat-option *ngFor="let port of ports" [value]="port">
-              {{ port }}
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Pilot Notes</mat-label>
-          <textarea matInput formControlName="pilotNotes" rows="2"></textarea>
-        </mat-form-field>
-
-        <!-- PILOT'S OWN INFO - Only visible to assigned pilot -->
-        @if (isCurrentUserInwardPilot()) {
-          <div class="pilot-own-section">
-          <h4 class="pilot-section-title">Pilot's Own Info</h4>
-          
-          <!-- Extra and Own Note - Full width, NOT in grid -->
-          <mat-form-field appearance="outline" class="pilot-textarea-field">
-            <mat-label>Extra</mat-label>
-            <textarea matInput formControlName="extraChargesNotes" rows="2"></textarea>
+            </mat-select>
           </mat-form-field>
+          <span class="summary-item">
+            <strong>Source:</strong> {{ form.get('visit.source')?.value || 'Not set' }}
+          </span>
+        </mat-card-content>
+      }
 
-          <mat-form-field appearance="outline" class="pilot-textarea-field">
-            <mat-label>Own Note</mat-label>
-            <textarea matInput formControlName="ownNote" rows="2"></textarea>
-          </mat-form-field>
-
-          <!-- Pilot No, Month No, Good on one line -->
-          <div class="pilot-three-col-grid">
-            <mat-form-field appearance="outline">
-              <mat-label>Pilot No</mat-label>
-              <input matInput type="number" formControlName="pilotNo">
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Month No</mat-label>
-              <input matInput type="number" formControlName="monthNo">
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Good (1-6)</mat-label>
-              <input matInput type="number" formControlName="good" min="1" max="6">
-            </mat-form-field>
-          </div>
-
-          <!-- Car and Time Off on one line -->
-          <div class="pilot-two-col-grid">
-            <mat-form-field appearance="outline">
-              <mat-label>Car</mat-label>
-              <input matInput formControlName="car">
-            </mat-form-field>
-
-            <app-date-time-picker formControlName="timeOff" label="Time Off"></app-date-time-picker>
-          </div>
-          </div>
-        }
-      </mat-card-content>
-    </mat-card>
-
-    <!-- OUTWARD TRIP -->
-    <mat-card class="section-card" [class.highlighted]="shouldHighlightOutwardTrip()" formGroupName="outwardTrip">
-      <mat-card-header>
-        <mat-card-title>Outward Trip</mat-card-title>
-      </mat-card-header>
-      <mat-card-content class="form-grid">
-        <mat-form-field appearance="outline">
-          <mat-label>Pilot</mat-label>
-          <input 
-            matInput 
-            formControlName="pilot"
-            [matAutocomplete]="outwardPilotAuto"
-            (input)="onOutwardPilotInput($any($event.target).value)">
-          <mat-autocomplete #outwardPilotAuto="matAutocomplete">
-            @for (pilot of filteredOutwardPilots(); track pilot) {
-              <mat-option [value]="pilot === 'Unassigned' ? '' : pilot">
-                {{ pilot }}
+      <!-- EXPANDED FORM: Full editing controls -->
+      @if (visitStatusExpanded()) {
+        <mat-card-content class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Current Status</mat-label>
+            <mat-select formControlName="currentStatus">
+              <mat-option *ngFor="let status of visitStatuses" [value]="status">
+                {{ status }}
               </mat-option>
+            </mat-select>
+            @if (form.get('visit.currentStatus')?.hasError('required')) {
+              <mat-error>Status is required</mat-error>
             }
-          </mat-autocomplete>
-          @if (form.get('outwardTrip.pilot')?.hasError('invalidPilot')) {
-            <mat-error>
-              Please select a valid pilot from the list
-            </mat-error>
-          }
-        </mat-form-field>
-
-        <app-date-time-picker formControlName="boarding" class="span-2"></app-date-time-picker>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Origin Port</mat-label>
-          <mat-select formControlName="port">
-            <mat-option *ngFor="let port of ports" [value]="port">
-              {{ port }}
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Pilot Notes</mat-label>
-          <textarea matInput formControlName="pilotNotes" rows="2"></textarea>
-        </mat-form-field>
-
-        <!-- PILOT'S OWN INFO - Only visible to assigned pilot -->
-        @if (isCurrentUserOutwardPilot()) {
-          <div class="pilot-own-section">
-          <h4 class="pilot-section-title">Pilot's Own Info</h4>
-          
-          <!-- Extra and Own Note - Full width, NOT in grid -->
-          <mat-form-field appearance="outline" class="pilot-textarea-field">
-            <mat-label>Extra</mat-label>
-            <textarea matInput formControlName="extraChargesNotes" rows="2"></textarea>
           </mat-form-field>
 
-          <mat-form-field appearance="outline" class="pilot-textarea-field">
-            <mat-label>Own Note</mat-label>
-            <textarea matInput formControlName="ownNote" rows="2"></textarea>
+          <app-date-time-picker formControlName="initialEta" class="span-2"></app-date-time-picker>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Berth / Port</mat-label>
+            <mat-select formControlName="berthPort">
+              <mat-option *ngFor="let port of ports" [value]="port">
+                {{ port }}
+              </mat-option>
+            </mat-select>
           </mat-form-field>
 
-          <!-- Pilot No, Month No, Good on one line -->
-          <div class="pilot-three-col-grid">
-            <mat-form-field appearance="outline">
-              <mat-label>Pilot No</mat-label>
-              <input matInput type="number" formControlName="pilotNo">
-            </mat-form-field>
+          <mat-form-field appearance="outline" class="source-field">
+            <mat-label>Source</mat-label>
+            <mat-select formControlName="source">
+              <mat-option *ngFor="let src of getAvailableSources()" [value]="src">
+                {{ src }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
 
-            <mat-form-field appearance="outline">
-              <mat-label>Month No</mat-label>
-              <input matInput type="number" formControlName="monthNo">
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Good (1-6)</mat-label>
-              <input matInput type="number" formControlName="good" min="1" max="6">
-            </mat-form-field>
-          </div>
-
-          <!-- Car and Time Off on one line -->
-          <div class="pilot-two-col-grid">
-            <mat-form-field appearance="outline">
-              <mat-label>Car</mat-label>
-              <input matInput formControlName="car">
-            </mat-form-field>
-
-            <app-date-time-picker formControlName="timeOff" label="Time Off"></app-date-time-picker>
-          </div>
-          </div>
-        }
-      </mat-card-content>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Visit Notes</mat-label>
+            <textarea matInput formControlName="visitNotes" rows="2"></textarea>
+          </mat-form-field>
+        </mat-card-content>
+      }
     </mat-card>
 
-    <!-- ADDITIONAL TRIPS -->
-    <mat-card class="section-card">
-      <mat-card-header>
-        <mat-card-title>Additional Trips</mat-card-title>
+    <!-- INWARD TRIP - Collapsible -->
+    <mat-card class="section-card" [class.highlighted]="shouldHighlightInwardTrip()" [class.expanded]="inwardTripExpanded()" formGroupName="inwardTrip">
+      <mat-card-header class="collapsible-header" (click)="toggleInwardTrip()">
+        <mat-card-title>
+          Inward Trip
+          <mat-icon class="expand-icon">{{ inwardTripExpanded() ? 'expand_less' : 'expand_more' }}</mat-icon>
+        </mat-card-title>
       </mat-card-header>
-      <mat-card-content>
-        
-        <div formArrayName="additionalTrips">
-          @if (additionalTripsArray.length === 0) {
-            <p class="empty-state">No additional trips. Click "Add Trip" to create one.</p>
-          }
 
-          @for (trip of additionalTripsArray.controls; track trip; let i = $index) {
-            <div [formGroupName]="i" class="additional-trip-card">
-              <div class="trip-header">
-                <h3>Trip {{ i + 1 }}</h3>
-                <button mat-icon-button color="warn" (click)="removeTrip(i)" type="button" matTooltip="Delete this trip">
-                  <mat-icon>delete</mat-icon>
-                </button>
-              </div>
+      <!-- COLLAPSED SUMMARY: Shows Pilot + Boarding time -->
+      @if (!inwardTripExpanded()) {
+        <mat-card-content class="collapsed-summary">
+          <span class="summary-item">
+            <strong>Pilot:</strong> {{ form.get('inwardTrip.pilot')?.value || 'Unassigned' }}
+          </span>
+          <span class="summary-item">
+            <strong>Boarding:</strong> 
+            @if (form.get('inwardTrip.boarding')?.value) {
+              {{ form.get('inwardTrip.boarding')?.value | date:'dd/MM/yy HH:mm' }}
+            } @else {
+              Not set
+            }
+          </span>
+        </mat-card-content>
+      }
 
-              <div class="form-grid">
-                <mat-form-field appearance="outline">
-                  <mat-label>Trip Type</mat-label>
-                  <mat-select formControlName="typeTrip">
-                    @for (type of additionalTripTypes; track type) {
-                      <mat-option [value]="type">{{ type }}</mat-option>
-                    }
-                  </mat-select>
-                  @if (trip.get('typeTrip')?.hasError('required')) {
-                    <mat-error>
-                      Trip type is required
-                    </mat-error>
-                  }
-                </mat-form-field>
+      <!-- EXPANDED FORM: Full editing controls -->
+      @if (inwardTripExpanded()) {
+        <mat-card-content class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Pilot</mat-label>
+            <input 
+              matInput 
+              formControlName="pilot"
+              [matAutocomplete]="inwardPilotAuto"
+              (input)="onInwardPilotInput($any($event.target).value)">
+            <mat-autocomplete #inwardPilotAuto="matAutocomplete">
+              @for (pilot of filteredInwardPilots(); track pilot) {
+                <mat-option [value]="pilot === 'Unassigned' ? '' : pilot">
+                  {{ pilot }}
+                </mat-option>
+              }
+            </mat-autocomplete>
+            @if (form.get('inwardTrip.pilot')?.hasError('invalidPilot')) {
+              <mat-error>
+                Please select a valid pilot from the list
+              </mat-error>
+            }
+          </mat-form-field>
 
-                <mat-form-field appearance="outline">
-                  <mat-label>Pilot</mat-label>
-                  <input 
-                    matInput 
-                    formControlName="pilot"
-                    [matAutocomplete]="auto">
-                  <mat-autocomplete #auto="matAutocomplete">
-                    @for (pilot of pilotService.pilotNames(); track pilot) {
-                      <mat-option [value]="pilot">{{ pilot }}</mat-option>
-                    }
-                    <mat-option value="">Unassigned</mat-option>
-                  </mat-autocomplete>
-                  @if (trip.get('pilot')?.hasError('required')) {
-                    <mat-error>
-                      Pilot is required
-                    </mat-error>
-                  }
-                  @if (trip.get('pilot')?.hasError('invalidPilot')) {
-                    <mat-error>
-                      Please select a valid pilot
-                    </mat-error>
-                  }
-                </mat-form-field>
+          <app-date-time-picker formControlName="boarding" class="span-2"></app-date-time-picker>
 
-                <app-date-time-picker formControlName="boarding" class="span-2"></app-date-time-picker>
+          <mat-form-field appearance="outline">
+            <mat-label>Destination Port</mat-label>
+            <mat-select formControlName="port">
+              <mat-option *ngFor="let port of ports" [value]="port">
+                {{ port }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
 
-                <mat-form-field appearance="outline">
-                  <mat-label>Port</mat-label>
-                  <mat-select formControlName="port">
-                    @for (port of ports; track port) {
-                      <mat-option [value]="port">{{ port }}</mat-option>
-                    }
-                  </mat-select>
-                </mat-form-field>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Pilot Notes</mat-label>
+            <textarea matInput formControlName="pilotNotes" rows="2"></textarea>
+          </mat-form-field>
 
-                <mat-form-field appearance="outline" class="full-width">
-                  <mat-label>Pilot Notes</mat-label>
-                  <textarea matInput formControlName="pilotNotes" rows="2"></textarea>
-                </mat-form-field>
-              </div>
+          <!-- PILOT'S OWN INFO - Only visible to assigned pilot -->
+          @if (isCurrentUserInwardPilot()) {
+            <div class="pilot-own-section">
+            <h4 class="pilot-section-title">Pilot's Own Info</h4>
+            
+            <!-- Extra and Own Note - Full width, NOT in grid -->
+            <mat-form-field appearance="outline" class="pilot-textarea-field">
+              <mat-label>Extra</mat-label>
+              <textarea matInput formControlName="extraChargesNotes" rows="2"></textarea>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="pilot-textarea-field">
+              <mat-label>Own Note</mat-label>
+              <textarea matInput formControlName="ownNote" rows="2"></textarea>
+            </mat-form-field>
+
+            <!-- Pilot No, Month No, Good on one line -->
+            <div class="pilot-three-col-grid">
+              <mat-form-field appearance="outline">
+                <mat-label>Pilot No</mat-label>
+                <input matInput type="number" formControlName="pilotNo">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Month No</mat-label>
+                <input matInput type="number" formControlName="monthNo">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Good (1-6)</mat-label>
+                <input matInput type="number" formControlName="good" min="1" max="6">
+              </mat-form-field>
+            </div>
+
+            <!-- Car and Time Off on one line -->
+            <div class="pilot-two-col-grid">
+              <mat-form-field appearance="outline">
+                <mat-label>Car</mat-label>
+                <input matInput formControlName="car">
+              </mat-form-field>
+
+              <app-date-time-picker formControlName="timeOff" label="Time Off"></app-date-time-picker>
+            </div>
             </div>
           }
-        </div>
+        </mat-card-content>
+      }
+    </mat-card>
 
-        <!-- Tooltip wrapper needed because disabled buttons don't receive mouse events -->
-        <div 
-          class="add-trip-button-wrapper"
-          [matTooltip]="hasUnsavedAdditionalTrip ? 'Please save before adding another trip' : 'Add a new additional trip'">
+    <!-- OUTWARD TRIP - Collapsible -->
+    <mat-card class="section-card" [class.highlighted]="shouldHighlightOutwardTrip()" [class.expanded]="outwardTripExpanded()" formGroupName="outwardTrip">
+      <mat-card-header class="collapsible-header" (click)="toggleOutwardTrip()">
+        <mat-card-title>
+          Outward Trip
+          <mat-icon class="expand-icon">{{ outwardTripExpanded() ? 'expand_less' : 'expand_more' }}</mat-icon>
+        </mat-card-title>
+      </mat-card-header>
+
+      <!-- COLLAPSED SUMMARY: Shows Pilot + Boarding time -->
+      @if (!outwardTripExpanded()) {
+        <mat-card-content class="collapsed-summary">
+          <span class="summary-item">
+            <strong>Pilot:</strong> {{ form.get('outwardTrip.pilot')?.value || 'Unassigned' }}
+          </span>
+          <span class="summary-item">
+            <strong>Boarding:</strong> 
+            @if (form.get('outwardTrip.boarding')?.value) {
+              {{ form.get('outwardTrip.boarding')?.value | date:'dd/MM/yy HH:mm' }}
+            } @else {
+              Not set
+            }
+          </span>
+        </mat-card-content>
+      }
+
+      <!-- EXPANDED FORM: Full editing controls -->
+      @if (outwardTripExpanded()) {
+        <mat-card-content class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Pilot</mat-label>
+            <input 
+              matInput 
+              formControlName="pilot"
+              [matAutocomplete]="outwardPilotAuto"
+              (input)="onOutwardPilotInput($any($event.target).value)">
+            <mat-autocomplete #outwardPilotAuto="matAutocomplete">
+              @for (pilot of filteredOutwardPilots(); track pilot) {
+                <mat-option [value]="pilot === 'Unassigned' ? '' : pilot">
+                  {{ pilot }}
+                </mat-option>
+              }
+            </mat-autocomplete>
+            @if (form.get('outwardTrip.pilot')?.hasError('invalidPilot')) {
+              <mat-error>
+                Please select a valid pilot from the list
+              </mat-error>
+            }
+          </mat-form-field>
+
+          <app-date-time-picker formControlName="boarding" class="span-2"></app-date-time-picker>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Origin Port</mat-label>
+            <mat-select formControlName="port">
+              <mat-option *ngFor="let port of ports" [value]="port">
+                {{ port }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Pilot Notes</mat-label>
+            <textarea matInput formControlName="pilotNotes" rows="2"></textarea>
+          </mat-form-field>
+
+          <!-- PILOT'S OWN INFO - Only visible to assigned pilot -->
+          @if (isCurrentUserOutwardPilot()) {
+            <div class="pilot-own-section">
+            <h4 class="pilot-section-title">Pilot's Own Info</h4>
+            
+            <!-- Extra and Own Note - Full width, NOT in grid -->
+            <mat-form-field appearance="outline" class="pilot-textarea-field">
+              <mat-label>Extra</mat-label>
+              <textarea matInput formControlName="extraChargesNotes" rows="2"></textarea>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="pilot-textarea-field">
+              <mat-label>Own Note</mat-label>
+              <textarea matInput formControlName="ownNote" rows="2"></textarea>
+            </mat-form-field>
+
+            <!-- Pilot No, Month No, Good on one line -->
+            <div class="pilot-three-col-grid">
+              <mat-form-field appearance="outline">
+                <mat-label>Pilot No</mat-label>
+                <input matInput type="number" formControlName="pilotNo">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Month No</mat-label>
+                <input matInput type="number" formControlName="monthNo">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Good (1-6)</mat-label>
+                <input matInput type="number" formControlName="good" min="1" max="6">
+              </mat-form-field>
+            </div>
+
+            <!-- Car and Time Off on one line -->
+            <div class="pilot-two-col-grid">
+              <mat-form-field appearance="outline">
+                <mat-label>Car</mat-label>
+                <input matInput formControlName="car">
+              </mat-form-field>
+
+              <app-date-time-picker formControlName="timeOff" label="Time Off"></app-date-time-picker>
+            </div>
+            </div>
+          }
+        </mat-card-content>
+      }
+    </mat-card>
+
+    <!-- ADDITIONAL TRIPS - Collapsible -->
+    <mat-card class="section-card" [class.expanded]="additionalTripsExpanded()">
+      <mat-card-header class="collapsible-header" (click)="toggleAdditionalTrips()">
+        <mat-card-title>
+          Additional Trips
+          <mat-icon class="expand-icon">{{ additionalTripsExpanded() ? 'expand_less' : 'expand_more' }}</mat-icon>
+        </mat-card-title>
+      </mat-card-header>
+
+      <!-- COLLAPSED SUMMARY: Shows trip count + Add button -->
+      @if (!additionalTripsExpanded()) {
+        <mat-card-content class="collapsed-summary" (click)="$event.stopPropagation()">
+          <span class="summary-item">
+            <strong>Count:</strong> {{ additionalTripsArray.length }} trip{{ additionalTripsArray.length === 1 ? '' : 's' }}
+          </span>
           <button 
-            mat-raised-button 
+            mat-stroked-button 
             color="accent" 
-            (click)="addTrip()" 
-            type="button" 
-            class="add-trip-btn"
-            [disabled]="hasUnsavedAdditionalTrip">
+            (click)="addTrip(); toggleAdditionalTrips()" 
+            type="button"
+            class="inline-add-btn">
             <mat-icon>add</mat-icon>
             Add Trip
           </button>
-        </div>
+        </mat-card-content>
+      }
 
-      </mat-card-content>
+      <!-- EXPANDED: Full trip list and add button -->
+      @if (additionalTripsExpanded()) {
+        <mat-card-content>
+          
+          <div formArrayName="additionalTrips">
+            @if (additionalTripsArray.length === 0) {
+              <p class="empty-state">No additional trips. Click "Add Trip" to create one.</p>
+            }
+
+            @for (trip of additionalTripsArray.controls; track trip; let i = $index) {
+              <div [formGroupName]="i" class="additional-trip-card">
+                <div class="trip-header">
+                  <h3>Trip {{ i + 1 }}</h3>
+                  <button mat-icon-button color="warn" (click)="removeTrip(i)" type="button" matTooltip="Delete this trip">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
+
+                <div class="form-grid">
+                  <mat-form-field appearance="outline">
+                    <mat-label>Trip Type</mat-label>
+                    <mat-select formControlName="typeTrip">
+                      @for (type of additionalTripTypes; track type) {
+                        <mat-option [value]="type">{{ type }}</mat-option>
+                      }
+                    </mat-select>
+                    @if (trip.get('typeTrip')?.hasError('required')) {
+                      <mat-error>
+                        Trip type is required
+                      </mat-error>
+                    }
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Pilot</mat-label>
+                    <input 
+                      matInput 
+                      formControlName="pilot"
+                      [matAutocomplete]="auto">
+                    <mat-autocomplete #auto="matAutocomplete">
+                      @for (pilot of pilotService.pilotNames(); track pilot) {
+                        <mat-option [value]="pilot">{{ pilot }}</mat-option>
+                      }
+                      <mat-option value="">Unassigned</mat-option>
+                    </mat-autocomplete>
+                    @if (trip.get('pilot')?.hasError('required')) {
+                      <mat-error>
+                        Pilot is required
+                      </mat-error>
+                    }
+                    @if (trip.get('pilot')?.hasError('invalidPilot')) {
+                      <mat-error>
+                        Please select a valid pilot
+                      </mat-error>
+                    }
+                  </mat-form-field>
+
+                  <app-date-time-picker formControlName="boarding" class="span-2"></app-date-time-picker>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Port</mat-label>
+                    <mat-select formControlName="port">
+                      @for (port of ports; track port) {
+                        <mat-option [value]="port">{{ port }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>Pilot Notes</mat-label>
+                    <textarea matInput formControlName="pilotNotes" rows="2"></textarea>
+                  </mat-form-field>
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- Tooltip wrapper needed because disabled buttons don't receive mouse events -->
+          <div 
+            class="add-trip-button-wrapper"
+            [matTooltip]="hasUnsavedAdditionalTrip ? 'Please save before adding another trip' : 'Add a new additional trip'">
+            <button 
+              mat-raised-button 
+              color="accent" 
+              (click)="addTrip()" 
+              type="button" 
+              class="add-trip-btn"
+              [disabled]="hasUnsavedAdditionalTrip">
+              <mat-icon>add</mat-icon>
+              Add Trip
+            </button>
+          </div>
+
+        </mat-card-content>
+      }
     </mat-card>
     </form>
     <!-- TRIP HISTORY SECTION - Shows previous visits for this ship -->

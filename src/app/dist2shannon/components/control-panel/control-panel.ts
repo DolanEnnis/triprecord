@@ -8,6 +8,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog } from '@angular/material/dialog';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MaritimeCalculatorService } from '../../services/maritime-calculator.service';
 import { CalculationResult, ShipPosition, Waypoint } from '../../interfaces/waypoint';
 import { Observable } from 'rxjs';
@@ -29,16 +30,21 @@ import { HelpDialogComponent } from '../help-dialog/help-dialog.component';
     MatInputModule,
     MatButtonModule,
     MatIconModule,
-    MatTooltipModule
+    MatTooltipModule,
+    MatSnackBarModule
   ],
   templateUrl: './control-panel.html',
   styleUrl: './control-panel.scss'
 })
 export class ControlPanelComponent implements OnInit {
 
-  position: ShipPosition = {
+  // Default position values - used for both initialization and reset
+  private readonly defaultPosition: ShipPosition = {
     lat: 53, latmin: 0, long: 10, longmin: 0, speed: 10, delay_hrs: 0, delay_mns: 0
   };
+
+  // Current position - spread from defaults to create a new object
+  position: ShipPosition = { ...this.defaultPosition };
 
   calculation$: Observable<CalculationResult>;
   waypoints: Waypoint[];
@@ -51,7 +57,8 @@ export class ControlPanelComponent implements OnInit {
     private maritimeService: MaritimeCalculatorService,
     private distanceRepository: DistanceRepository,
     private authService: AuthService,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private snackBar: MatSnackBar
   ) {
     this.calculation$ = this.maritimeService.getCalculation();
     this.waypoints = this.maritimeService.getWaypoints();
@@ -72,6 +79,22 @@ export class ControlPanelComponent implements OnInit {
 
   onPositionChange() {
     this.maritimeService.updatePosition(this.position);
+  }
+
+  /**
+   * Resets all form fields to their default values.
+   * Called after successful save, or manually by user via Clear button.
+   */
+  resetForm(): void {
+    // Reset position to defaults (spread to create new object, not reference)
+    this.position = { ...this.defaultPosition };
+    
+    // Clear text inputs
+    this.shipName = '';
+    this.pastedCoordinates = '';
+    
+    // Notify the maritime service to recalculate with default position
+    this.onPositionChange();
   }
 
   onPasteCoordinates(event: ClipboardEvent) {
@@ -105,7 +128,8 @@ export class ControlPanelComponent implements OnInit {
 
   async saveCalculation() {
     if (!this.shipName) {
-      alert('Please enter a Ship Name');
+      // Show validation error using MatSnackBar - auto-dismisses after 5 seconds
+      this.snackBar.open('Please enter a Ship Name', 'Close', { duration: 5000 });
       return;
     }
 
@@ -127,11 +151,14 @@ export class ControlPanelComponent implements OnInit {
             user: currentUser ? currentUser.displayName : 'Unknown'
           });
           console.log('Calculation saved with ID:', docId);
-          alert('Calculation saved successfully!');
-          this.shipName = ''; // Reset ship name
+          // Show success message using MatSnackBar - auto-dismisses after 5 seconds
+          this.snackBar.open('Calculation saved successfully!', 'Close', { duration: 5000 });
+          // Reset all form fields for a fresh calculation
+          this.resetForm();
         } catch (error) {
           console.error('Error saving calculation:', error);
-          alert('Failed to save calculation. Check console for details.');
+          // Show error using MatSnackBar - 8 seconds since errors need more attention
+          this.snackBar.open('Failed to save calculation. Check console for details.', 'Close', { duration: 8000 });
         } finally {
           this.isSaving = false;
         }

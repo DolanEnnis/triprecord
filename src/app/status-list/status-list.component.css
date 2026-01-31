@@ -190,6 +190,7 @@ mat-header-cell {
     max-width: 100%;
     box-sizing: border-box;
     margin: 0;
+    overflow-x: hidden; /* Prevent horizontal scroll at page level */
   }
 
   /* Ensure section and filter containers are full width */
@@ -344,11 +345,10 @@ mat-header-cell {
   .status-container {
     padding: 4px;
     margin: 0;
-    width: 100vw;
-    max-width: 100vw;
-    /* Negative margin to counteract any parent padding */
-    margin-left: -4px;
-    margin-right: -4px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    /* Removed negative margins - they caused horizontal scroll */
   }
 
   mat-cell,

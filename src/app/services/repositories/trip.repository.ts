@@ -88,4 +88,51 @@ export class TripRepository {
       return collectionData(q, { idField: 'id' }) as Observable<Trip[]>;
     });
   }
+
+  /**
+   * Migrates all trips from one ship to another.
+   * Updates the denormalized shipId field on all trips.
+   * 
+   * LEARNING: WHY TRIPS HAVE DENORMALIZED shipId
+   * Trips have a shipId field to enable direct queries like:
+   * "Find all trips for ship X" without needing to join through visits.
+   * This field must be kept in sync when ships are merged.
+   * 
+   * @param oldShipId The ship ID to migrate trips FROM
+   * @param newShipId The ship ID to migrate trips TO
+   * @returns Number of trips migrated
+   */
+  async migrateTripsToShip(
+    oldShipId: string,
+    newShipId: string
+  ): Promise<number> {
+    const { writeBatch } = await import('@angular/fire/firestore');
+    
+    // Find all trips belonging to the old ship
+    const tripsCollection = collection(this.firestore, 'trips');
+    const tripsQuery = query(
+      tripsCollection,
+      where('shipId', '==', oldShipId)
+    );
+    
+    const snapshot = await getDocs(tripsQuery);
+    
+    if (snapshot.empty) {
+      return 0;
+    }
+    
+    // Use batched writes for atomicity
+    const batch = writeBatch(this.firestore);
+    
+    snapshot.docs.forEach(docSnapshot => {
+      const tripRef = doc(this.firestore, `trips/${docSnapshot.id}`);
+      batch.update(tripRef, {
+        shipId: newShipId
+      });
+    });
+    
+    await batch.commit();
+    
+    return snapshot.size;
+  }
 }

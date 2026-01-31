@@ -22,6 +22,7 @@ import { Router, RouterLink } from '@angular/router';
 // --- Custom Components ---
 import { DateTimePickerComponent } from '../date-time-picker/date-time-picker.component';
 import { ViewVisitDialogComponent } from './view-visit-dialog.component';
+import { DuplicateShipDialogComponent } from '../dialogs/duplicate-ship-dialog.component';
 
 import { Observable, of, tap } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, startWith } from 'rxjs/operators';
@@ -77,6 +78,18 @@ export class NewVisitComponent implements OnInit, IFormComponent {
   filteredShips$!: Observable<{ ship: string, gt: number, id: string }[]>;
   readonly minDate = new Date();
   previousVisits: WritableSignal<Visit[]> = signal([]);
+  
+  /**
+   * Tracks the current list of matching ships from autocomplete.
+   * Used to determine if we need to show the duplicate warning dialog.
+   */
+  currentFilteredShips: WritableSignal<{ ship: string; gt: number; id: string }[]> = signal([]);
+  
+  /**
+   * When true, forces creation of a new ship record on submit.
+   * Set by the duplicate ship warning dialog when user confirms they want a separate vessel.
+   */
+  forceNewShip: WritableSignal<boolean> = signal(false);
 
   constructor() {
     this.adapter.setLocale('en-GB');
@@ -102,6 +115,7 @@ export class NewVisitComponent implements OnInit, IFormComponent {
     });
 
     // Set up autocomplete observable FIRST (before patching values)
+    // Store filtered results in Signal for use by Create New Ship logic
     this.filteredShips$ = this.shipNameControl.valueChanges.pipe(
       startWith(''),
       tap(value => {
@@ -110,6 +124,8 @@ export class NewVisitComponent implements OnInit, IFormComponent {
             grossTonnage: null, imoNumber: null, marineTrafficLink: '', shipNotes: ''
           }, { emitEvent: false });
           this.previousVisits.set([]);
+          // Reset forceNewShip when user types a new name
+          this.forceNewShip.set(false);
         }
       }),
       debounceTime(300),
@@ -121,7 +137,9 @@ export class NewVisitComponent implements OnInit, IFormComponent {
         } else {
           return of([]);
         }
-      })
+      }),
+      // Store the filtered ships for the Create New Ship dialog
+      tap(ships => this.currentFilteredShips.set(ships))
     );
     
     // NOW check for router state and pre-fill (AFTER observable is set up)
@@ -182,8 +200,16 @@ export class NewVisitComponent implements OnInit, IFormComponent {
   }
 
   onShipSelected(event: MatAutocompleteSelectedEvent): void {
-    const selectedSuggestion: { id: string } = event.option.value;
+    const selectedSuggestion: { id: string; ship: string } = event.option.value;
 
+    // Check if user selected "Create New Ship" option
+    if (selectedSuggestion.id === 'NEW_SHIP') {
+      this.handleCreateNewShip(selectedSuggestion.ship);
+      return;
+    }
+
+    // Normal flow: load existing ship details
+    this.forceNewShip.set(false); // Reset flag when selecting existing ship
     this.shipRepository.getShipById(selectedSuggestion.id).subscribe({
       next: (fullShip) => {
         if (fullShip) {
@@ -195,6 +221,46 @@ export class NewVisitComponent implements OnInit, IFormComponent {
         this.snackBar.open('Could not load full ship details.', 'Close', { duration: 3000 });
       }
     });
+  }
+
+  /**
+   * Handles the "Create New Ship" option from the autocomplete dropdown.
+   * 
+   * LEARNING: DEFENSIVE UX PATTERN
+   * - If matching ships exist, we WARN the user before allowing creation
+   * - This prevents accidental duplicates while allowing intentional ones
+   * - The warning dialog shows existing matches so user can make an informed choice
+   */
+  private handleCreateNewShip(shipName: string): void {
+    const existingMatches = this.currentFilteredShips();
+
+    if (existingMatches.length > 0) {
+      // Show warning dialog - user might be creating a duplicate
+      const dialogRef = this.dialog.open(DuplicateShipDialogComponent, {
+        data: { existingShips: existingMatches },
+        width: '500px'
+      });
+
+      dialogRef.afterClosed().subscribe(confirmed => {
+        if (confirmed) {
+          // User confirmed they want a NEW ship record
+          this.forceNewShip.set(true);
+          // Set the ship name as a plain string in the form
+          this.shipNameControl.setValue(shipName, { emitEvent: false });
+          this.snackBar.open('A new ship will be created on submit.', 'OK', {
+            duration: 4000,
+            panelClass: ['info-snackbar']
+          });
+        } else {
+          // User cancelled - clear the selection so they can choose an existing ship
+          this.shipNameControl.setValue('', { emitEvent: false });
+        }
+      });
+    } else {
+      // No matches - just create a new ship normally (no warning needed)
+      this.shipNameControl.setValue(shipName, { emitEvent: false });
+      this.forceNewShip.set(false); // Normal flow will create the ship
+    }
   }
 
   onShipNameBlur(): void {
@@ -293,7 +359,8 @@ export class NewVisitComponent implements OnInit, IFormComponent {
         source: formValue.source,
       };
 
-      await this.visitWorkflowService.createNewVisit(newVisitData);
+      // Pass forceNewShip flag to create a separate ship record if user confirmed
+      await this.visitWorkflowService.createNewVisit(newVisitData, this.forceNewShip());
       
       // Mark form as submitted to prevent unsaved changes warning
       this.formSubmitted = true;

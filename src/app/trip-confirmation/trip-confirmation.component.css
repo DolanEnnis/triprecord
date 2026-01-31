@@ -31,7 +31,7 @@
 }
 
 /* Responsive adjustments for smaller screens */
-@media (max-width: 720px) {
+@media (max-width: 767px) {
   .controls-container {
     flex-direction: column;
     align-items: stretch; /* Make items take full width */

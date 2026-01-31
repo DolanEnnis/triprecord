@@ -70,9 +70,19 @@ h3:first-of-type {
 
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: 1fr; /* Single column by default (mobile) */
   gap: 1.25rem;
   margin-bottom: 2rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Desktop: Multi-column grid */
+@media (min-width: 768px) {
+  .form-grid {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  }
 }
 
 .form-section {
@@ -86,14 +96,24 @@ h3:first-of-type {
   grid-column: 1 / -1;
 }
 
-.grid-col-span-2 {
-  grid-column: span 2;
+/* grid-col-span-2: Only span 2 columns on desktop */
+@media (min-width: 768px) {
+  .grid-col-span-2 {
+    grid-column: span 2;
+  }
 }
 
 .notes-source-container {
   display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 1rem 1.5rem;
+  grid-template-columns: 1fr; /* Single column on mobile */
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .notes-source-container {
+    grid-template-columns: 2fr 1fr;
+    gap: 1rem 1.5rem;
+  }
 }
 
 .visits-section {
@@ -190,6 +210,24 @@ mat-form-field {
   cursor: pointer;
 }
 
+/* Create New Ship option styling - make it visually distinct */
+::ng-deep .mat-mdc-autocomplete-panel .mat-mdc-option.create-new-option {
+  border-top: 1px solid #e0e0e0;
+  margin-top: 8px;
+  padding-top: 12px;
+  color: #2e7d32;
+  background: #f1f8e9;
+}
+
+::ng-deep .mat-mdc-autocomplete-panel .mat-mdc-option.create-new-option:hover {
+  background: #c8e6c9;
+}
+
+::ng-deep .mat-mdc-autocomplete-panel .mat-mdc-option.create-new-option mat-icon {
+  margin-right: 8px;
+  color: #2e7d32;
+}
+
 /* --- Responsive Breakpoints --- */
 
 @media (min-width: 900px) {
@@ -207,7 +245,47 @@ mat-form-field {
   }
 }
 
-@media (max-width: 899px) {
+@media (max-width: 767px) {
+  .new-visit-container {
+    padding: 0;  /* Remove all container padding on mobile */
+    overflow-x: hidden;
+  }
+
+  .main-card {
+    overflow-x: hidden;
+    width: 100%;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* Full-bleed header on mobile - extends to screen edges */
+  mat-card-header {
+    margin: 0;  /* Reset all margins */
+    border-radius: 0;
+    padding: 1rem;
+  }
+
+  /* Add padding back to card content, not the container */
+  mat-card-content {
+    padding: 0 0.75rem;
+  }
+
+  /* Force all content to respect container width */
+  .content-flex-container,
+  .form-section,
+  .form-grid {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Prevent mat-form-field from exceeding container */
+  mat-form-field {
+    width: calc(100% - 1rem); /* Subtract padding to prevent overflow */
+    max-width: calc(100% - 1rem);
+    box-sizing: border-box;
+  }
+
   .visits-section {
     border-top: 1px solid #e0e0e0;
     padding-top: 2rem;
@@ -215,7 +293,7 @@ mat-form-field {
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 480px) {
   .new-visit-container {
     padding: 0.5rem;
   }

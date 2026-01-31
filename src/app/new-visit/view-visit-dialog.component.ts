@@ -449,8 +449,6 @@ export class ViewVisitDialogComponent implements OnInit {
           )
         }).subscribe({
           next: ({ visit, ship, trips }: { visit: Visit, ship: Ship | undefined, trips: Trip[] }) => {
-            console.log('[ViewVisitDialog] Data loaded. Trips count:', trips.length);
-            
             const inwardTrip = trips.find((t: Trip) => t.typeTrip === 'In');
             const outwardTrip = trips.find((t: Trip) => t.typeTrip === 'Out');
 

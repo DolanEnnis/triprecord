@@ -52,6 +52,9 @@
       <button mat-mini-fab class="gray-button" (click)="openHelp()" matTooltip="How to use this calculator">
         <mat-icon>help_outline</mat-icon>
       </button>
+      <button mat-mini-fab color="warn" (click)="resetForm()" matTooltip="Clear form and start fresh">
+        <mat-icon>refresh</mat-icon>
+      </button>
       <div [matTooltip]="saveTooltip">
         <button mat-mini-fab color="primary" (click)="saveCalculation()" [disabled]="isSaving || !shipName">
           <mat-icon>save</mat-icon>

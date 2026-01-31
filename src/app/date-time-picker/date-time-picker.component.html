@@ -1,5 +1,6 @@
 <div class="container" [formGroup]="form">
-  <div class="form-row">
+  <!-- Date on its own row for mobile clarity -->
+  <div class="date-row">
     <mat-form-field appearance="outline">
       <mat-label>Date</mat-label>
       <input matInput [matDatepicker]="picker" formControlName="date" (blur)="handleBlur()" required>
@@ -9,36 +10,48 @@
         <mat-error>Date is required</mat-error>
       }
     </mat-form-field>
+  </div>
 
+  <!-- Hour and Minute side-by-side (compact on mobile) -->
+  <div class="time-row">
     <mat-form-field appearance="outline" class="time-select">
       <mat-label>Hour</mat-label>
-      <input matInput type="text" formControlName="hour" [matAutocomplete]="hourAuto" maxlength="2" (blur)="handleBlur()" required>
-      <mat-autocomplete #hourAuto="matAutocomplete">
-        @for (hour of hours; track hour) {
-          <mat-option [value]="hour.value">{{ hour.label }}</mat-option>
-        }
-      </mat-autocomplete>
+      <!-- Using inputmode="numeric" for mobile numeric keyboard -->
+      <input matInput 
+             type="text" 
+             inputmode="numeric" 
+             pattern="[0-9]*"
+             formControlName="hour" 
+             maxlength="2" 
+             placeholder="00"
+             (blur)="handleBlur()" 
+             required>
       @if (form.get('hour')?.hasError('required') && form.get('hour')?.touched) {
-        <mat-error>Hour is required</mat-error>
+        <mat-error>Required</mat-error>
       }
       @if (form.get('hour')?.hasError('min') || form.get('hour')?.hasError('max')) {
-        <mat-error>Hour must be between 0 and 23</mat-error>
+        <mat-error>0-23</mat-error>
       }
     </mat-form-field>
 
+    <span class="time-separator">:</span>
+
     <mat-form-field appearance="outline" class="time-select">
       <mat-label>Minute</mat-label>
-      <input matInput type="text" formControlName="minute" [matAutocomplete]="minuteAuto" maxlength="2" (blur)="handleBlur()" required>
-      <mat-autocomplete #minuteAuto="matAutocomplete">
-        @for (minute of minutes; track minute) {
-          <mat-option [value]="minute.value">{{ minute.label }}</mat-option>
-        }
-      </mat-autocomplete>
+      <input matInput 
+             type="text" 
+             inputmode="numeric" 
+             pattern="[0-9]*"
+             formControlName="minute" 
+             maxlength="2" 
+             placeholder="00"
+             (blur)="handleBlur()" 
+             required>
       @if (form.get('minute')?.hasError('required') && form.get('minute')?.touched) {
-        <mat-error>Minute is required</mat-error>
+        <mat-error>Required</mat-error>
       }
       @if (form.get('minute')?.hasError('min') || form.get('minute')?.hasError('max')) {
-        <mat-error>Minute must be between 0 and 59</mat-error>
+        <mat-error>0-59</mat-error>
       }
     </mat-form-field>
   </div>

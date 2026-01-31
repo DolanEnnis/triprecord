@@ -31,6 +31,7 @@ import { ViewVisitDialogComponent } from '../new-visit/view-visit-dialog.compone
 import { IFormComponent } from '../guards/form-component.interface';
 import { AuthService } from '../auth/auth';
 import { Location } from '@angular/common';
+import { TimeAgoPipe } from '../shared/pipes/time-ago.pipe';
 
 /**
  * Custom validator to ensure the selected pilot is from the valid pilot list.
@@ -93,7 +94,8 @@ function pilotValidator(pilotService: PilotService, originalPilotName?: string |
     MatAutocompleteModule,
     MatTooltipModule,
     DateTimePickerComponent,
-    PreviousVisitsListComponent
+    PreviousVisitsListComponent,
+    TimeAgoPipe  // For displaying relative time in header
   ],
   templateUrl: './edit-trip.component.html',
   styleUrls: ['./edit-trip.component.css']
@@ -143,6 +145,22 @@ export class EditTripComponent implements OnInit, IFormComponent {
   // This follows the same pattern as ships.component.ts
   // EnrichedVisit includes both In and Out trip data already joined
   shipVisits = signal<EnrichedVisit[]>([]);
+  
+  // LEARNING: DISPLAY-ONLY METADATA
+  // These signals store read-only info about when/who last updated the visit.
+  // Unlike form fields, these are NOT editable - they're set by the system on save.
+  visitUpdatedAt = signal<Date | null>(null);
+  visitUpdatedBy = signal<string | null>(null);
+  visitSource = signal<string | null>(null);
+
+  // COLLAPSIBLE CARDS FEATURE
+  // Signals to track which sections are expanded/collapsed
+  // Auto-set based on ship status in loadData(), but user can toggle manually
+  shipDetailsExpanded = signal(false);   // Collapsed by default (for mobile, desktop CSS overrides)
+  visitStatusExpanded = signal(true);    // Expanded by default
+  inwardTripExpanded = signal(false);    // Collapsed by default
+  outwardTripExpanded = signal(false);   // Collapsed by default
+  additionalTripsExpanded = signal(false); // Collapsed by default
   
   // Enums/Options for template
   ports: Port[] = ['Anchorage', 'Cappa', 'Moneypoint', 'Tarbert', 'Foynes', 'Aughinish', 'Shannon', 'Limerick'];
@@ -419,6 +437,14 @@ export class EditTripComponent implements OnInit, IFormComponent {
           }
         });
         
+        // Capture update metadata for display in header (read-only info)
+        // These show the user when the visit was last updated and by whom
+        this.visitUpdatedAt.set(
+          visit.statusLastUpdated instanceof Timestamp ? visit.statusLastUpdated.toDate() : null
+        );
+        this.visitUpdatedBy.set(visit.updatedBy ?? null);
+        this.visitSource.set(visit.source ?? null);
+        
         // Capture initial ETA for trip age calculation
         const eta = visit.initialEta instanceof Timestamp ? visit.initialEta.toDate() : visit.initialEta;
         this.initialEta.set(eta);
@@ -519,22 +545,27 @@ export class EditTripComponent implements OnInit, IFormComponent {
         // This provides helpful context when editing (e.g., seeing the ship's typical berth/pilot)
         // Uses getEnrichedVisitsByShipId which returns EnrichedVisit[] with both In/Out trip data
         if (this.shipId) {
-          this.visitRepo.getEnrichedVisitsByShipId(this.shipId).pipe(
-            take(1),
-            takeUntilDestroyed(this.destroyRef)
-          ).subscribe({
-            next: (enrichedVisits) => {
+          // LEARNING: PROMISE-BASED FETCH FOR ONE-SHOT READS
+          // Previously we used collectionData().pipe(take(1)) which had a race condition:
+          // - collectionData() may emit empty BEFORE real data arrives (cache miss)
+          // - take(1) would complete with that empty array
+          // 
+          // The new getEnrichedVisitsByShipIdOnce() uses getDocs() which is Promise-based
+          // and WAITS for the actual Firestore response - no race condition possible.
+          this.visitRepo.getEnrichedVisitsByShipIdOnce(this.shipId)
+            .then(enrichedVisits => {
               this.shipVisits.set(enrichedVisits);
-            },
-            error: (err) => {
+            })
+            .catch(err => {
               console.error('Failed to load ship visit history:', err);
-              // Don't block the main form - history is supplementary
               this.shipVisits.set([]);
-            }
-          });
+            });
         }
 
         this.loading.set(false);
+        
+        // Initialize card expansion states based on ship status
+        this.initializeCardExpansion();
         
         // UX: Show notification to confirm which visit is loaded
         // This provides clear feedback when navigating between visits via trip history
@@ -888,8 +919,8 @@ export class EditTripComponent implements OnInit, IFormComponent {
    * they are in the visit workflow: ETA → ETB → ETS
    */
   shouldHighlightVisitStatus(): boolean {
-    // Always highlight visit status as it's the primary driver
-    return true;
+    const status = this.form.get('visit.currentStatus')?.value;
+    return status === 'Due';
   }
 
   /**
@@ -898,16 +929,72 @@ export class EditTripComponent implements OnInit, IFormComponent {
    */
   shouldHighlightInwardTrip(): boolean {
     const status = this.form.get('visit.currentStatus')?.value;
-    return status === 'Due' || status === 'Awaiting Berth';
+    return status === 'Awaiting Berth';
   }
 
   /**
    * Determines if the Outward Trip card should be highlighted.
    * Highlighted when ship is "Alongside" (ETB passed, waiting for ETS).
+   * NOT highlighted for "Sailed" - complete visits need no visual guidance.
    */
   shouldHighlightOutwardTrip(): boolean {
     const status = this.form.get('visit.currentStatus')?.value;
-    return status === 'Alongside' || status === 'Sailed';
+    return status === 'Alongside';
+  }
+
+  // COLLAPSIBLE CARDS: Toggle methods for manual expand/collapse
+  toggleShipDetails(): void {
+    this.shipDetailsExpanded.update(v => !v);
+  }
+
+  toggleVisitStatus(): void {
+    this.visitStatusExpanded.update(v => !v);
+  }
+
+  toggleInwardTrip(): void {
+    this.inwardTripExpanded.update(v => !v);
+  }
+
+  toggleOutwardTrip(): void {
+    this.outwardTripExpanded.update(v => !v);
+  }
+
+  toggleAdditionalTrips(): void {
+    this.additionalTripsExpanded.update(v => !v);
+  }
+
+  /**
+   * Initializes card expansion state based on ship status.
+   * Called after loading data to set appropriate defaults.
+   * 
+   * Logic:
+   * - Due: Visit Status expanded, others collapsed
+   * - Awaiting Berth: Inward Trip expanded, others collapsed
+   * - Alongside: Outward Trip expanded, others collapsed
+   * - Sailed: ALL sections expanded
+   */
+  private initializeCardExpansion(): void {
+    const status = this.form.get('visit.currentStatus')?.value;
+    
+    if (status === 'Sailed') {
+      // Sailed ships: expand all sections for review
+      this.visitStatusExpanded.set(true);
+      this.inwardTripExpanded.set(true);
+      this.outwardTripExpanded.set(true);
+    } else if (status === 'Alongside') {
+      this.visitStatusExpanded.set(false);
+      this.inwardTripExpanded.set(false);
+      this.outwardTripExpanded.set(true);
+    } else if (status === 'Awaiting Berth') {
+      this.visitStatusExpanded.set(false);
+      this.inwardTripExpanded.set(true);
+      this.outwardTripExpanded.set(false);
+    } else {
+      // Due or any other status: focus on Visit Status
+      this.visitStatusExpanded.set(true);
+      this.inwardTripExpanded.set(false);
+      this.outwardTripExpanded.set(false);
+    }
   }
 
   /**
