@@ -55,8 +55,6 @@ export class DataService {
 
     // 1. Create the immutable financial record in the /charges collection.
     // This is the source of truth for billing.
-    // TODO: Re-enable writing to /charges once the old app is decommissioned or the data flow is finalized.
-    // This is the source of truth for billing on the old system.
     await this.chargeRepository.addCharge(chargeData);
 
     // 2. Update the operational trip record with the final details and mark as confirmed.
@@ -93,10 +91,8 @@ export class DataService {
     const tripId = await this.visitWorkflowService.createVisitAndTripFromCharge(chargeData, shipId);
 
     // 3. Create the financial record in the /charges collection.
-    // TODO: Re-enable writing to /charges once the old app is decommissioned or the data flow is finalized.
-    // This is the source of truth for billing on the old system.
-    // NOTE: When re-enabling, ensure `chargeData.boarding` is converted to a Timestamp if the repository requires it.
-    // await this.chargeRepository.addCharge(chargeData);
+    // This is the source of truth for billing.
+    await this.chargeRepository.addCharge(chargeData);
 
     return tripId;
   }
