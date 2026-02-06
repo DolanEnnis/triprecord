@@ -21,6 +21,7 @@ import { ShipIntelligenceService } from '../services/integrations/ship-intellige
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ShipIntelligenceDialogComponent } from '../dialogs/ship-intelligence-dialog.component';
 import { OldTripWarningDialogComponent } from '../dialogs/old-trip-warning-dialog.component';
+import { ConfirmDialogComponent } from '../dialogs/confirm-dialog.component';
 import { Trip, Visit, Ship, Port, VisitStatus, TripType, Source, EnrichedVisit } from '../models';
 import { combineLatest, filter, map, switchMap, of, forkJoin, catchError, tap, take, Observable } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -95,7 +96,8 @@ function pilotValidator(pilotService: PilotService, originalPilotName?: string |
     MatTooltipModule,
     DateTimePickerComponent,
     PreviousVisitsListComponent,
-    TimeAgoPipe  // For displaying relative time in header
+    TimeAgoPipe,  // For displaying relative time in header
+    ConfirmDialogComponent
   ],
   templateUrl: './edit-trip.component.html',
   styleUrls: ['./edit-trip.component.css']
@@ -124,6 +126,9 @@ export class EditTripComponent implements OnInit, IFormComponent {
   // allowing us to save trips with retired pilots without validation errors
   originalInwardPilot = signal<string | null>(null);
   originalOutwardPilot = signal<string | null>(null);
+
+  // Track original ship details to warn about historical data updates
+  originalShipDetails = signal<{ name: string; gt: number } | null>(null);
   
   // Trip age calculation for old trip warning
   initialEta = signal<Date | null>(null);
@@ -186,6 +191,13 @@ export class EditTripComponent implements OnInit, IFormComponent {
 
   // Additional trip types available for selection
   additionalTripTypes: TripType[] = ['Anchorage', 'Shift', 'BerthToBerth', 'Other'];
+
+  // Track if user is admin for UI permission logic
+  isAdmin = signal(false);
+
+  // Signals to track confirmation state for UI feedback
+  inwardTripConfirmed = signal(false);
+  outwardTripConfirmed = signal(false);
 
   // Autocomplete filtering
   // These Signals hold the current input value to filter the pilot list
@@ -415,7 +427,15 @@ export class EditTripComponent implements OnInit, IFormComponent {
         const { visit, ship, trips } = data;
         
         // Populate Form
+        const isAdmin = this.authService.currentUserSig()?.userType === 'admin';
+        this.isAdmin.set(isAdmin);
+
         if (ship) {
+          this.originalShipDetails.set({
+            name: ship.shipName,
+            gt: ship.grossTonnage
+          });
+
           this.form.patchValue({
             ship: {
               shipName: ship.shipName,
@@ -480,6 +500,18 @@ export class EditTripComponent implements OnInit, IFormComponent {
           inwardPilotControl?.clearValidators();
           inwardPilotControl?.setValidators(pilotValidator(this.pilotService, inTrip.pilot));
           inwardPilotControl?.updateValueAndValidity();
+
+          // LOCK IF CONFIRMED (Step 8: Granular Locking)
+          // Only lock billing-critical fields. Allow Notes editing.
+          if (inTrip.isConfirmed) {
+            this.inwardTripConfirmed.set(true);
+            if (!isAdmin) {
+              this.form.get('inwardTrip.pilot')?.disable();
+              this.form.get('inwardTrip.boarding')?.disable();
+              this.form.get('inwardTrip.port')?.disable();
+              this.form.get('inwardTrip.extraChargesNotes')?.disable();
+            }
+          }
         } else {
           // No inward trip yet - set default port to berth
           this.form.patchValue({
@@ -516,6 +548,17 @@ export class EditTripComponent implements OnInit, IFormComponent {
           outwardPilotControl?.clearValidators();
           outwardPilotControl?.setValidators(pilotValidator(this.pilotService, outTrip.pilot));
           outwardPilotControl?.updateValueAndValidity();
+
+          // LOCK IF CONFIRMED (Step 8: Granular Locking)
+          if (outTrip.isConfirmed) {
+            this.outwardTripConfirmed.set(true);
+            if (!isAdmin) {
+              this.form.get('outwardTrip.pilot')?.disable();
+              this.form.get('outwardTrip.boarding')?.disable();
+              this.form.get('outwardTrip.port')?.disable();
+              this.form.get('outwardTrip.extraChargesNotes')?.disable();
+            }
+          }
         } else {
           // No outward trip yet - set default port to berth
           this.form.patchValue({
@@ -536,7 +579,21 @@ export class EditTripComponent implements OnInit, IFormComponent {
 
         // Add each additional trip to the FormArray
         additionalTrips.forEach((trip: Trip) => {
-          this.additionalTripsArray.push(this.createTripFormGroup(trip));
+          const tripGroup = this.createTripFormGroup(trip);
+          
+          // LOCK IF CONFIRMED (Step 8: Granular Locking)
+          if (trip.isConfirmed) {
+            // We need a way to track confirmation for individual additional trips
+            // For now, we'll just rely on the UI visual disable state as the array is dynamic
+             if (!isAdmin) {
+               tripGroup.get('typeTrip')?.disable();
+               tripGroup.get('pilot')?.disable();
+               tripGroup.get('boarding')?.disable();
+               tripGroup.get('port')?.disable();
+             }
+          }
+
+          this.additionalTripsArray.push(tripGroup);
           this.additionalTripIds.push(trip.id || null);
         });
 
@@ -629,6 +686,31 @@ export class EditTripComponent implements OnInit, IFormComponent {
       // User clicked "Edit Anyway" - remember this so we don't show again
       this.userAcknowledgedOldTrip.set(true);
     }
+
+    // FEATURE: Ship Details Change Warning
+    // Warn if Ship Name or GT has changed, as this affects historical billing/visits
+    const currentShipName = this.form.get('ship.shipName')?.value;
+    const currentGt = this.form.get('ship.grossTonnage')?.value;
+    const original = this.originalShipDetails();
+
+    if (original && (currentShipName !== original.name || currentGt !== original.gt)) {
+      const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+        width: '500px',
+        disableClose: true,
+        data: {
+          title: 'Confirm Ship Details Change',
+          message: '⚠ Warning: You are changing the ship\'s Name or Gross Tonnage.\n\nThis will automatically update all visits and trips for this ship from the past 60 days to match the new details.\n\nThis ensures invoices are correct, but changes historical records. Are you sure?',
+          confirmText: 'Update All',
+          cancelText: 'Cancel',
+          isDestructive: true
+        }
+      });
+
+      const confirmed = await dialogRef.afterClosed().toPromise();
+      if (!confirmed) {
+        return;
+      }
+    }
     
     // If form is invalid, mark all fields as touched to show validation errors
     if (this.form.invalid) {
@@ -652,7 +734,11 @@ export class EditTripComponent implements OnInit, IFormComponent {
 
     this.saving.set(true);
 
-    const formVal = this.form.value;
+    // Use getRawValue() to include disabled fields (Step 8)
+    // verification: Firestore rules prevent changing disabled fields anyway
+    const formVal = this.form.getRawValue();
+    const updatedBy = this.authService.currentUserSig()?.displayName || 'Unknown';
+    const now = Timestamp.now();
 
     try {
       // 1. Update Ship
@@ -675,18 +761,15 @@ export class EditTripComponent implements OnInit, IFormComponent {
           berthPort: formVal.visit.berthPort ?? null,
           visitNotes: formVal.visit.visitNotes ?? null,
           source: formVal.visit.source ?? 'Other', // Default to 'Other' if undefined
-          updatedBy: this.authService.currentUserSig()?.displayName || 'Unknown'
+          updatedBy: updatedBy,
+          statusLastUpdated: now
         });
       }
 
       // 3. Update or Create Trips
       // Inward Trip: Update if exists, CREATE if doesn't exist
       if (this.inwardTripId) {
-        // Update existing inward trip
-        // LEARNING: PROPER TYPING WITHOUT 'as any'
-        // - We create properly typed update payload that matches Partial<Trip>
-        // - TypeScript validates that all fields are compatible
-        // - No type assertions needed when types are correct!
+        // Update existing inward trip (Always update - Firestore rules filter allowed fields)
         const inwardTripUpdate: Partial<Trip> = {
           pilot: formVal.inwardTrip.pilot ?? '',
           boarding: formVal.inwardTrip.boarding ? Timestamp.fromDate(formVal.inwardTrip.boarding) : null,
@@ -698,15 +781,13 @@ export class EditTripComponent implements OnInit, IFormComponent {
           monthNo: formVal.inwardTrip.monthNo ?? null,
           car: formVal.inwardTrip.car ?? null,
           timeOff: formVal.inwardTrip.timeOff ? Timestamp.fromDate(formVal.inwardTrip.timeOff) : null,
-          good: formVal.inwardTrip.good ?? null
+          good: formVal.inwardTrip.good ?? null,
+          lastModifiedBy: updatedBy,
+          lastModifiedAt: now
         };
         await this.tripRepo.updateTrip(this.inwardTripId, inwardTripUpdate);
-      } else if (formVal.inwardTrip.pilot || formVal.inwardTrip.boarding) {
+      } else if (formVal.inwardTrip?.pilot || formVal.inwardTrip?.boarding) {
         // Create new inward trip if user has entered data but trip doesn't exist
-        // LEARNING: USING Omit<Trip, 'id'> FOR NEW DOCUMENTS
-        // - Firestore auto-generates the 'id' field, so we omit it when creating
-        // - All other required fields must be present
-        // - TypeScript ensures we don't forget any required fields!
         const newInwardTrip: Omit<Trip, 'id'> = {
           visitId: this.visitId!,
           shipId: this.shipId!,
@@ -731,7 +812,6 @@ export class EditTripComponent implements OnInit, IFormComponent {
       }
 
       // Outward Trip: Update if exists, CREATE if doesn't exist
-      // CRITICAL FIX: Previously only updated, never created
       if (this.outwardTripId) {
         // Update existing outward trip
         const outwardTripUpdate: Partial<Trip> = {
@@ -745,12 +825,13 @@ export class EditTripComponent implements OnInit, IFormComponent {
           monthNo: formVal.outwardTrip.monthNo ?? null,
           car: formVal.outwardTrip.car ?? null,
           timeOff: formVal.outwardTrip.timeOff ? Timestamp.fromDate(formVal.outwardTrip.timeOff) : null,
-          good: formVal.outwardTrip.good ?? null
+          good: formVal.outwardTrip.good ?? null,
+          lastModifiedBy: updatedBy,
+          lastModifiedAt: now
         };
         await this.tripRepo.updateTrip(this.outwardTripId, outwardTripUpdate);
-      } else if (formVal.outwardTrip.pilot || formVal.outwardTrip.boarding) {
+      } else if (formVal.outwardTrip?.pilot || formVal.outwardTrip?.boarding) {
         // Create new outward trip if user has entered data but trip doesn't exist
-        // This handles cases where the visit was created without an outward trip
         const newOutwardTrip: Omit<Trip, 'id'> = {
           visitId: this.visitId!,
           shipId: this.shipId!,
@@ -783,21 +864,17 @@ export class EditTripComponent implements OnInit, IFormComponent {
       this.deletedTripIds = [];
 
       // 5. Handle Additional Trips (Update or Create)
-      // LEARNING: AVOIDING 'as any' WITH PROPER TYPING
-      // - We know the form structure, so we can type it properly
-      // - Each additional trip has the same fields as defined in createTripFormGroup()
-      // - Using explicit types catches errors at compile time!
-      const additionalTripsData = formVal.additionalTrips as Array<{
-        typeTrip: TripType;
-        pilot: string;
-        boarding: Date | null;
-        port: Port | null;
-        pilotNotes: string;
-      }>;
+      // MIGRATION FIX: Iterate FormArray Controls to safely handle disabled groups
+      // using keys from this.additionalTripIds is safe because indices match FormArray
       
-      for (let i = 0; i < additionalTripsData.length; i++) {
-        const tripData = additionalTripsData[i];
-        const tripId = this.additionalTripIds[i];
+      const tripControls = this.additionalTripsArray.controls;
+      
+      for (let i = 0; i < tripControls.length; i++) {
+        const tripGroup = tripControls[i];
+        const tripId = this.additionalTripIds[i]; // aligned by index
+        
+        // Use getRawValue() for form groups within FormArray too
+        const tripData = tripGroup.getRawValue(); 
 
         if (tripId) {
           // Update existing trip
@@ -806,7 +883,9 @@ export class EditTripComponent implements OnInit, IFormComponent {
             pilot: tripData.pilot ?? '',
             boarding: tripData.boarding ? Timestamp.fromDate(tripData.boarding) : null,
             port: tripData.port ?? null,
-            pilotNotes: tripData.pilotNotes ?? ''
+            pilotNotes: tripData.pilotNotes ?? '',
+            lastModifiedBy: updatedBy,
+            lastModifiedAt: now
           };
           await this.tripRepo.updateTrip(tripId, updatePayload);
         } else {
@@ -830,9 +909,11 @@ export class EditTripComponent implements OnInit, IFormComponent {
             timeOff: null,
             good: null
           };
+          
           await this.tripRepo.addTrip(newTrip);
         }
       }
+
 
       // Mark form as submitted to prevent unsaved changes warning
       this.formSubmitted = true;

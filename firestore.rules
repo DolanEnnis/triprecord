@@ -48,10 +48,8 @@ service cloud.firestore {
     // ========================================
     
     match /users/{userId} {
-      // Allow users with write permissions to query for pilots
-      // This is needed for pilot dropdowns on /edit pages
-      // Viewers are excluded as they don't edit trips
-      allow list: if canWrite() && request.query.limit != null;
+      // Allow all authenticated users to query for pilots (needed for filters/dropdowns)
+      allow list: if isSignedIn() && request.query.limit != null;
       
       // List all users (for admin user management page)
       allow list: if isAdmin();
@@ -127,8 +125,22 @@ service cloud.firestore {
       // All authenticated users can read trips
       allow read: if isSignedIn();
       
-      // SFPC, Pilots, and Admins can create and update trips
-      allow create, update: if canWrite();
+      // SFPC, Pilots, and Admins can create new trips
+      allow create: if canWrite();
+      
+      // PROTECT BILLING DATA:
+      // 1. Admins can update any trip at any time.
+      // 2. Pilots/SFPC can only update trips that are NOT yet confirmed.
+      // 3. EXCEPTION: Pilots/SFPC CAN update "Notes" and "Audit" fields on confirmed trips.
+      allow update: if isAdmin() || 
+                      (canWrite() && (
+                        resource.data.isConfirmed != true || 
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                          'pilotNotes', 'ownNote', 
+                          'car', 'good', 'timeOff', 'pilotNo', 'monthNo',
+                          'lastModifiedAt', 'lastModifiedBy'
+                        ])
+                      ));
       
       // Only admins can delete trips
       allow delete: if isAdmin();

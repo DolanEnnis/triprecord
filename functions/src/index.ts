@@ -723,3 +723,8 @@ export const checkShannonNight = onSchedule({
   await runFlagCheck();
 });
 
+
+export { bridgeChargesToTrips } from "./bridgeChargesToTrips";
+export { gapFillCharges } from "./gapFillCharges";
+export { onShipUpdated } from "./syncShipDetails";
+

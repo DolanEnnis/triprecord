@@ -23,6 +23,7 @@ import { ShipRepository } from '../services/repositories/ship.repository';
 import { ShipMergeService, MergeShipData } from '../services/workflows/ship-merge.service';
 import { MergeShipsDialogComponent, MergeShipsDialogData } from '../dialogs/merge-ships-dialog.component';
 import { Ship } from '../models';
+import { CloudFunctionsService } from '../services/core/cloud-functions.service';
 
 /**
  * Represents a group of duplicate ships.
@@ -69,6 +70,7 @@ export class AdminComponent implements OnInit, AfterViewInit {
   private readonly systemSettings = inject(SystemSettingsRepository);
   private readonly shipRepository = inject(ShipRepository);
   private readonly shipMergeService = inject(ShipMergeService);
+  private readonly cloudFunctions = inject(CloudFunctionsService); // Injection
 
   // Using Signals for reactive state management
   users = toSignal(this.userRepository.getAllUsers(), { initialValue: [] });
@@ -78,6 +80,9 @@ export class AdminComponent implements OnInit, AfterViewInit {
   duplicateGroups = signal<DuplicateGroup[]>([]);
   isLoadingDuplicates = signal(false);
   hasCheckedDuplicates = signal(false);
+  
+  // Sync state
+  isSyncingCharges = signal(false);
 
   displayedColumns: string[] = ['displayName', 'email', 'lastLoginTrip', 'lastSheetView', 'userType', 'actions'];
   dataSource = new MatTableDataSource<UserInterface>();
@@ -297,5 +302,30 @@ export class AdminComponent implements OnInit, AfterViewInit {
       this.isLoadingDuplicates.set(false);
     }
   }
+
+  /**
+   * Manual trigger for Gap Fill (Legacy Data Sync).
+   */
+  syncLegacyCharges(): void {
+    this.isSyncingCharges.set(true);
+    this.cloudFunctions.runGapFill().subscribe({
+      next: (result: any) => {
+        const data = result.data || result; // Handle callable result wrapper
+        this.snackBar.open(
+          `Sync Complete: Processed ${data.processed}, Created ${data.tripsCreated}, Updated ${data.tripsUpdated}`, 
+          'Close', 
+          { duration: 5000 }
+        );
+        this.isSyncingCharges.set(false);
+      },
+      error: (err) => {
+        console.error('Sync failed:', err);
+        this.snackBar.open(`Sync Failed: ${err.message}`, 'Close');
+        this.isSyncingCharges.set(false);
+      }
+    });
+  }
 }
+
+
 

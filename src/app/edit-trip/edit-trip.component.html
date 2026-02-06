@@ -218,6 +218,17 @@
       <!-- EXPANDED FORM: Full editing controls -->
       @if (inwardTripExpanded()) {
         <mat-card-content class="form-grid">
+          <!-- CONFIRMED TRIP WARNING -->
+          @if (inwardTripConfirmed() && !isAdmin()) {
+             <div class="old-trip-warning" style="background-color: #f5f5f5; border-left-color: #757575; margin-bottom: 16px;">
+               <mat-icon>lock</mat-icon>
+               <div class="warning-content">
+                 <strong>Trip Confirmed</strong>
+                 <p>Billing details are locked. You can only edit notes.</p>
+               </div>
+             </div>
+          }
+
           <mat-form-field appearance="outline">
             <mat-label>Pilot</mat-label>
             <input 
@@ -333,6 +344,17 @@
       <!-- EXPANDED FORM: Full editing controls -->
       @if (outwardTripExpanded()) {
         <mat-card-content class="form-grid">
+          <!-- CONFIRMED TRIP WARNING -->
+          @if (outwardTripConfirmed() && !isAdmin()) {
+             <div class="old-trip-warning" style="background-color: #f5f5f5; border-left-color: #757575; margin-bottom: 16px;">
+               <mat-icon>lock</mat-icon>
+               <div class="warning-content">
+                 <strong>Trip Confirmed</strong>
+                 <p>Billing details are locked. You can only edit notes.</p>
+               </div>
+             </div>
+          }
+
           <mat-form-field appearance="outline">
             <mat-label>Pilot</mat-label>
             <input 

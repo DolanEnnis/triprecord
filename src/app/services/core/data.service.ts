@@ -39,36 +39,43 @@ export class DataService {
   }
 
   /**
-   * Confirms an operational trip, creates the corresponding financial charge record,
-   * and updates the parent visit's status.
+   * Confirms an operational trip and updates the trip record with billing details.
+   * 
+   * MIGRATION UPDATE (Step 4):
+   * - No longer creates a duplicate record in /charges.
+   * - Writes all billing data (shipName, gt, confirmedBy, etc.) directly to /trips.
+   * - Sets isConfirmed = true.
    */
   async confirmTripAndCreateCharge(
     chargeData: Omit<Charge, 'updateTime' | 'createdBy' | 'createdById'>,
     tripId: string,
     visitId: string // Visit ID is required to update parent status
   ): Promise<void> {
-    const updatedBy = this.authService.currentUserSig()?.displayName || 'Unknown';
+    const user = this.authService.currentUserSig();
+    const updatedBy = user?.displayName || 'Unknown';
+    const updatedById = user?.uid || 'Unknown';
+    const confirmedAt = Timestamp.now();
 
-    // The `chargeData` from the form has `boarding` as a JS Date. It must be
-    // converted to a Firestore Timestamp for the Trip update, but the Charge
-    // repository expects the original Date object.
-
-    // 1. Create the immutable financial record in the /charges collection.
-    // This is the source of truth for billing.
-    await this.chargeRepository.addCharge(chargeData);
-
-    // 2. Update the operational trip record with the final details and mark as confirmed.
-    // The Trip repository requires a Firestore Timestamp.
+    // 1. Update the operational trip record with the final details MARK AS CONFIRMED.
+    // We now include all billing fields (shipName, gt) directly on the trip.
     const tripUpdatePayload = {
       ...chargeData,
-      boarding: Timestamp.fromDate(chargeData.boarding), // Convert Date to Timestamp here
+      boarding: Timestamp.fromDate(chargeData.boarding), // Convert Date to Timestamp
+      
+      // Billing Fields (Denormalized)
+      shipName: chargeData.ship,
+      gt: chargeData.gt,
+      
+      // Confirmation Metadata
       isConfirmed: true,
+      confirmedBy: updatedBy,
+      confirmedById: updatedById,
+      confirmedAt: confirmedAt,
     };
+    
     await this.tripRepository.updateTrip(tripId, tripUpdatePayload);
 
-    // 3. CRITICAL: Only update the visit status if the trip is an 'Out' trip.
-    // This sets the final state of the visit and avoids incorrectly downgrading
-    // the status from 'Sailed' if an 'In' trip is confirmed out of order.
+    // 2. CRITICAL: Only update the visit status if the trip is an 'Out' trip.
     if (chargeData.typeTrip === 'Out') {
       await this.visitRepository.updateVisitStatus(
         visitId,
@@ -79,7 +86,7 @@ export class DataService {
   }
 
   /**
-   * Creates a new standalone charge. (Retained, no change)
+   * Creates a new standalone confirmed trip.
    */
   async createStandaloneCharge(
     chargeData: Omit<Charge, 'updateTime' | 'createdBy' | 'createdById'>
@@ -88,11 +95,8 @@ export class DataService {
     const shipId = await this.shipRepository.ensureShipDetails(chargeData.ship, chargeData.gt);
 
     // 2. Use the workflow service to create the underlying Visit and confirmed Trip.
+    // This creates the trip with isConfirmed=true and full billing details.
     const tripId = await this.visitWorkflowService.createVisitAndTripFromCharge(chargeData, shipId);
-
-    // 3. Create the financial record in the /charges collection.
-    // This is the source of truth for billing.
-    await this.chargeRepository.addCharge(chargeData);
 
     return tripId;
   }

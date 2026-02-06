@@ -115,7 +115,7 @@ export class VisitWorkflowService {
         currentStatus: chargeData.typeTrip === 'Out' ? 'Sailed' : 'Alongside',
         initialEta: boardingTimestamp,
         berthPort: chargeData.port,
-        visitNotes: `Trip confirmed directly by pilot: ${chargeData.pilot}`,
+        visitNotes: `Trip manually created by pilot: ${chargeData.pilot}`,
         source: 'Pilot',  // This visit was created from a pilot's direct confirmation
         statusLastUpdated: now,
         updatedBy: recordedBy,
@@ -131,7 +131,17 @@ export class VisitWorkflowService {
         port: chargeData.port,
         pilotNotes: chargeData.sailingNote || '',
         extraChargesNotes: chargeData.extra || '',
-        isConfirmed: true,
+        
+        // Billing Fields
+        shipName: chargeData.ship,
+        gt: chargeData.gt, 
+        
+        // Confirmation Metadata
+        isConfirmed: false,
+        confirmedBy: undefined,
+        confirmedById: undefined,
+        confirmedAt: undefined,
+        
         recordedBy: recordedBy,
         recordedAt: now,
         ownNote: null,

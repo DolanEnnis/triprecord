@@ -24,130 +24,159 @@ import { VisitRepository } from '../repositories/visit.repository';
 @Injectable({
   providedIn: 'root',
 })
+@Injectable({
+  providedIn: 'root',
+})
 export class UnifiedTripLogService {
-  private readonly chargeRepository: ChargeRepository = inject(ChargeRepository);
+  // MIGRATION UPDATE: Removed ChargeRepository dependency.
   private readonly tripRepository: TripRepository = inject(TripRepository);
   private readonly visitRepository: VisitRepository = inject(VisitRepository);
   private readonly injector = inject(Injector);
 
-  // 🛑 REMOVED: getRecentTrips() - Only for old model access
-  // 🛑 REMOVED: getUnifiedTripLog() - Only for old model access (Replaced by the new logic below)
-
   /**
-   * Fetches the unified log of confirmed charges (from /charges) and actionable unconfirmed trips (from /trips).
-   * This is the canonical method for the new normalized data structure.
+   * Fetches the unified log of confirmed trips and actionable unconfirmed trips.
+   * 
+   * MIGRATION UPDATE (Step 5):
+   * - Reads solely from /trips.
+   * - Confirmed trips (isConfirmed=true) are treated as "Charges" and use their internal billing fields.
+   * - Unconfirmed trips (isConfirmed=false) are joined with /visits to get ship metadata.
    */
   getUnifiedTripLog(): Observable<UnifiedTrip[]> {
     return runInInjectionContext(this.injector, () => {
-      const recentCharges$ = this.chargeRepository.getRecentCharges();
+      // 1. Fetch recent trips (last 3 months)
       const threeMonthsAgo = new Date();
       threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
       const threeMonthsAgoTimestamp = Timestamp.fromDate(threeMonthsAgo);
-
-      // 1. Fetch all Trips from the new 'trips' collection
       const trips$ = this.tripRepository.getRecentTrips(threeMonthsAgoTimestamp);
 
-      // 2. Perform the 'join' to fetch parent visit details (shipName/GT)
-      const tripsWithVisits$ = trips$.pipe(
+      // 2. Perform the 'join' to fetch parent visit details for UNCONFIRMED trips
+      // (Confirmed trips already have shipName/gt denormalized)
+      return trips$.pipe(
         switchMap(trips => {
-          if (trips.length === 0) return of({ trips: [], visitsMap: new Map<string, NewVisit>() });
+          if (trips.length === 0) return of([]);
 
-          // Deduplicate visit IDs for lookup
-          const visitIds = [...new Set(trips.map(trip => trip.visitId))];
+          // Filter out IDs for visits we need to fetch:
+          // We only strictly NEED visits for unconfirmed trips to get shipName.
+          // However, fetching them for all trips is safer for consistency if mixed content exists.
+          const visitIds = [...new Set(
+            trips
+              .map(trip => trip.visitId)
+              .filter((id): id is string => id !== undefined)
+          )];
 
-          // Fetch all unique Visit documents (by their Document ID = visitId field from trip)
+          // Fetch all unique Visit documents
           const visitObservables = visitIds.map(id =>
             this.visitRepository.getVisitById(id).pipe(map(visit => ({ id, visit })))
           );
 
-          return forkJoin(visitObservables).pipe(
-            map((visitResults: { id: string; visit: NewVisit | undefined }[]) => {
-              // The visit objects from the repository don't have their own ID.
-              // We must create a map where the value is the visit object *with* its ID attached.
-              const visitsMap = new Map<string, NewVisit>();
-              visitResults.forEach(result => {
-                if (result.visit) {
-                  visitsMap.set(result.id, { ...result.visit, id: result.id });
-                }
-              });
-              return { trips: trips as NewTrip[], visitsMap };
-            })
-          );
-        })
-      );
+          // If no visits to fetch (all standalone trips?), just return trips with empty map
+          const visits$ = visitIds.length > 0 
+            ? forkJoin(visitObservables).pipe(
+                map(results => {
+                  const map = new Map<string, NewVisit>();
+                  results.forEach(r => {
+                    if (r.visit) map.set(r.id, { ...r.visit, id: r.id });
+                  });
+                  return map;
+                })
+              )
+            : of(new Map<string, NewVisit>());
 
-      // 3. Combine Charges, Trips, and VisitsMap and process
-      return combineLatest([recentCharges$, tripsWithVisits$]).pipe(
-        map(([charges, { trips, visitsMap }]) => {
-          // A. Process Charges (Confirmed items are authoritative)
-          const chargesAsUnified: UnifiedTrip[] = charges.map(charge => ({
-            id: charge.id,
-            ship: charge.ship,
-            gt: charge.gt,
-            boarding: charge.boarding,
-            port: charge.port,
-            pilot: charge.pilot,
-            typeTrip: charge.typeTrip,
-            sailingNote: charge.sailingNote,
-            extra: charge.extra,
-            source: 'Charge' as const,
-            updatedBy: charge.createdBy || 'N/A',
-            updateTime: charge.updateTime,
-            isActionable: false,
-          }));
+          return combineLatest([of(trips), visits$]);
+        }),
+        map(([trips, visitsMap]) => {
+          const unifiedTrips: UnifiedTrip[] = [];
 
-          // B. Add only UNCONFIRMED trips from the /trips collection
-          const tripsAsUnified: UnifiedTrip[] = [];
           for (const trip of trips) {
-            const visit = visitsMap.get(trip.visitId);
-            const today = new Date();
+            const visit = trip.visitId ? visitsMap.get(trip.visitId) : undefined;
+            // Robust date conversion
+            const tripDate = this.toSafeDate(trip.boarding) || new Date();
 
-            // Only process trips that are NOT confirmed, have a boarding time, and are in the past
-            if (visit && trip.id && !trip.isConfirmed && trip.boarding && trip.boarding.toDate() <= today) {
-              const event = this.createChargeableEvent(visit, trip);
-
-              // If shipName is missing on the visit, fall back to the visitId for debugging.
-              // This is better than 'Unknown Ship' as it provides a reference to the corrupt data.
-              const shipName = visit.shipName || `[VisitID: ${visit.id}]`;
-              const grossTonnage = visit.grossTonnage || 0;
-              // We must cast here. When reading from Firestore, a serverTimestamp is always returned as a Timestamp.
-              // TypeScript only knows the model's union type (Timestamp | FieldValue), so we assert our knowledge.
-              const recordedAt = trip.recordedAt ? (trip.recordedAt as Timestamp).toDate() : new Date();
-
-              tripsAsUnified.push({
-                id: trip.id, // The trip document ID
+            if (trip.isConfirmed) {
+              // ===========================================
+              // CONFIRMED TRIP (Equivalent to old 'Charge')
+              // ===========================================
+              const shipName = trip.shipName || visit?.shipName || 'Unknown Ship';
+              const gt = trip.gt || visit?.grossTonnage || 0;
+              
+              unifiedTrips.push({
+                id: trip.id!,
                 ship: shipName,
-                gt: grossTonnage,
-                boarding: trip.boarding.toDate(),
-                // Use explicit trip ports, fallback to visit berth
-                port: trip.port || visit.berthPort || null,
-                pilot: trip.pilot,
+                gt: gt,
+                boarding: tripDate,
+                port: trip.port || null,
+                pilot: trip.pilot || 'Unknown',
                 typeTrip: trip.typeTrip,
-                extra: trip.extraChargesNotes || '',
                 sailingNote: trip.pilotNotes || '',
-                source: 'Visit' as const,
-                updatedBy: trip.recordedBy,
-                updateTime: recordedAt,
-                isActionable: true,
-                chargeableEvent: event
+                extra: trip.extraChargesNotes || '',
+                source: 'Charge',
+                updatedBy: trip.lastModifiedBy || trip.confirmedBy || trip.recordedBy || 'System',
+                updateTime: this.toSafeDate(trip.lastModifiedAt) || this.toSafeDate(trip.confirmedAt) || tripDate,
+                isActionable: false,
               });
+
+            } else {
+              // ===========================================
+              // UNCONFIRMED TRIP (Actionable)
+              // ===========================================
+              const today = new Date();
+              if (tripDate <= today) {
+                const shipName = visit?.shipName || (trip.visitId ? `[Visit: ${trip.visitId}]` : 'Unknown Ship (Standalone)');
+                const gt = visit?.grossTonnage || 0;
+
+                const event = this.createChargeableEvent(visit, trip, shipName, gt);
+
+                unifiedTrips.push({
+                  id: trip.id!,
+                  ship: shipName,
+                  gt: gt,
+                  boarding: tripDate,
+                  port: trip.port || visit?.berthPort || null,
+                  pilot: trip.pilot || '',
+                  typeTrip: trip.typeTrip,
+                  sailingNote: trip.pilotNotes || '',
+                  extra: trip.extraChargesNotes || '',
+                  source: 'Visit',
+                  updatedBy: trip.lastModifiedBy || trip.recordedBy || 'System',
+                  updateTime: this.toSafeDate(trip.lastModifiedAt) || this.toSafeDate(trip.recordedAt, tripDate),
+                  isActionable: true,
+                  chargeableEvent: event
+                });
+              }
             }
           }
 
-          // C. Combine and sort.
-          const combined = [...chargesAsUnified, ...tripsAsUnified];
-          return combined.sort((a, b) => b.boarding.getTime() - a.boarding.getTime());
+          // Sort by date descending
+          return unifiedTrips.sort((a, b) => b.boarding.getTime() - a.boarding.getTime());
         })
       );
     });
   }
 
-  // 🛑 REMOVED: v2GetUnifiedTripLog() - Merged logic into getUnifiedTripLog()
+  /**
+   * Helper to safely convert Firestore timestamps or Dates to JS Date.
+   * Handles Timestamp, Date, string, or returns fallback.
+   */
+  private toSafeDate(val: any, fallback: Date = new Date()): Date {
+    if (!val) return fallback;
+    if (val instanceof Timestamp) return val.toDate();
+    if (val instanceof Date) return val;
+    // Handle duck-typing for Timestamp objects that lost prototype
+    if (typeof val === 'object' && typeof val.seconds === 'number' && typeof val.toDate === 'function') {
+      return val.toDate();
+    }
+    return fallback;
+  }
 
   /**
    * Helper function to create a ChargeableEvent from the NEW Visit and Trip models.
    */
-  private createChargeableEvent(visit: NewVisit, trip: NewTrip): ChargeableEvent {
+  private createChargeableEvent(
+    visit: NewVisit | undefined, 
+    trip: NewTrip, 
+    shipName: string, 
+    gt: number
+  ): ChargeableEvent {
     let tripDirection: 'inward' | 'outward' | 'other' = 'other';
     if (trip.typeTrip === 'In') {
       tripDirection = 'inward';
@@ -155,26 +184,21 @@ export class UnifiedTripLogService {
       tripDirection = 'outward';
     }
 
-    // 🛑 CRITICAL FIX: Ensure robust field access from the Visit document
-    const shipName = visit.shipName || 'Unknown Ship';
-    const grossTonnage = visit.grossTonnage || 0;
-
-    // boarding should not be null here since we check in the caller, but add safety check
-    const boardingDate = trip.boarding ? trip.boarding.toDate() : new Date();
+    const boardingDate = this.toSafeDate(trip.boarding) || new Date();
 
     return {
       tripId: trip.id!,
-      visitId: visit.id!, // New Visit document ID
+      visitId: visit?.id || trip.visitId!, 
       ship: shipName,
-      gt: grossTonnage,
+      gt: gt,
       boarding: boardingDate,
-      port: trip.port || visit.berthPort || null,
+      port: trip.port || visit?.berthPort || null,
       pilot: trip.pilot || 'Unknown Pilot',
       typeTrip: trip.typeTrip as TripType,
       sailingNote: trip.pilotNotes || '',
       extra: trip.extraChargesNotes || '',
       tripDirection: tripDirection,
-      isConfirmed: trip.isConfirmed,
+      isConfirmed: false,
     };
   }
 }
