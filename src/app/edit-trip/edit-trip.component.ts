@@ -130,6 +130,9 @@ export class EditTripComponent implements OnInit, IFormComponent {
   // Track original ship details to warn about historical data updates
   originalShipDetails = signal<{ name: string; gt: number } | null>(null);
   
+  // Track original berth port to sync changes to trips
+  originalBerthPort = signal<string | null>(null);
+  
   // Trip age calculation for old trip warning
   initialEta = signal<Date | null>(null);
   tripAgeDays = computed(() => {
@@ -465,6 +468,9 @@ export class EditTripComponent implements OnInit, IFormComponent {
         this.visitUpdatedBy.set(visit.updatedBy ?? null);
         this.visitSource.set(visit.source ?? null);
         
+        // Capture original berth port for sync logic
+        this.originalBerthPort.set(visit.berthPort || null);
+        
         // Capture initial ETA for trip age calculation
         const eta = visit.initialEta instanceof Timestamp ? visit.initialEta.toDate() : visit.initialEta;
         this.initialEta.set(eta);
@@ -755,7 +761,13 @@ export class EditTripComponent implements OnInit, IFormComponent {
 
       // 2. Update Visit
       if (this.visitId) {
+        // CRITICAL FIX: Explicitly update ship details on the visit to ensure
+        // immediate consistency in the Status List (don't wait for Cloud Function)
         await this.visitRepo.updateVisit(this.visitId, {
+          shipName: formVal.ship.shipName,
+          grossTonnage: formVal.ship.grossTonnage,
+          shipName_lowercase: formVal.ship.shipName.toLowerCase(), // Required for search
+          
           currentStatus: formVal.visit.currentStatus,
           initialEta: Timestamp.fromDate(formVal.visit.initialEta),
           berthPort: formVal.visit.berthPort ?? null,
@@ -766,14 +778,27 @@ export class EditTripComponent implements OnInit, IFormComponent {
         });
       }
 
+      // Feature: Port Sync
+      // If Berth Port changed, automatically update Trip Ports if they matched the old berth
+      const currentBerthPort = formVal.visit.berthPort;
+      const originalBerth = this.originalBerthPort();
+      const berthChanged = currentBerthPort !== originalBerth;
+
       // 3. Update or Create Trips
       // Inward Trip: Update if exists, CREATE if doesn't exist
       if (this.inwardTripId) {
+        
+        let inwardPortToSave = formVal.inwardTrip.port;
+        // Auto-sync logic: If berth changed, and trip port matches OLD berth (or is empty), update it
+        if (berthChanged && (!inwardPortToSave || inwardPortToSave === originalBerth)) {
+             inwardPortToSave = currentBerthPort;
+        }
+
         // Update existing inward trip (Always update - Firestore rules filter allowed fields)
         const inwardTripUpdate: Partial<Trip> = {
           pilot: formVal.inwardTrip.pilot ?? '',
           boarding: formVal.inwardTrip.boarding ? Timestamp.fromDate(formVal.inwardTrip.boarding) : null,
-          port: formVal.inwardTrip.port ?? null,
+          port: inwardPortToSave ?? null,
           pilotNotes: formVal.inwardTrip.pilotNotes ?? '',
           extraChargesNotes: formVal.inwardTrip.extraChargesNotes ?? '',
           ownNote: formVal.inwardTrip.ownNote ?? null,
@@ -787,6 +812,10 @@ export class EditTripComponent implements OnInit, IFormComponent {
         };
         await this.tripRepo.updateTrip(this.inwardTripId, inwardTripUpdate);
       } else if (formVal.inwardTrip?.pilot || formVal.inwardTrip?.boarding) {
+        
+        // For new trips, default to current berth port if not specified
+        const portToSave = formVal.inwardTrip.port || currentBerthPort || null;
+
         // Create new inward trip if user has entered data but trip doesn't exist
         const newInwardTrip: Omit<Trip, 'id'> = {
           visitId: this.visitId!,
@@ -794,7 +823,7 @@ export class EditTripComponent implements OnInit, IFormComponent {
           typeTrip: 'In',
           pilot: formVal.inwardTrip.pilot ?? '',
           boarding: formVal.inwardTrip.boarding ? Timestamp.fromDate(formVal.inwardTrip.boarding) : null,
-          port: formVal.inwardTrip.port ?? null,
+          port: portToSave,
           pilotNotes: formVal.inwardTrip.pilotNotes ?? '',
           extraChargesNotes: '',
           isConfirmed: false,
@@ -813,11 +842,18 @@ export class EditTripComponent implements OnInit, IFormComponent {
 
       // Outward Trip: Update if exists, CREATE if doesn't exist
       if (this.outwardTripId) {
+        
+        let outwardPortToSave = formVal.outwardTrip.port;
+        // Auto-sync logic: If berth changed, and trip port matches OLD berth (or is empty), update it
+        if (berthChanged && (!outwardPortToSave || outwardPortToSave === originalBerth)) {
+             outwardPortToSave = currentBerthPort;
+        }
+
         // Update existing outward trip
         const outwardTripUpdate: Partial<Trip> = {
           pilot: formVal.outwardTrip.pilot ?? '',
           boarding: formVal.outwardTrip.boarding ? Timestamp.fromDate(formVal.outwardTrip.boarding) : null,
-          port: formVal.outwardTrip.port ?? null,
+          port: outwardPortToSave ?? null,
           pilotNotes: formVal.outwardTrip.pilotNotes ?? '',
           extraChargesNotes: formVal.outwardTrip.extraChargesNotes ?? '',
           ownNote: formVal.outwardTrip.ownNote ?? null,
@@ -831,6 +867,10 @@ export class EditTripComponent implements OnInit, IFormComponent {
         };
         await this.tripRepo.updateTrip(this.outwardTripId, outwardTripUpdate);
       } else if (formVal.outwardTrip?.pilot || formVal.outwardTrip?.boarding) {
+        
+        // For new trips, default to current berth port if not specified
+        const portToSave = formVal.outwardTrip.port || currentBerthPort || null;
+
         // Create new outward trip if user has entered data but trip doesn't exist
         const newOutwardTrip: Omit<Trip, 'id'> = {
           visitId: this.visitId!,
@@ -838,7 +878,7 @@ export class EditTripComponent implements OnInit, IFormComponent {
           typeTrip: 'Out',
           pilot: formVal.outwardTrip.pilot ?? '',
           boarding: formVal.outwardTrip.boarding ? Timestamp.fromDate(formVal.outwardTrip.boarding) : null,
-          port: formVal.outwardTrip.port ?? null,
+          port: portToSave,
           pilotNotes: formVal.outwardTrip.pilotNotes ?? '',
           extraChargesNotes: '',
           isConfirmed: false,

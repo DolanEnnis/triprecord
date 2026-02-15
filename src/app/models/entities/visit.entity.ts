@@ -49,6 +49,9 @@ export interface Visit {
   /** Denormalized gross tonnage for display/filtering */
   grossTonnage: number;
 
+  /** Lowercase ship name for case-insensitive search */
+  shipName_lowercase?: string;
+
   /** Current state of the visit in the lifecycle */
   currentStatus: VisitStatus;
   

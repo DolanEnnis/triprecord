@@ -1,6 +1,6 @@
 import { inject, Injectable, Injector, runInInjectionContext } from '@angular/core';
 import { Firestore, query, Timestamp } from '@angular/fire/firestore';
-import { combineLatest, forkJoin,  map, Observable, of, switchMap } from 'rxjs';
+import { combineLatest, forkJoin,  map, Observable, of, switchMap, firstValueFrom } from 'rxjs';
 import { 
   Charge, 
   ChargeableEvent, 
@@ -47,7 +47,17 @@ export class UnifiedTripLogService {
       const threeMonthsAgo = new Date();
       threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
       const threeMonthsAgoTimestamp = Timestamp.fromDate(threeMonthsAgo);
-      const trips$ = this.tripRepository.getRecentTrips(threeMonthsAgoTimestamp);
+      const trips$ = combineLatest([
+        this.tripRepository.getRecentTrips(threeMonthsAgoTimestamp),
+        this.tripRepository.getPendingTrips()
+      ]).pipe(
+        map(([recent, pending]) => {
+          // Merge and deduplicate (though they should be mutually exclusive by definition)
+          // Recent: boarding >= date
+          // Pending: boarding == null
+          return [...recent, ...pending];
+        })
+      );
 
       // 2. Perform the 'join' to fetch parent visit details for UNCONFIRMED trips
       // (Confirmed trips already have shipName/gt denormalized)
@@ -55,9 +65,8 @@ export class UnifiedTripLogService {
         switchMap(trips => {
           if (trips.length === 0) return of([]);
 
-          // Filter out IDs for visits we need to fetch:
-          // We only strictly NEED visits for unconfirmed trips to get shipName.
-          // However, fetching them for all trips is safer for consistency if mixed content exists.
+          // Reverting optimization for safety: Fetch visits for ALL trips to ensure no data is missed.
+          // We can re-introduce the filter later once data is consistent.
           const visitIds = [...new Set(
             trips
               .map(trip => trip.visitId)
@@ -104,6 +113,7 @@ export class UnifiedTripLogService {
                 ship: shipName,
                 gt: gt,
                 boarding: tripDate,
+                isPending: !trip.boarding, // Flag if original boarding date was null
                 port: trip.port || null,
                 pilot: trip.pilot || 'Unknown',
                 typeTrip: trip.typeTrip,
@@ -131,6 +141,7 @@ export class UnifiedTripLogService {
                   ship: shipName,
                   gt: gt,
                   boarding: tripDate,
+                  isPending: !trip.boarding, // Flag if original boarding date was null
                   port: trip.port || visit?.berthPort || null,
                   pilot: trip.pilot || '',
                   typeTrip: trip.typeTrip,
@@ -146,8 +157,13 @@ export class UnifiedTripLogService {
             }
           }
 
-          // Sort by date descending
-          return unifiedTrips.sort((a, b) => b.boarding.getTime() - a.boarding.getTime());
+          // Sort by date descending, BUT put Pending items (no boarding date yet) at the bottom.
+          // Note: Pending items have tripDate = Today (fallback), so usually they would be at top.
+          return unifiedTrips.sort((a, b) => {
+            if (a.isPending && !b.isPending) return 1; // A is pending -> A goes bottom
+            if (!a.isPending && b.isPending) return -1; // B is pending -> B goes bottom
+            return b.boarding.getTime() - a.boarding.getTime();
+          });
         })
       );
     });
@@ -200,5 +216,46 @@ export class UnifiedTripLogService {
       tripDirection: tripDirection,
       isConfirmed: false,
     };
+  }
+
+  /**
+   * One-time repair utility to fix recent trips that are missing shipName/gt.
+   * This denormalizes the data so the new optimization works for everything.
+   */
+  async repairRecentTrips(): Promise<number> {
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    const threeMonthsAgoTimestamp = Timestamp.fromDate(threeMonthsAgo);
+    
+    // 1. Get recent trips
+    const trips = await firstValueFrom(this.tripRepository.getRecentTrips(threeMonthsAgoTimestamp));
+    
+    // 2. Filter for those missing data
+    const brokenTrips = trips.filter(t => !t.isConfirmed && (!t.shipName || !t.gt) && t.visitId);
+    
+    if (brokenTrips.length === 0) return 0;
+    
+    console.log(`Found ${brokenTrips.length} trips to repair.`);
+    
+    // 3. Update them one by one
+    let repairedCount = 0;
+    const uniqueVisitIds = [...new Set(brokenTrips.map(t => t.visitId!))];
+    
+    for (const visitId of uniqueVisitIds) {
+      const visit = await firstValueFrom(this.visitRepository.getVisitById(visitId));
+      if (visit) {
+        const tripsForVisit = brokenTrips.filter(t => t.visitId === visitId);
+        
+        for (const trip of tripsForVisit) {
+            await this.tripRepository.updateTrip(trip.id!, {
+                shipName: visit.shipName,
+                gt: visit.grossTonnage
+            });
+            repairedCount++;
+        }
+      }
+    }
+    
+    return repairedCount;
   }
 }

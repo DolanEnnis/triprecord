@@ -131,4 +131,10 @@ export interface UnifiedTrip {
    * Only populated when `isActionable === true`.
    */
   chargeableEvent?: ChargeableEvent;
+
+  /**
+   * True if the original boarding date was missing (indicating a pending/active trip).
+   * Used for sorting pending trips to the bottom of the list.
+   */
+  isPending?: boolean;
 }

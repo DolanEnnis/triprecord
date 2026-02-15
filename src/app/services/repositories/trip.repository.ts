@@ -81,6 +81,20 @@ export class TripRepository {
     return collectionData(recentTripsQuery, { idField: 'id' }) as Observable<Trip[]>;
   }
 
+  /**
+   * Fetches trips that have no boarding date set (meaning they are pending/active).
+   * Note: This query assumes 'boarding' field exists but is null. 
+   * Firestore queries for '== null' work for literal null values.
+   */
+  getPendingTrips(): Observable<Trip[]> {
+    const tripsCollection = collection(this.firestore, 'trips');
+    // We want active trips that haven't happened yet (boarding is null).
+    // We also likely want to limit this to ensure we don't get ancient zombie records,
+    // but for now, getting all null-boarding trips is the safe bet for "Active work".
+    const pendingQuery = query(tripsCollection, where('boarding', '==', null));
+    return collectionData(pendingQuery, { idField: 'id' }) as Observable<Trip[]>;
+  }
+
   getTripsByVisitId(visitId: string): Observable<Trip[]> {
     return runInInjectionContext(this.injector, () => {
       const tripsCollection = collection(this.firestore, 'trips');
@@ -133,6 +147,75 @@ export class TripRepository {
     
     await batch.commit();
     
+    await batch.commit();
+    
     return snapshot.size;
   }
+
+  /**
+   * Updates ship details (shipName, gt) for all UNCONFIRMED trips associated with a ship.
+   * 
+   * CRITICAL DATA INTEGRITY LOGIC:
+   * 1. Fetches ALL trips for the ship (both confirmed and unconfirmed).
+   * 2. UPDATES 'isConfirmed: false' trips to match the new master ship details (Sync).
+   * 3. SKIPS 'isConfirmed: true' trips to preserve historical billing accuracy (Snapshot).
+   * 
+   * @returns Object with counts for user feedback:
+   *  - updatedCount: Number of unconfirmed trips updated.
+   *  - skippedConfirmedCount: Number of confirmed trips that retained old data.
+   */
+  async updateShipDetailsForAllTrips(
+    shipId: string,
+    newShipName: string,
+    newGt: number
+  ): Promise<{ updatedCount: number; skippedConfirmedCount: number }> {
+    const { writeBatch } = await import('@angular/fire/firestore');
+    
+    const tripsCollection = collection(this.firestore, 'trips');
+    const tripsQuery = query(
+      tripsCollection,
+      where('shipId', '==', shipId)
+    );
+    
+    const snapshot = await getDocs(tripsQuery);
+    
+    if (snapshot.empty) {
+      return { updatedCount: 0, skippedConfirmedCount: 0 };
+    }
+    
+    const batch = writeBatch(this.firestore);
+    let updatedCount = 0;
+    let skippedConfirmedCount = 0;
+    
+    snapshot.docs.forEach(docSnapshot => {
+      const trip = docSnapshot.data() as Trip;
+      
+      // Check if data is actually different to avoid unnecessary writes/counts
+      // Normalize comparison to avoid mismatch types (string vs number logic handled by type)
+      const isNameDifferent = trip.shipName !== newShipName;
+      const isGtDifferent = trip.gt !== newGt;
+      
+      if (isNameDifferent || isGtDifferent) {
+        if (trip.isConfirmed) {
+          // HISTORICAL PROTECTION: Confirmed trips are snapshots and SHOULD NOT change.
+          skippedConfirmedCount++;
+        } else {
+          // ACTIVE SYNC: Unconfirmed trips should reflect the master record.
+          const tripRef = doc(this.firestore, `trips/${docSnapshot.id}`);
+          batch.update(tripRef, {
+            shipName: newShipName,
+            gt: newGt
+          });
+          updatedCount++;
+        }
+      }
+    });
+    
+    if (updatedCount > 0) {
+      await batch.commit();
+    }
+    
+    return { updatedCount, skippedConfirmedCount };
+  }
+
 }

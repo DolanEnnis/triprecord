@@ -92,7 +92,7 @@ export class DataService {
     chargeData: Omit<Charge, 'updateTime' | 'createdBy' | 'createdById'>
   ): Promise<string> {
     // 1. Ensure the ship exists in the master /ships collection and get its ID.
-    const shipId = await this.shipRepository.ensureShipDetails(chargeData.ship, chargeData.gt);
+    const { id: shipId } = await this.shipRepository.ensureShipDetails(chargeData.ship, chargeData.gt);
 
     // 2. Use the workflow service to create the underlying Visit and confirmed Trip.
     // This creates the trip with isConfirmed=true and full billing details.
@@ -136,9 +136,13 @@ export class DataService {
    * @param shipName The name of the ship.
    * @param grossTonnage The Gross Tonnage of the ship.
    */
-  async ensureShipDetails(shipName: string, grossTonnage: number): Promise<string> {
+  async ensureShipDetails(shipName: string, grossTonnage: number): Promise<{ id: string; syncResult: { updatedCount: number; skippedConfirmedCount: number } }> {
     // This simply calls the repository method.
     return this.shipRepository.ensureShipDetails(shipName, grossTonnage);
+  }
+
+  async repairRecentTrips(): Promise<number> {
+    return this.unifiedTripLogService.repairRecentTrips();
   }
 
   // 🛑 REMOVED: private createChargeableEvent() - Only for old model compatibility

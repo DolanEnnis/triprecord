@@ -1,4 +1,5 @@
 import { inject, Injectable, Injector, runInInjectionContext } from '@angular/core';
+import { TripRepository } from './trip.repository';
 import {
   addDoc,
   collection,
@@ -13,6 +14,7 @@ import {
   serverTimestamp,
   updateDoc,
   where,
+  deleteDoc,
 } from '@angular/fire/firestore';
 import { from, map, Observable, of } from 'rxjs';
 import { Ship, NewVisitData } from '../../models';
@@ -28,6 +30,7 @@ import { Ship, NewVisitData } from '../../models';
 export class ShipRepository {
   private readonly firestore: Firestore = inject(Firestore);
   private readonly injector: Injector = inject(Injector);
+  private readonly tripRepository: TripRepository = inject(TripRepository);
 
   /**
    * Finds an existing Ship document by name or creates a new one.
@@ -64,6 +67,13 @@ export class ShipRepository {
       };
 
       await updateDoc(shipDocRef, updateData);
+
+      // TRIGGER SYNC: Update all unconfirmed trips to match the new ship details
+      // We don't wait for this/return stats here as findOrCreateShip is used in workflows 
+      // where we prioritize flow speed and haven't built the UI for skipped-conflicts yet.
+      // But we DO want the data validity.
+      await this.tripRepository.updateShipDetailsForAllTrips(shipDoc.id, data.shipName, data.grossTonnage);
+
       return shipDoc.id;
     } else {
       // 3. Not found: Create a brand new Ship document
@@ -84,21 +94,55 @@ export class ShipRepository {
   }
 
   /**
-   * Forces creation of a new Ship document, even if one with the same name exists.
-   * 
-   * LEARNING: WHEN TO USE THIS
-   * - Different vessels can share the same name (e.g., "ATLANTIC TRADER")
-   * - When user explicitly confirms they want a SEPARATE ship record
-   * - The dialog warns the user before calling this method
-   * 
+   * Updates an existing Ship document and syncs changes to unconfirmed trips.
+   * @param shipId The ID of the ship to update.
+   * @param data The new ship data.
+   * @returns Stats about how many trips were updated/skipped.
+   */
+  async updateShip(shipId: string, data: Partial<Ship>): Promise<{ updatedCount: number; skippedConfirmedCount: number }> {
+    const shipDocRef = doc(this.firestore, `ships/${shipId}`);
+    
+    // 1. Update the master Ship record
+    const updates: any = { ...data };
+    
+    // Maintain the lowercase helper field if name changes
+    if (data.shipName) {
+      updates.shipName_lowercase = data.shipName.toLowerCase();
+      updates.updatedAt = serverTimestamp();
+    } else {
+      updates.updatedAt = serverTimestamp();
+    }
+    
+    await updateDoc(shipDocRef, updates);
+
+    // 2. Trigger Data Consistency Sync if Name or GT changed
+    // (We need to ensure we run consistency check if either name or GT is modified)
+    if (data.shipName || data.grossTonnage !== undefined) {
+      // Fetch the Full Ship document to get final state (in case we only updated one field)
+      const updatedShipSnap = await getDoc(shipDocRef);
+      if (updatedShipSnap.exists()) {
+        const updatedShip = updatedShipSnap.data() as Ship;
+        return this.tripRepository.updateShipDetailsForAllTrips(
+          shipId,
+          updatedShip.shipName,
+          updatedShip.grossTonnage
+        );
+      }
+    }
+    
+    return { updatedCount: 0, skippedConfirmedCount: 0 };
+  }
+
+  /**
+   * Forces the creation of a new Ship document, even if one with the same name exists.
+   * This is used when the user explicitly requests a separate record for a vessel with a common name.
    * @param data The form data containing ship details.
-   * @returns The Firestore ID of the newly created Ship document.
+   * @returns The Firestore ID of the new Ship document.
    */
   async forceCreateShip(data: NewVisitData): Promise<string> {
     const shipsCollection = collection(this.firestore, 'ships');
     const shipNameLower = data.shipName.toLowerCase();
 
-    // Always create a new Ship document, bypassing duplicate check
     const newShip: Omit<Ship, 'id'> = {
       shipName: data.shipName,
       shipName_lowercase: shipNameLower,
@@ -234,9 +278,9 @@ export class ShipRepository {
    * and returns the ID of the found or created document.
    * @param shipName The name of the ship.
    * @param grossTonnage The Gross Tonnage.
-   * @returns The Firestore ID of the Ship document.
+   * @returns The Firestore ID of the Ship document and sync stats.
    */
-  async ensureShipDetails(shipName: string, grossTonnage: number): Promise<string> {
+  async ensureShipDetails(shipName: string, grossTonnage: number): Promise<{ id: string; syncResult: { updatedCount: number; skippedConfirmedCount: number } }> {
     if (!shipName || !grossTonnage) {
       throw new Error('Ship name and GT are required to find or create a ship.');
     }
@@ -260,14 +304,19 @@ export class ShipRepository {
 
       // 🛑 FIX: Trigger an update if GT is different OR if the document is missing the lowercase field.
       // This performs a "lazy migration" to fix old data.
+      let stats = { updatedCount: 0, skippedConfirmedCount: 0 };
+      
       if (shipData['grossTonnage'] !== grossTonnage || !shipData['shipName_lowercase']) {
         await updateDoc(shipDocRef, {
           grossTonnage: grossTonnage,
           shipName_lowercase: shipNameLower, // Keep lowercase field consistent
           updatedAt: serverTimestamp(),
         });
+        
+        // TRIGGER SYNC & RETURN STATS
+        stats = await this.tripRepository.updateShipDetailsForAllTrips(shipDoc.id, shipName, grossTonnage);
       }
-      return shipDoc.id; // Return the existing ID
+      return { id: shipDoc.id, syncResult: stats }; // Return ID and Stats
     } else {
       // 3. Not found: Create a brand new Ship document
       const newShip: Omit<Ship, 'id'> = {
@@ -279,15 +328,60 @@ export class ShipRepository {
         // Other optional fields remain undefined
       };
       const shipDocRef = await addDoc(shipsCollection, newShip);
-      return shipDocRef.id; // Return the new ID
+      
+      // New ship, so no existing trips to update.
+      return { id: shipDocRef.id, syncResult: { updatedCount: 0, skippedConfirmedCount: 0 } };
     }
   }
-  async updateShip(shipId: string, data: Partial<Ship>): Promise<void> {
-    const shipDocRef = doc(this.firestore, `ships/${shipId}`);
-    await updateDoc(shipDocRef, {
-      ...data,
-      updatedAt: serverTimestamp()
-    });
+
+
+  /**
+   * Finds all ships with duplicate names (case-insensitive).
+   * Returns a Map grouped by lowercase name, containing only groups with 2+ ships.
+   * 
+   * LEARNING: WHY FIND SAME-NAME DUPLICATES?
+   * Ships without IMO numbers can only be detected as duplicates by their name.
+   * This helps catch duplicate entries created before IMO validation was added.
+   * 
+   * @param excludeShipIds Optional set of ship IDs to exclude (e.g., already shown in IMO duplicates)
+   */
+  async findDuplicateShipsByName(excludeShipIds?: Set<string>): Promise<Map<string, Ship[]>> {
+    const shipsCollection = collection(this.firestore, 'ships');
+    
+    // Fetch ALL ships - we need to group by name client-side
+    const shipsQuery = query(
+      shipsCollection,
+      orderBy('shipName_lowercase', 'asc')
+    );
+    
+    const snapshot = await getDocs(shipsQuery);
+    const ships = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() } as Ship))
+      // Exclude ships that are already in IMO duplicate groups
+      .filter(ship => !excludeShipIds || !excludeShipIds.has(ship.id!));
+    
+    // Group ships by lowercase name
+    const nameGroups = new Map<string, Ship[]>();
+    
+    for (const ship of ships) {
+      const lowercaseName = (ship.shipName_lowercase || ship.shipName.toLowerCase());
+      const existingGroup = nameGroups.get(lowercaseName);
+      if (existingGroup) {
+        existingGroup.push(ship);
+      } else {
+        nameGroups.set(lowercaseName, [ship]);
+      }
+    }
+    
+    // Filter to only return groups with 2+ ships (actual duplicates)
+    const duplicatesOnly = new Map<string, Ship[]>();
+    for (const [name, shipGroup] of nameGroups) {
+      if (shipGroup.length >= 2) {
+        duplicatesOnly.set(name, shipGroup);
+      }
+    }
+    
+    return duplicatesOnly;
   }
 
   /**
@@ -349,58 +443,8 @@ export class ShipRepository {
    * @param shipId The Firestore document ID of the ship to delete
    */
   async deleteShip(shipId: string): Promise<void> {
-    const { deleteDoc } = await import('@angular/fire/firestore');
     const shipDocRef = doc(this.firestore, `ships/${shipId}`);
     await deleteDoc(shipDocRef);
   }
 
-  /**
-   * Finds all ships with duplicate names (case-insensitive).
-   * Returns a Map grouped by lowercase name, containing only groups with 2+ ships.
-   * 
-   * LEARNING: WHY FIND SAME-NAME DUPLICATES?
-   * Ships without IMO numbers can only be detected as duplicates by their name.
-   * This helps catch duplicate entries created before IMO validation was added.
-   * 
-   * @param excludeShipIds Optional set of ship IDs to exclude (e.g., already shown in IMO duplicates)
-   */
-  async findDuplicateShipsByName(excludeShipIds?: Set<string>): Promise<Map<string, Ship[]>> {
-    const shipsCollection = collection(this.firestore, 'ships');
-    
-    // Fetch ALL ships - we need to group by name client-side
-    const shipsQuery = query(
-      shipsCollection,
-      orderBy('shipName_lowercase', 'asc')
-    );
-    
-    const snapshot = await getDocs(shipsQuery);
-    const ships = snapshot.docs
-      .map(doc => ({ id: doc.id, ...doc.data() } as Ship))
-      // Exclude ships that are already in IMO duplicate groups
-      .filter(ship => !excludeShipIds || !excludeShipIds.has(ship.id!));
-    
-    // Group ships by lowercase name
-    const nameGroups = new Map<string, Ship[]>();
-    
-    for (const ship of ships) {
-      const lowercaseName = (ship.shipName_lowercase || ship.shipName.toLowerCase());
-      const existingGroup = nameGroups.get(lowercaseName);
-      if (existingGroup) {
-        existingGroup.push(ship);
-      } else {
-        nameGroups.set(lowercaseName, [ship]);
-      }
-    }
-    
-    // Filter to only return groups with 2+ ships (actual duplicates)
-    const duplicatesOnly = new Map<string, Ship[]>();
-    for (const [name, shipGroup] of nameGroups) {
-      if (shipGroup.length >= 2) {
-        duplicatesOnly.set(name, shipGroup);
-      }
-    }
-    
-    return duplicatesOnly;
-  }
 }
-

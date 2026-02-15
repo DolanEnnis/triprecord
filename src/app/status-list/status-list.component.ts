@@ -22,6 +22,7 @@ import { UpdateEtaDialogComponent } from '../dialogs/update-eta-dialog/update-et
 import { AuthService } from '../auth/auth';
 import { VisitRepository } from '../services/repositories/visit.repository';
 import { TripRepository } from '../services/repositories/trip.repository';
+import { VisitWorkflowService } from '../services/workflows/visit-workflow.service';
 import { PilotService } from '../services/state/pilot.service';
 import { PortFilter, isValidPortFilter } from '../models';
 
@@ -55,6 +56,7 @@ export class StatusListComponent {
   private readonly authService = inject(AuthService);
   private readonly visitRepository = inject(VisitRepository);
   private readonly tripRepository = inject(TripRepository);
+  private readonly visitWorkflowService = inject(VisitWorkflowService);
   readonly pilotService = inject(PilotService);
 
   // Edit Mode Signal - Defaults to false (Read-Only) for safe scrolling
@@ -307,11 +309,46 @@ export class StatusListComponent {
     const currentUser =
       this.authService.currentUserSig()?.displayName || 'Unknown';
     try {
-      await this.visitRepository.updateVisitStatus(
-        row.visitId,
-        newStatus,
-        currentUser,
-      );
+      if (newStatus === 'Cancelled') {
+        const trips = await this.tripRepository.getTripsByVisitIdOnce(row.visitId);
+        
+        // 1. Safety Check: Block if any confirmed trips
+        if (trips.some(t => t.isConfirmed)) {
+           this.snackBar.open(
+            `✗ Cannot cancel: This visit has Confirmed/Billed trips. Unconfirm them first.`,
+            'Close',
+            { duration: 5000, panelClass: ['error-snackbar'] }
+          );
+          return;
+        }
+
+        // 2. Determine Warning Level
+        // User Requirement: "Warning is not needed if all trips are Pending"
+        const hasActiveData = trips.some(t => t.boarding !== null);
+        let confirmed = false;
+
+        if (hasActiveData) {
+           confirmed = confirm(
+             `WARNING: This visit has ACTIVE TRIPS with data.\n\nCancelling will DELETE all ${trips.length} associated trips and their history.\n\nAre you sure you want to proceed?`
+           );
+        } else {
+           // Simple confirmation for pending/skeleton visits
+           confirmed = confirm(`Cancel visit for ${row.shipName}?`);
+        }
+
+        if (!confirmed) return;
+
+        // 3. Execute Cancellation
+        await this.visitWorkflowService.cancelVisit(row.visitId);
+        
+      } else {
+        // Normal status update
+        await this.visitRepository.updateVisitStatus(
+          row.visitId,
+          newStatus,
+          currentUser,
+        );
+      }
 
       // Show success message
       this.snackBar.open(
@@ -324,10 +361,10 @@ export class StatusListComponent {
           panelClass: ['success-snackbar'],
         },
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to update status:', error);
       this.snackBar.open(
-        `✗ Failed to change status. Please try again.`,
+        `✗ Failed to change status: ${error.message || 'Unknown error'}`,
         'Close',
         {
           duration: 5000,

@@ -283,4 +283,18 @@ export class TripConfirmationComponent implements OnInit, AfterViewInit {
 
     this.csvExportService.exportConfirmedTrips(confirmedTrips);
   }
+
+  repairLegacyData(): void {
+    if (!confirm('Run legacy data repair? This will check last 3 months of unconfirmed trips and backfill missing ship details.')) return;
+    
+    this.isLoading.set(true);
+    this.dataService.repairRecentTrips().then((count: number) => {
+      this.snackBar.open(`Repair complete. Fixed ${count} trips.`, 'Close', { duration: 5000 });
+      this.loadTrips();
+    }).catch((err: any) => {
+      console.error('Repair failed', err);
+      this.snackBar.open('Repair failed. Check console.', 'Close', { duration: 5000 });
+      this.isLoading.set(false);
+    });
+  }
 }

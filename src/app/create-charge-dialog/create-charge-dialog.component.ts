@@ -232,7 +232,15 @@ export class CreateChargeDialogComponent implements OnInit {
       // This is now only needed here, as the create flow handles it.
       const { ship, gt } = this.form.value;
       if (ship && gt) {
-        this.dataService.ensureShipDetails(ship, gt); // Fire-and-forget is fine here.
+        const { syncResult } = await this.dataService.ensureShipDetails(ship, gt); 
+        
+        if (syncResult && syncResult.skippedConfirmedCount > 0) {
+          this.snackBar.open(
+            `Ship details updated. Note: ${syncResult.skippedConfirmedCount} confirmed trips were NOT updated to preserve billing history.`, 
+            'Got it', 
+            { duration: 8000 }
+          );
+        }
       }
 
       await this.dataService.updateCharge(this.chargeToEdit!.id!, this.form.value);

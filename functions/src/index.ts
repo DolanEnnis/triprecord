@@ -190,7 +190,7 @@ export const fetchDailyDiaryPdf = onCall({
     const OpenAI = openaiModule.default;
     const openai = new OpenAI({ apiKey: openaiApiKey.value() });
 
-    const prompt = `Analyze this raw text from a Shannon Port "Day Diary". 
+    const prompt = `Analyze this raw text from a Shannon Port "Day Diary" and return the output in JSON format. 
 The PDF contains a table of ships. Due to extraction issues, columns often merge without spaces (e.g., "HAMILTONTT").
 
 **STRICT ROW SEQUENCE:**

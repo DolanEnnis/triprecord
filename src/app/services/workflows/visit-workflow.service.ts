@@ -55,7 +55,7 @@ export class VisitWorkflowService {
         visitId: visitId,
         shipId: shipId,
         typeTrip: 'In' as TripType,
-        boarding: null,  // ETB not yet known
+        boarding: null,  // ETB not yet known (User Req: Keep null to avoid pilot confusion)
         pilot: data.pilot ?? '',
         port: data.berthPort,
         pilotNotes: data.visitNotes || '',
@@ -69,6 +69,10 @@ export class VisitWorkflowService {
         car: null,
         timeOff: null,
         good: null,
+        
+        // Denormalized Ship Data
+        shipName: data.shipName,
+        gt: data.grossTonnage,
       };
       await this.tripRepository.addTrip(inwardTrip);
 
@@ -77,7 +81,7 @@ export class VisitWorkflowService {
         visitId: visitId,
         shipId: shipId,
         typeTrip: 'Out' as TripType,
-        boarding: null,  // ETS not yet known
+        boarding: null,  // ETS not yet known (User Req: Keep null to avoid pilot confusion)
         pilot: '',  // Pilot assigned later
         port: data.berthPort,
         pilotNotes: '',
@@ -91,6 +95,10 @@ export class VisitWorkflowService {
         car: null,
         timeOff: null,
         good: null,
+
+        // Denormalized Ship Data
+        shipName: data.shipName,
+        gt: data.grossTonnage,
       };
       await this.tripRepository.addTrip(outwardTrip);
 
@@ -202,6 +210,10 @@ export class VisitWorkflowService {
         car: null,
         timeOff: null,
         good: null,
+
+        // Denormalized Ship Data
+        shipName: visit.shipName,
+        gt: visit.grossTonnage || 0,
       };
       await this.tripRepository.addTrip(shiftTrip);
 
@@ -238,11 +250,57 @@ export class VisitWorkflowService {
         car: null,
         timeOff: null,
         good: null,
+
+        // Denormalized Ship Data
+        shipName: visit.shipName,
+        gt: visit.grossTonnage || 0,
       };
       await this.tripRepository.addTrip(outTrip);
 
       // 2. Update Visit Status to Sailed
       await this.visitRepository.updateVisitStatus(visitId, 'Sailed', recordedBy);
+    });
+  }
+
+  /**
+   * Cancels a visit and handles associated trips.
+   * 
+   * LOGIC:
+   * 1. Fetches all trips for the visit.
+   * 2. BLOCKS if any trip is confirmed (billing history protection).
+   * 3. Deletes all unconfirmed trips.
+   * 4. Updates Visit status to 'Cancelled'.
+   * 
+   * @returns Object describing what happened for UI feedback.
+   */
+  async cancelVisit(visitId: string): Promise<{ deletedTrips: number; warningLevel: 'NONE' | 'ACTIVE_DATA' }> {
+    return runInInjectionContext(this.injector, async () => {
+      const user = this.authService.currentUserSig();
+      const recordedBy = user?.displayName || 'Unknown';
+
+      // 1. Fetch all trips
+      const trips = await this.tripRepository.getTripsByVisitIdOnce(visitId);
+
+      // 2. Safety Check: Confirmed Trips
+      const confirmedTrips = trips.filter(t => t.isConfirmed);
+      if (confirmedTrips.length > 0) {
+        throw new Error(`Cannot cancel visit: ${confirmedTrips.length} trip(s) are already Confirmed/Billed. Please unconfirm them first if this is a mistake.`);
+      }
+
+      // 3. Determine Warning Level (for UI feedback, though action is taken here)
+      // If any trip has a boarding date, it implies "active work" was started -> ACTIVE_DATA
+      // If all trips are pending (boarding == null), it's just a skeleton -> NONE
+      const hasActiveData = trips.some(t => t.boarding !== null);
+      const warningLevel = hasActiveData ? 'ACTIVE_DATA' : 'NONE';
+
+      // 4. Delete unconfirmed trips
+      const deletePromises = trips.map(t => this.tripRepository.deleteTrip(t.id!));
+      await Promise.all(deletePromises);
+
+      // 5. Update Visit Status
+      await this.visitRepository.updateVisitStatus(visitId, 'Cancelled', recordedBy);
+
+      return { deletedTrips: trips.length, warningLevel };
     });
   }
 }
