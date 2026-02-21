@@ -69,6 +69,9 @@ import type { ChargeableEvent } from './chargeable-event.dto';
 export interface UnifiedTrip {
   /** Document ID (either trip ID or charge ID depending on source) */
   id?: string;
+
+  /** Reference to the parent visit ID (required for navigation to edit page) */
+  visitId?: string;
   
   // ─────────────────────────────────────────────────────────────
   // Common Fields (present in both trips and charges)
@@ -81,7 +84,7 @@ export interface UnifiedTrip {
   gt: number;
   
   /** Pilot boarding time */
-  boarding: Date;
+  boarding: Date | null;
   
   /** Port where service was rendered */
   port?: Port | null;
@@ -113,7 +116,7 @@ export interface UnifiedTrip {
   updatedBy: string;
   
   /** When this record was created/updated */
-  updateTime: Date;
+  updateTime: Date | null;
   
   // ─────────────────────────────────────────────────────────────
   // Actionability (UI behavior control)
@@ -137,4 +140,10 @@ export interface UnifiedTrip {
    * Used for sorting pending trips to the bottom of the list.
    */
   isPending?: boolean;
+
+  /** Pilot's internal reference number for this trip */
+  pilotNo?: number | null;
+
+  /** Month number for pilot's accounting */
+  monthNo?: number | null;
 }

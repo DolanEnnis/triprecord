@@ -624,8 +624,8 @@ export class VisitRepository {
         })
       );
 
-      // Filter out cancelled visits and sort
-      const filteredVisits = enrichedVisits.filter(v => v.status !== 'Cancelled');
+      // Sort
+      const filteredVisits = enrichedVisits; // Keep all visits including Cancelled
       return filteredVisits.sort((a, b) => {
         if (!a.initialEta && !b.initialEta) return 0;
         if (!a.initialEta) return -1;
@@ -741,8 +741,8 @@ export class VisitRepository {
               return of([]);
             }),
             map((visits: EnrichedVisit[]) => {
-              // Filter out cancelled visits
-              const filteredVisits = visits.filter(v => v.status !== 'Cancelled');
+              // Keep all visits including Cancelled
+              const filteredVisits = visits;
               
               // Sort: visits without ETA first (in any order), then by displayDate descending
               return filteredVisits.sort((a, b) => {

@@ -76,9 +76,9 @@
 </div>
 
 <div mat-dialog-actions align="end">
-  @if (mode === 'editCharge') {
-    <button mat-stroked-button color="warn" (click)="onDelete()" [disabled]="isSaving" style="margin-right: auto;">
-      Delete
+  @if (mode === 'editCharge' && chargeToEdit?.visitId) {
+    <button mat-stroked-button color="warn" (click)="onEditVisit()" [disabled]="isSaving" style="margin-right: auto;">
+      <mat-icon>edit</mat-icon> Edit Trip/Visit
     </button>
   }
   <button mat-button (click)="onCancel()" [disabled]="isSaving">Cancel</button>

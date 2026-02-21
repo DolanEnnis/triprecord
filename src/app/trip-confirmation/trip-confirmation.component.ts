@@ -55,7 +55,7 @@ export class TripConfirmationComponent implements OnInit, AfterViewInit {
   private readonly csvExportService = inject(CsvExportService);
   private readonly snackBar = inject(MatSnackBar);
 
-  displayedColumns: string[] = ['ship', 'gt', 'boarding', 'typeTrip', 'port', 'extra', 'pilot', 'sailingNote', 'metadata'];
+  displayedColumns: string[] = ['ship', 'gt', 'boarding', 'typeTrip', 'port', 'extra', 'pilotNo', 'monthNo', 'pilot', 'sailingNote', 'metadata'];
   dataSource = new MatTableDataSource<TripWithWarnings>();
 
   // Source signal for all trips from the service
@@ -147,9 +147,43 @@ export class TripConfirmationComponent implements OnInit, AfterViewInit {
           }
           return noteWithWarnings;
         }
+        case 'boarding':
+          return item.boarding ? new Date(item.boarding).getTime() : 0;
         default:
           return (item as any)[property];
       }
+    };
+
+    // Store the original sortData function and bind it to the dataSource to preserve context
+    const defaultSortData = this.dataSource.sortData.bind(this.dataSource);
+    
+    // Override sortData to implement "My Trips First" logic
+    // Override sortData to implement "My Trips First" logic AND "Pending Trips Last"
+    this.dataSource.sortData = (data: TripWithWarnings[], sort: MatSort) => {
+      // 1. Separate Pending Trips (No Date) from Dated Trips
+      // User Req: "These should be at the very bottom"
+      const pendingTrips = data.filter(t => !t.boarding);
+      const datedTrips = data.filter(t => !!t.boarding);
+
+      // 2. Sort the dated trips using the default sorter (column sorting)
+      const activeSortData = defaultSortData(datedTrips, sort);
+
+      // 3. Apply "My Trips" filter to the dated trips
+      // If the 'My' filter is active, we validly assume the user wants to see their trips first.
+      let finalDatedTrips = activeSortData;
+      if (this.pilotFilter() === 'My') {
+        finalDatedTrips = activeSortData.sort((a, b) => {
+          const aIsMine = this.isOwnTrip(a);
+          const bIsMine = this.isOwnTrip(b);
+
+          if (aIsMine && !bIsMine) return -1; // a comes first
+          if (!aIsMine && bIsMine) return 1;  // b comes first
+          return 0; // maintain relative order from default sort
+        });
+      }
+
+      // 4. Combine: Date-Sorted Trips + Pending Trips at the bottom
+      return [...finalDatedTrips, ...pendingTrips];
     };
   }
 
@@ -195,7 +229,8 @@ export class TripConfirmationComponent implements OnInit, AfterViewInit {
 
   isOwnTrip(trip: TripWithWarnings): boolean {
     const currentUser = this.authService.currentUserSig();
-    return !!currentUser && currentUser.displayName === trip.pilot;
+    const isAdmin = this.authService.isAdmin();
+    return (!!currentUser && currentUser.displayName === trip.pilot) || isAdmin;
   }
 
   private openCreateFromVisitDialog(trip: TripWithWarnings): void {
@@ -246,16 +281,32 @@ export class TripConfirmationComponent implements OnInit, AfterViewInit {
   }
 
   openNewChargeDialog(): void {
-    // Opening the dialog without data tells it to be in "create" mode.
-    const dialogRef = this.dialog.open(CreateChargeDialogComponent, {
-      width: 'clamp(300px, 80vw, 600px)',
-      data: null,
+    const confirmDialogRef = this.dialog.open(ConfirmationDialogComponent, {
+      data: {
+        title: 'Check for Existing Trip',
+        message: 'Have you checked the list for an existing trip? Creating a new record when one exists causes data duplication. Please search thoroughly before proceeding.',
+        confirmText: 'Create New Trip',
+        cancelText: 'Cancel'
+      }
     });
 
-    dialogRef.afterClosed().subscribe(result => {
-      // If the dialog returns 'success', it means a standalone charge was created.
-      if (result === 'success') {
-        this.loadTrips();
+    confirmDialogRef.afterClosed().subscribe(confirmed => {
+      if (confirmed) {
+        // Extract unique active ship names for the warning check
+        const activeShips = Array.from(new Set(this.allTrips().map(t => t.ship).filter(s => !!s)));
+
+        // Opening the dialog without data tells it to be in "create" mode.
+        const dialogRef = this.dialog.open(CreateChargeDialogComponent, {
+          width: 'clamp(300px, 80vw, 600px)',
+          data: { activeShips }, // Pass the list of active ships
+        });
+
+        dialogRef.afterClosed().subscribe(result => {
+          // If the dialog returns 'success', it means a standalone charge was created.
+          if (result === 'success') {
+            this.loadTrips();
+          }
+        });
       }
     });
   }

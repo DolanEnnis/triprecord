@@ -56,7 +56,7 @@ export interface ChargeableEvent {
   gt: number;
   
   /** Pilot boarding time (converted from Timestamp to Date) */
-  boarding: Date;
+  boarding: Date | null;
   
   /** Port where service was rendered */
   port?: Port | null;

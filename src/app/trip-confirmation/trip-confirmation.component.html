@@ -72,6 +72,18 @@
           <td mat-cell *matCellDef="let element">{{ element.extra }}</td>
         </ng-container>
 
+        <!-- Pilot No Column (No Header) -->
+        <ng-container matColumnDef="pilotNo">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let element">{{ element.pilotNo }}</td>
+        </ng-container>
+
+        <!-- Month No Column (No Header) -->
+        <ng-container matColumnDef="monthNo">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let element">{{ element.monthNo }}</td>
+        </ng-container>
+
         <!-- Pilot Column -->
         <ng-container matColumnDef="pilot">
           <th mat-header-cell *matHeaderCellDef>Pilot</th>

@@ -43,6 +43,9 @@ export interface Charge {
   
   /** Optional reference to the source Trip document */
   tripId?: string;
+
+  /** Reference to the parent visit ID (required for navigation) */
+  visitId?: string;
   
   /** Vessel name (denormalized for reporting) */
   ship: string;

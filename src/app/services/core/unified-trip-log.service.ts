@@ -48,14 +48,16 @@ export class UnifiedTripLogService {
       threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
       const threeMonthsAgoTimestamp = Timestamp.fromDate(threeMonthsAgo);
       const trips$ = combineLatest([
-        this.tripRepository.getRecentTrips(threeMonthsAgoTimestamp),
-        this.tripRepository.getPendingTrips()
+        this.tripRepository.getRecentTrips(threeMonthsAgoTimestamp)
       ]).pipe(
-        map(([recent, pending]) => {
-          // Merge and deduplicate (though they should be mutually exclusive by definition)
-          // Recent: boarding >= date
-          // Pending: boarding == null
-          return [...recent, ...pending];
+        map(([recent]) => {
+          // RESTORED LEGACY BEHAVIOR: Only show "Recent" trips (those with a date within 3 months).
+          // Removed 'Pending' (Undated) trips processing entirely as they should not appear in Trip Confirmation.
+          
+          // Safety: Deduplicate by ID just in case
+          const uniqueTrips = Array.from(new Map(recent.map(t => [t.id, t])).values());
+          
+          return uniqueTrips;
         })
       );
 
@@ -99,7 +101,7 @@ export class UnifiedTripLogService {
           for (const trip of trips) {
             const visit = trip.visitId ? visitsMap.get(trip.visitId) : undefined;
             // Robust date conversion
-            const tripDate = this.toSafeDate(trip.boarding) || new Date();
+            const tripDate = this.toSafeDate(trip.boarding);
 
             if (trip.isConfirmed) {
               // ===========================================
@@ -110,9 +112,10 @@ export class UnifiedTripLogService {
               
               unifiedTrips.push({
                 id: trip.id!,
+                visitId: trip.visitId,
                 ship: shipName,
                 gt: gt,
-                boarding: tripDate,
+                boarding: tripDate, // Do NOT default to new Date() if missing. Let it be null.
                 isPending: !trip.boarding, // Flag if original boarding date was null
                 port: trip.port || null,
                 pilot: trip.pilot || 'Unknown',
@@ -121,16 +124,23 @@ export class UnifiedTripLogService {
                 extra: trip.extraChargesNotes || '',
                 source: 'Charge',
                 updatedBy: trip.lastModifiedBy || trip.confirmedBy || trip.recordedBy || 'System',
-                updateTime: this.toSafeDate(trip.lastModifiedAt) || this.toSafeDate(trip.confirmedAt) || tripDate,
+                updateTime: this.toSafeDate(trip.lastModifiedAt) || this.toSafeDate(trip.confirmedAt) || tripDate || new Date(),
                 isActionable: false,
+                pilotNo: trip.pilotNo,
+                monthNo: trip.monthNo,
               });
 
             } else {
               // ===========================================
               // UNCONFIRMED TRIP (Actionable)
               // ===========================================
+              // Reverting to End of Day to include Today's active trips (User verified "lazy workaround" was bad)
               const today = new Date();
-              if (tripDate <= today) {
+              today.setHours(23, 59, 59, 999);
+
+              // Include ONLY if it has a date AND that date is today or in the past.
+              // Pending trips (null date) or Future trips (Tomorrow+) are excluded.
+              if (tripDate && tripDate <= today) {
                 const shipName = visit?.shipName || (trip.visitId ? `[Visit: ${trip.visitId}]` : 'Unknown Ship (Standalone)');
                 const gt = visit?.grossTonnage || 0;
 
@@ -138,6 +148,7 @@ export class UnifiedTripLogService {
 
                 unifiedTrips.push({
                   id: trip.id!,
+                  visitId: trip.visitId,
                   ship: shipName,
                   gt: gt,
                   boarding: tripDate,
@@ -151,18 +162,22 @@ export class UnifiedTripLogService {
                   updatedBy: trip.lastModifiedBy || trip.recordedBy || 'System',
                   updateTime: this.toSafeDate(trip.lastModifiedAt) || this.toSafeDate(trip.recordedAt, tripDate),
                   isActionable: true,
-                  chargeableEvent: event
+                  chargeableEvent: event,
+                  pilotNo: trip.pilotNo,
+                  monthNo: trip.monthNo,
                 });
               }
             }
           }
 
           // Sort by date descending, BUT put Pending items (no boarding date yet) at the bottom.
-          // Note: Pending items have tripDate = Today (fallback), so usually they would be at top.
           return unifiedTrips.sort((a, b) => {
             if (a.isPending && !b.isPending) return 1; // A is pending -> A goes bottom
             if (!a.isPending && b.isPending) return -1; // B is pending -> B goes bottom
-            return b.boarding.getTime() - a.boarding.getTime();
+            // TypeScript check: both have dates if not pending
+            const dateA = a.boarding ? a.boarding.getTime() : 0;
+            const dateB = b.boarding ? b.boarding.getTime() : 0;
+            return dateB - dateA;
           });
         })
       );
@@ -173,7 +188,7 @@ export class UnifiedTripLogService {
    * Helper to safely convert Firestore timestamps or Dates to JS Date.
    * Handles Timestamp, Date, string, or returns fallback.
    */
-  private toSafeDate(val: any, fallback: Date = new Date()): Date {
+  private toSafeDate(val: any, fallback: Date | null = null): Date | null {
     if (!val) return fallback;
     if (val instanceof Timestamp) return val.toDate();
     if (val instanceof Date) return val;
@@ -200,14 +215,14 @@ export class UnifiedTripLogService {
       tripDirection = 'outward';
     }
 
-    const boardingDate = this.toSafeDate(trip.boarding) || new Date();
+    const boardingDate = this.toSafeDate(trip.boarding);
 
     return {
       tripId: trip.id!,
       visitId: visit?.id || trip.visitId!, 
       ship: shipName,
       gt: gt,
-      boarding: boardingDate,
+      boarding: boardingDate || null, // Ensure it's null if undefined
       port: trip.port || visit?.berthPort || null,
       pilot: trip.pilot || 'Unknown Pilot',
       typeTrip: trip.typeTrip as TripType,

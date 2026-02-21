@@ -63,12 +63,12 @@ export class VisitWorkflowService {
         isConfirmed: false,
         recordedBy: recordedBy,
         recordedAt: now,
-        ownNote: null,
-        pilotNo: null,
-        monthNo: null,
-        car: null,
-        timeOff: null,
-        good: null,
+        ownNote: undefined,
+        pilotNo: undefined,
+        monthNo: undefined,
+        car: undefined,
+        timeOff: undefined,
+        good: undefined,
         
         // Denormalized Ship Data
         shipName: data.shipName,
@@ -89,12 +89,12 @@ export class VisitWorkflowService {
         isConfirmed: false,
         recordedBy: recordedBy,
         recordedAt: now,
-        ownNote: null,
-        pilotNo: null,
-        monthNo: null,
-        car: null,
-        timeOff: null,
-        good: null,
+        ownNote: undefined,
+        pilotNo: undefined,
+        monthNo: undefined,
+        car: undefined,
+        timeOff: undefined,
+        good: undefined,
 
         // Denormalized Ship Data
         shipName: data.shipName,
@@ -152,12 +152,12 @@ export class VisitWorkflowService {
         
         recordedBy: recordedBy,
         recordedAt: now,
-        ownNote: null,
-        pilotNo: null,
-        monthNo: null,
-        car: null,
-        timeOff: null,
-        good: null,
+        ownNote: undefined,
+        pilotNo: undefined,
+        monthNo: undefined,
+        car: undefined,
+        timeOff: undefined,
+        good: undefined,
       };
       return this.tripRepository.addTrip(newTrip);
     });
@@ -287,20 +287,16 @@ export class VisitWorkflowService {
         throw new Error(`Cannot cancel visit: ${confirmedTrips.length} trip(s) are already Confirmed/Billed. Please unconfirm them first if this is a mistake.`);
       }
 
-      // 3. Determine Warning Level (for UI feedback, though action is taken here)
+      // 3. Determine Warning Level
       // If any trip has a boarding date, it implies "active work" was started -> ACTIVE_DATA
       // If all trips are pending (boarding == null), it's just a skeleton -> NONE
       const hasActiveData = trips.some(t => t.boarding !== null);
       const warningLevel = hasActiveData ? 'ACTIVE_DATA' : 'NONE';
 
-      // 4. Delete unconfirmed trips
-      const deletePromises = trips.map(t => this.tripRepository.deleteTrip(t.id!));
-      await Promise.all(deletePromises);
-
-      // 5. Update Visit Status
+      // 4. Update Visit Status to Cancelled (Trips are KEPT for history as per user req)
       await this.visitRepository.updateVisitStatus(visitId, 'Cancelled', recordedBy);
 
-      return { deletedTrips: trips.length, warningLevel };
+      return { deletedTrips: 0, warningLevel };
     });
   }
 }

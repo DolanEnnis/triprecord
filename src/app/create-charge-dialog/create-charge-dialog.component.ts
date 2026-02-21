@@ -1,4 +1,5 @@
 import { Component, inject, Inject, OnInit, Optional, signal, computed } from '@angular/core';
+import { Router } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, ValidatorFn, AbstractControl, ValidationErrors } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { DataService } from '../services/core/data.service';
@@ -10,6 +11,7 @@ import { CommonModule } from '@angular/common';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatAutocompleteModule, MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
 import { MatSelectModule } from '@angular/material/select';
@@ -17,7 +19,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { DateAdapter, MatNativeDateModule } from '@angular/material/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { Observable, of } from 'rxjs';
+import { Observable, of, firstValueFrom } from 'rxjs';
 import { debounceTime, distinctUntilChanged, startWith, switchMap, tap } from 'rxjs/operators';
 import { ConfirmationDialogComponent } from '../shared/confirmation-dialog/confirmation-dialog.component';
 
@@ -37,7 +39,11 @@ function pilotValidator(pilotService: PilotService): ValidatorFn {
   };
 }
 
-export type ChargeDialogData = { mode: 'fromVisit', event: ChargeableEvent } | { mode: 'editCharge', charge: Charge } | null;
+export type ChargeDialogData = 
+  | { mode: 'fromVisit', event: ChargeableEvent } 
+  | { mode: 'editCharge', charge: Charge } 
+  | { activeShips?: string[] } 
+  | null;
 
 @Component({
   selector: 'app-create-charge-dialog',
@@ -56,6 +62,7 @@ export type ChargeDialogData = { mode: 'fromVisit', event: ChargeableEvent } | {
     MatSnackBarModule,
     MatSelectModule,
     MatTooltipModule,
+    MatIconModule,
   ],
   templateUrl: './create-charge-dialog.html',
   styleUrl: './create-charge-dialog.css',
@@ -68,10 +75,13 @@ export class CreateChargeDialogComponent implements OnInit {
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialogRef = inject(MatDialogRef<CreateChargeDialogComponent>);
   private readonly dialog = inject(MatDialog);
+  private readonly router = inject(Router);
 
   readonly mode: 'fromVisit' | 'editCharge' | 'new';
   private readonly eventToProcess: ChargeableEvent | null = null;
-  private readonly chargeToEdit: Charge | null = null;
+  protected readonly chargeToEdit: Charge | null = null;
+  // Store active ships passed from parent
+  private readonly activeShips: string[] = [];
   readonly title: string;
 
   isSaving = false;
@@ -101,7 +111,7 @@ export class CreateChargeDialogComponent implements OnInit {
   readonly form: FormGroup = this.fb.group({
     ship: ['', Validators.required],
     gt: [null as number | null, Validators.required],
-    boarding: [new Date(), Validators.required],
+    boarding: [null as Date | null, Validators.required], // Force user to pick a date (don't default to Today)
     port: [null as Port | null, Validators.required],
     pilot: ['', [Validators.required, pilotValidator(this.pilotService)]],
     typeTrip: ['', Validators.required],
@@ -113,16 +123,21 @@ export class CreateChargeDialogComponent implements OnInit {
     @Optional() @Inject(MAT_DIALOG_DATA) readonly dialogData: ChargeDialogData,
     private _adapter: DateAdapter<any>
   ) {
-    this.mode = dialogData?.mode || 'new';
-
-    if (dialogData && dialogData.mode === 'fromVisit') {
-      this.eventToProcess = dialogData.event;
-      this.title = `Create Charge for ${this.eventToProcess.ship}`;
-    } else if (dialogData && dialogData.mode === 'editCharge') {
-      this.chargeToEdit = dialogData.charge;
-      this.title = `Edit Charge for ${this.chargeToEdit.ship}`;
+    if (dialogData && 'mode' in dialogData) {
+      this.mode = dialogData.mode;
+      if (this.mode === 'fromVisit') {
+        this.eventToProcess = (dialogData as { mode: 'fromVisit', event: ChargeableEvent }).event;
+        this.title = `Create Charge for ${this.eventToProcess.ship}`;
+      } else {
+        this.chargeToEdit = (dialogData as { mode: 'editCharge', charge: Charge }).charge;
+        this.title = `Edit Charge for ${this.chargeToEdit?.ship}`;
+      }
     } else {
-      this.title = 'Create New Trip';
+      this.mode = 'new';
+      this.title = 'New Trip';
+      if (dialogData && 'activeShips' in dialogData) {
+        this.activeShips = dialogData.activeShips || [];
+      }
     }
 
     // Force the date adapter to use the British English locale for dd/MM/yyyy format.
@@ -165,6 +180,35 @@ export class CreateChargeDialogComponent implements OnInit {
     if (this.form.invalid || this.isSaving) {
       return;
     }
+
+    // Active Ship Warning Logic
+    if (this.mode === 'new') {
+      const formValue = this.form.value;
+      const shipName = (formValue.ship || '').trim();
+      const typeTrip = formValue.typeTrip;
+
+      // Normalize for case-insensitive check
+      const normalizedShipName = shipName.toLowerCase();
+      // Ensure activeShips are unique and lowercased (doing it here for safety, though could be optimized)
+      const normalizedActiveShips = this.activeShips.map(s => s.trim().toLowerCase());
+
+      if ((typeTrip === 'In' || typeTrip === 'Out') && normalizedActiveShips.includes(normalizedShipName)) {
+        const confirmDialogRef = this.dialog.open(ConfirmationDialogComponent, {
+          data: {
+            title: 'Active Ship Warning',
+            message: `The ship '${shipName}' already has active trips. Are you sure you want to create a NEW '${typeTrip}' trip instead of using the existing one?`,
+            confirmText: 'Create Anyway',
+            cancelText: 'Cancel'
+          }
+        });
+
+        const confirmed = await firstValueFrom(confirmDialogRef.afterClosed());
+        if (!confirmed) {
+          return;
+        }
+      }
+    }
+
     this.isSaving = true;
 
     if (this.mode === 'editCharge') {
@@ -297,30 +341,25 @@ export class CreateChargeDialogComponent implements OnInit {
     });
   }
 
-  async onDelete(): Promise<void> {
-    if (!this.chargeToEdit?.id) {
+  async onEditVisit(): Promise<void> {
+    if (!this.chargeToEdit?.visitId) {
+      this.snackBar.open('Error: No Visit ID found for this trip.', 'Close', { duration: 5000 });
       return;
     }
 
     const confirmDialogRef = this.dialog.open(ConfirmationDialogComponent, {
       data: {
-        title: 'Confirm Deletion',
-        message: 'Are you sure you want to permanently delete this charge? This action cannot be undone.'
+        title: 'Edit Confirmed Trip?',
+        message: 'You are about to edit a CONFIRMED trip. Any changes may affect billing. Are you sure you want to proceed?',
+        confirmText: 'Yes, Edit',
+        cancelText: 'Cancel'
       }
     });
 
-    confirmDialogRef.afterClosed().subscribe(async (confirmed) => {
+    confirmDialogRef.afterClosed().subscribe(confirmed => {
       if (confirmed) {
-        this.isSaving = true;
-        try {
-          // 🛑 FIXED: Uses the cleaned facade method: deleteCharge
-          await this.dataService.deleteCharge(this.chargeToEdit!.id!);
-          this.dialogRef.close('deleted');
-        } catch (error: any) {
-          console.error('Error deleting charge:', error);
-          this.snackBar.open(`Error: ${error.message || 'Could not delete trip.'}`, 'Close', { duration: 7000 });
-          this.isSaving = false;
-        }
+        this.dialogRef.close();
+        this.router.navigate(['/edit', this.chargeToEdit!.visitId]);
       }
     });
   }

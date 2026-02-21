@@ -31,8 +31,7 @@ export class DataQualityService {
     sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
     sixtyDaysAgo.setHours(0, 0, 0, 0);
 
-    const recentTripsForPairChecks = processedTrips.filter(t => new Date(t.boarding) >= sixtyDaysAgo);
-
+    const recentTripsForPairChecks = processedTrips.filter(t => t.boarding && new Date(t.boarding) >= sixtyDaysAgo);
     // 1. Pair-wise checks (Duplicates, Spelling, GT mistakes)
     for (let i = 0; i < recentTripsForPairChecks.length; i++) {
       const tripA = recentTripsForPairChecks[i];
@@ -44,7 +43,7 @@ export class DataQualityService {
         const shipBName = (tripB.ship || '').trim();
 
         // Possible Duplicate
-        const isSameDay = new Date(tripA.boarding).toDateString() === new Date(tripB.boarding).toDateString();
+        const isSameDay = tripA.boarding && tripB.boarding && new Date(tripA.boarding).toDateString() === new Date(tripB.boarding).toDateString();
         if (shipAName && shipBName && shipAName === shipBName && isSameDay && tripA.typeTrip === tripB.typeTrip) {
           const warningId = `E${this.warningIdCounter++}`;
           tripA.dataWarnings.push(`(${warningId}) Possible Duplicate`);
@@ -98,10 +97,15 @@ export class DataQualityService {
 
     tripsByShip.forEach(allShipTrips => {
       // Sort all trips for this ship chronologically.
-      allShipTrips.sort((a, b) => new Date(a.boarding).getTime() - new Date(b.boarding).getTime());
+      allShipTrips.sort((a, b) => {
+        const timeA = a.boarding ? new Date(a.boarding).getTime() : 0;
+        const timeB = b.boarding ? new Date(b.boarding).getTime() : 0;
+        return timeA - timeB;
+      });
 
       // Iterate through this ship's trips to find ones in the previous month to check.
       allShipTrips.forEach((trip, index) => {
+        if (!trip.boarding) return; // Skip undated trips
         const tripDate = new Date(trip.boarding);
 
         // Check if the current trip is within the previous calendar month.
@@ -120,7 +124,7 @@ export class DataQualityService {
           if (trip.typeTrip === 'Out') {
             // Search for an 'In' trip on or before this 'Out' trip's date, but not older than 60 days ago from today.
             const hasPriorInwardTrip = allShipTrips.slice(0, index).some(priorTrip =>
-              priorTrip.typeTrip === 'In' && new Date(priorTrip.boarding) >= sixtyDaysAgo
+              priorTrip.typeTrip === 'In' && priorTrip.boarding && new Date(priorTrip.boarding) >= sixtyDaysAgo
             );
             if (!hasPriorInwardTrip) {
               const warningId = `E${this.warningIdCounter++}`;

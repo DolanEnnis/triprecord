@@ -147,7 +147,7 @@ export class TripRepository {
     
     await batch.commit();
     
-    await batch.commit();
+
     
     return snapshot.size;
   }
