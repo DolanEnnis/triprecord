@@ -371,6 +371,10 @@ async updateStatus(result: ReconciliationResult, newStatus: VisitStatus): Promis
         return ['Sailed', 'Cancelled'];
       case 'Sailed':
         return ['Cancelled'];
+      case 'Undefined':
+        // Historical manual entry — can be promoted to Alongside if the ship is
+        // actually still on the river, or cancelled if it was a mistake.
+        return ['Alongside', 'Cancelled'];
       case 'Cancelled':
         return [];
       default:

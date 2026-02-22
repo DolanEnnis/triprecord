@@ -172,7 +172,7 @@ export class EditTripComponent implements OnInit, IFormComponent {
   
   // Enums/Options for template
   ports: Port[] = ['Anchorage', 'Cappa', 'Moneypoint', 'Tarbert', 'Foynes', 'Aughinish', 'Shannon', 'Limerick'];
-  visitStatuses: VisitStatus[] = ['Due', 'Awaiting Berth', 'Alongside', 'Sailed', 'Cancelled'];
+  visitStatuses: VisitStatus[] = ['Due', 'Awaiting Berth', 'Alongside', 'Sailed', 'Undefined', 'Cancelled'];
   sources: Source[] = ['Sheet', 'Sheet-Info', 'AIS', 'Good Guess', 'Agent', 'Pilot', 'Other'];
 
   // IDs to track for updates

@@ -12,6 +12,7 @@ import { RouterModule } from '@angular/router';
 import { PreviousVisitsListComponent } from './previous-visits-list/previous-visits-list.component';
 import { VisitRepository } from '../services/repositories/visit.repository';
 import { Observable, of } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { EnrichedVisit } from '../models';
 
 @Component({
@@ -73,7 +74,12 @@ export class PreviousVisitsComponent implements OnInit {
     const startDate = this.dateRangeForm.value.startDate || undefined;
     const endDate = this.dateRangeForm.value.endDate || undefined;
     
-    this.visits$ = this.visitRepository.getAllCompletedVisits(startDate, endDate);
+    // Filter out statuses that shouldn't appear in the history view.
+    // 'Cancelled' = mistake/error entries; 'Undefined' = historical manual entries not yet reviewed.
+    // We filter client-side to avoid a composite Firestore index on (initialEta, currentStatus).
+    this.visits$ = this.visitRepository.getAllCompletedVisits(startDate, endDate).pipe(
+      map(visits => visits.filter(v => v.status !== 'Cancelled' && v.status !== 'Undefined'))
+    );
   }
 
   clearDates() {

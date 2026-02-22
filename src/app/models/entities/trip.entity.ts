@@ -123,21 +123,22 @@ export interface Trip {
   
   /** 
    * Display name of user who confirmed this trip for billing.
-   * Only set when isConfirmed = true.
+   * null when the trip is unconfirmed (creation state).
+   * Firestore rejects `undefined` — always use null as the 'not yet set' sentinel here.
    */
-  confirmedBy?: string;
+  confirmedBy?: string | null;
   
   /** 
    * Firebase UID of user who confirmed this trip.
-   * Used for audit trail.
+   * null when the trip is unconfirmed. Used for audit trail when confirmed.
    */
-  confirmedById?: string;
+  confirmedById?: string | null;
   
   /** 
    * Timestamp when this trip was confirmed for billing.
-   * Only set when isConfirmed = true.
+   * null when unconfirmed. Only set when isConfirmed = true.
    */
-  confirmedAt?: Timestamp | FieldValue;
+  confirmedAt?: Timestamp | FieldValue | null;
 
   // ============================================
   // AUDIT FIELDS

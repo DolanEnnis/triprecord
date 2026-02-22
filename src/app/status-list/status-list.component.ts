@@ -294,6 +294,10 @@ export class StatusListComponent {
         return ['Sailed', 'Cancelled'];
       case 'Sailed':
         return ['Cancelled']; // Can mark as cancelled if there was an error
+      case 'Undefined':
+        // Historical manual entry — can be promoted to Alongside if the ship is
+        // actually still on the river, or cancelled if it was a mistake.
+        return ['Alongside', 'Cancelled'];
       case 'Cancelled':
         return []; // No transitions from cancelled
       default:

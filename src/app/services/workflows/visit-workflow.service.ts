@@ -7,6 +7,35 @@ import { VisitRepository } from '../repositories/visit.repository';
 import { TripRepository } from '../repositories/trip.repository';
 
 
+/**
+ * Determines the correct Visit status for a manually-entered (standalone) trip.
+ *
+ * WHY THIS EXISTS:
+ * When a pilot enters a trip via the "New Trip" dialog, we only know the typeTrip
+ * and the boarding date. We cannot blindly set 'Alongside' for all 'In' trips
+ * because the pilot may be recording a trip from earlier in the month — in which
+ * case the ship is NOT currently active on the river.
+ *
+ * RULES:
+ *  - typeTrip === 'Out'  → always 'Sailed'  (ship has left regardless of date)
+ *  - typeTrip === 'In' AND boarding is today → 'Alongside' (ship is genuinely active)
+ *  - typeTrip === 'In' AND boarding is in the past → 'Undefined' (archival; hidden from Status List)
+ *
+ * 'Undefined' is intentionally excluded from all activeStatuses arrays so these
+ * historical entries never pollute the live Status List view.
+ */
+function resolveHistoricalStatus(typeTrip: string, boarding: Date): VisitStatus {
+  if (typeTrip === 'Out') return 'Sailed';
+
+  const today = new Date();
+  const isToday =
+    boarding.getFullYear() === today.getFullYear() &&
+    boarding.getMonth() === today.getMonth() &&
+    boarding.getDate() === today.getDate();
+
+  return isToday ? 'Alongside' : 'Undefined';
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -120,7 +149,8 @@ export class VisitWorkflowService {
         shipId: shipId,
         shipName: chargeData.ship,
         grossTonnage: chargeData.gt,
-        currentStatus: chargeData.typeTrip === 'Out' ? 'Sailed' : 'Alongside',
+        // Use the helper to decide: live trip (Alongside/Sailed) vs archival (Undefined)
+        currentStatus: resolveHistoricalStatus(chargeData.typeTrip, chargeData.boarding),
         initialEta: boardingTimestamp,
         berthPort: chargeData.port,
         visitNotes: `Trip manually created by pilot: ${chargeData.pilot}`,
@@ -145,19 +175,21 @@ export class VisitWorkflowService {
         gt: chargeData.gt, 
         
         // Confirmation Metadata
+        // IMPORTANT: Firestore rejects JavaScript 'undefined' — use 'null' for optional fields
+        // that are intentionally empty. null is stored as a Firestore null type, undefined crashes.
         isConfirmed: false,
-        confirmedBy: undefined,
-        confirmedById: undefined,
-        confirmedAt: undefined,
+        confirmedBy: null,
+        confirmedById: null,
+        confirmedAt: null,
         
         recordedBy: recordedBy,
         recordedAt: now,
-        ownNote: undefined,
-        pilotNo: undefined,
-        monthNo: undefined,
-        car: undefined,
-        timeOff: undefined,
-        good: undefined,
+        ownNote: null,
+        pilotNo: null,
+        monthNo: null,
+        car: null,
+        timeOff: null,
+        good: null,
       };
       return this.tripRepository.addTrip(newTrip);
     });

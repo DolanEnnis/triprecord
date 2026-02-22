@@ -59,7 +59,7 @@ export interface PdfShip {
    * Current status of the ship.
    * Limited to active statuses - PDF doesn't include sailed/cancelled vessels.
    */
-  status: Exclude<VisitStatus, 'Sailed' | 'Cancelled'>;
+  status: Exclude<VisitStatus, 'Sailed' | 'Cancelled' | 'Undefined'>;
   
   /** 
    * Contextual notes extracted from PDF.

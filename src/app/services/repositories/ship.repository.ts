@@ -285,53 +285,60 @@ export class ShipRepository {
       throw new Error('Ship name and GT are required to find or create a ship.');
     }
 
-    const shipsCollection = collection(this.firestore, 'ships');
-    const shipNameLower = shipName.toLowerCase();
+    // WHY runInInjectionContext?
+    // This method is called from dialog afterClosed() callbacks, which execute AFTER Angular's
+    // injection context has been torn down. AngularFire's getDocs/addDoc/updateDoc wrappers
+    // internally call inject() to resolve the Firebase app — that fails outside the DI context.
+    // Wrapping in runInInjectionContext restores the injector so AngularFire can resolve.
+    return runInInjectionContext(this.injector, async () => {
+      const shipsCollection = collection(this.firestore, 'ships');
+      const shipNameLower = shipName.toLowerCase();
 
-    // 1. Check for existing ship by name
-    const existingShipQuery = query(
-      shipsCollection,
-      where('shipName_lowercase', '==', shipNameLower),
-      limit(1)
-    );
-    const existingShipSnapshot = await getDocs(existingShipQuery);
+      // 1. Check for existing ship by name
+      const existingShipQuery = query(
+        shipsCollection,
+        where('shipName_lowercase', '==', shipNameLower),
+        limit(1)
+      );
+      const existingShipSnapshot = await getDocs(existingShipQuery);
 
-    if (!existingShipSnapshot.empty) {
-      // 2. Found existing ship: Check if GT needs update
-      const shipDoc = existingShipSnapshot.docs[0];
-      const shipDocRef = doc(this.firestore, `ships/${shipDoc.id}`);
-      const shipData = shipDoc.data();
+      if (!existingShipSnapshot.empty) {
+        // 2. Found existing ship: Check if GT needs update
+        const shipDoc = existingShipSnapshot.docs[0];
+        const shipDocRef = doc(this.firestore, `ships/${shipDoc.id}`);
+        const shipData = shipDoc.data();
 
-      // 🛑 FIX: Trigger an update if GT is different OR if the document is missing the lowercase field.
-      // This performs a "lazy migration" to fix old data.
-      let stats = { updatedCount: 0, skippedConfirmedCount: 0 };
-      
-      if (shipData['grossTonnage'] !== grossTonnage || !shipData['shipName_lowercase']) {
-        await updateDoc(shipDocRef, {
-          grossTonnage: grossTonnage,
-          shipName_lowercase: shipNameLower, // Keep lowercase field consistent
-          updatedAt: serverTimestamp(),
-        });
+        // 🛑 FIX: Trigger an update if GT is different OR if the document is missing the lowercase field.
+        // This performs a "lazy migration" to fix old data.
+        let stats = { updatedCount: 0, skippedConfirmedCount: 0 };
         
-        // TRIGGER SYNC & RETURN STATS
-        stats = await this.tripRepository.updateShipDetailsForAllTrips(shipDoc.id, shipName, grossTonnage);
+        if (shipData['grossTonnage'] !== grossTonnage || !shipData['shipName_lowercase']) {
+          await updateDoc(shipDocRef, {
+            grossTonnage: grossTonnage,
+            shipName_lowercase: shipNameLower, // Keep lowercase field consistent
+            updatedAt: serverTimestamp(),
+          });
+          
+          // TRIGGER SYNC & RETURN STATS
+          stats = await this.tripRepository.updateShipDetailsForAllTrips(shipDoc.id, shipName, grossTonnage);
+        }
+        return { id: shipDoc.id, syncResult: stats }; // Return ID and Stats
+      } else {
+        // 3. Not found: Create a brand new Ship document
+        const newShip: Omit<Ship, 'id'> = {
+          shipName: shipName,
+          shipName_lowercase: shipNameLower,
+          grossTonnage: grossTonnage,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          // Other optional fields remain undefined
+        };
+        const shipDocRef = await addDoc(shipsCollection, newShip);
+        
+        // New ship, so no existing trips to update.
+        return { id: shipDocRef.id, syncResult: { updatedCount: 0, skippedConfirmedCount: 0 } };
       }
-      return { id: shipDoc.id, syncResult: stats }; // Return ID and Stats
-    } else {
-      // 3. Not found: Create a brand new Ship document
-      const newShip: Omit<Ship, 'id'> = {
-        shipName: shipName,
-        shipName_lowercase: shipNameLower,
-        grossTonnage: grossTonnage,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        // Other optional fields remain undefined
-      };
-      const shipDocRef = await addDoc(shipsCollection, newShip);
-      
-      // New ship, so no existing trips to update.
-      return { id: shipDocRef.id, syncResult: { updatedCount: 0, skippedConfirmedCount: 0 } };
-    }
+    });
   }
 
 
