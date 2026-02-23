@@ -14,7 +14,7 @@ import {
   orderBy,
 } from '@angular/fire/firestore';
 import { Observable } from 'rxjs';
-import { Trip } from '../../models';
+import { Trip, AuditLog } from '../../models';
 
 
 /**
@@ -216,6 +216,24 @@ export class TripRepository {
     }
     
     return { updatedCount, skippedConfirmedCount };
+  }
+
+  /**
+   * Retrieves the full change history for a single trip document.
+   *
+   * LEARNING: WHY A PROMISE (getDocs) INSTEAD OF AN OBSERVABLE (collectionData)?
+   * Audit history is a one-shot read — we load it once when the dialog opens.
+   * Using collectionData() would keep a live subscription open and re-emit
+   * on every new log entry, causing unnecessary re-renders and extra reads.
+   *
+   * @param tripId The Firestore document ID of the trip
+   * @returns Array of AuditLog entries ordered newest → oldest
+   */
+  async getAuditHistory(tripId: string): Promise<AuditLog[]> {
+    const logsRef = collection(this.firestore, `trips/${tripId}/audit_logs`);
+    const q = query(logsRef, orderBy('timestamp', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as AuditLog));
   }
 
 }

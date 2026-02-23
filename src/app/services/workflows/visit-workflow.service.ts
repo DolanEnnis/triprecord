@@ -1,7 +1,7 @@
 import { inject, Injectable, Injector, runInInjectionContext } from '@angular/core';
 import { serverTimestamp, Timestamp, doc, updateDoc } from '@angular/fire/firestore';
 import { AuthService } from '../../auth/auth';
-import { NewVisitData, Trip, TripType, Visit, VisitStatus, Charge, Port } from '../../models';
+import { AuditablePayload, NewVisitData, Trip, TripType, Visit, VisitStatus, Charge, Port } from '../../models';
 import { ShipRepository } from '../repositories/ship.repository';
 import { VisitRepository } from '../repositories/visit.repository';
 import { TripRepository } from '../repositories/trip.repository';
@@ -51,8 +51,14 @@ export class VisitWorkflowService {
    * @param data The form data containing ship and visit details.
    * @param forceNewShip If true, creates a new ship record even if one with the same name exists.
    *                     Used when user explicitly confirms they want a separate vessel record.
+   * @param auditStamp Optional metadata attached to every Firestore write so the Cloud
+   *                   Function trigger can identify who made the change and from where.
    */
-  async createNewVisit(data: NewVisitData, forceNewShip: boolean = false): Promise<string> {
+  async createNewVisit(
+    data: NewVisitData,
+    forceNewShip: boolean = false,
+    auditStamp?: AuditablePayload
+  ): Promise<string> {
     return runInInjectionContext(this.injector, async () => {
       const user = this.authService.currentUserSig();
       const now = serverTimestamp();
@@ -77,7 +83,10 @@ export class VisitWorkflowService {
         statusLastUpdated: now,
         updatedBy: recordedBy,
       };
-      const visitId = await this.visitRepository.addVisit(newVisit);
+      const visitId = await this.visitRepository.addVisit({
+        ...newVisit,
+        ...(auditStamp ?? {}), // Triggers onVisitWritten Cloud Function
+      });
 
       // Create INWARD Trip with boarding = null (ETB comes later)
       const inwardTrip: Omit<Trip, 'id'> = {
@@ -103,7 +112,10 @@ export class VisitWorkflowService {
         shipName: data.shipName,
         gt: data.grossTonnage,
       };
-      await this.tripRepository.addTrip(inwardTrip);
+      await this.tripRepository.addTrip({
+        ...inwardTrip,
+        ...(auditStamp ?? {}), // Triggers onTripWritten Cloud Function
+      });
 
       // Create OUTWARD Trip with boarding = null (ETS not yet known)
       const outwardTrip: Omit<Trip, 'id'> = {
@@ -129,7 +141,10 @@ export class VisitWorkflowService {
         shipName: data.shipName,
         gt: data.grossTonnage,
       };
-      await this.tripRepository.addTrip(outwardTrip);
+      await this.tripRepository.addTrip({
+        ...outwardTrip,
+        ...(auditStamp ?? {}), // Triggers onTripWritten Cloud Function
+      });
 
       return visitId;
     });

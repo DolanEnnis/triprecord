@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onShipUpdated = exports.gapFillCharges = exports.bridgeChargesToTrips = exports.checkShannonNight = exports.checkShannonDay = exports.onNewUserRegistration = exports.fetchDailyDiaryPdf = exports.fetchShipDetails = void 0;
+exports.onShipUpdated = exports.gapFillCharges = exports.bridgeChargesToTrips = exports.checkShannonNight = exports.checkShannonDay = exports.onNewUserRegistration = exports.fetchDailyDiaryPdf = exports.fetchShipDetails = exports.onShipWritten = exports.onVisitWritten = exports.onTripWritten = void 0;
 const admin = require("firebase-admin");
 const params_1 = require("firebase-functions/params");
 const https_1 = require("firebase-functions/v2/https");
@@ -12,6 +12,16 @@ const nodemailer = require("nodemailer");
 admin.initializeApp();
 // Set global options for V2 functions
 (0, v2_1.setGlobalOptions)({ maxInstances: 10 });
+// ================================================================
+// AUDIT ENGINE TRIGGERS
+// Intercept every write to ships, visits_new, and trips and write
+// an immutable log entry to their respective audit_logs subcollections.
+// The Admin SDK bypasses the `allow write: if false` rule on those subcollections.
+// ================================================================
+var auditEngine_1 = require("./auditEngine");
+Object.defineProperty(exports, "onTripWritten", { enumerable: true, get: function () { return auditEngine_1.onTripWritten; } });
+Object.defineProperty(exports, "onVisitWritten", { enumerable: true, get: function () { return auditEngine_1.onVisitWritten; } });
+Object.defineProperty(exports, "onShipWritten", { enumerable: true, get: function () { return auditEngine_1.onShipWritten; } });
 // Using OpenAI for reliable AI-powered ship lookups
 const openaiApiKey = (0, params_1.defineSecret)("OPENAI_API_KEY");
 exports.fetchShipDetails = (0, https_1.onCall)({ cors: true, region: "europe-west1", secrets: [openaiApiKey] }, async (request) => {

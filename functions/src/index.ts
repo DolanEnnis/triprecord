@@ -12,6 +12,14 @@ admin.initializeApp();
 // Set global options for V2 functions
 setGlobalOptions({ maxInstances: 10 });
 
+// ================================================================
+// AUDIT ENGINE TRIGGERS
+// Intercept every write to ships, visits_new, and trips and write
+// an immutable log entry to their respective audit_logs subcollections.
+// The Admin SDK bypasses the `allow write: if false` rule on those subcollections.
+// ================================================================
+export { onTripWritten, onVisitWritten, onShipWritten } from './auditEngine';
+
 // Using OpenAI for reliable AI-powered ship lookups
 const openaiApiKey = defineSecret("OPENAI_API_KEY");
 

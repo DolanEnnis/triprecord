@@ -22,7 +22,7 @@ import {
 } from '@angular/fire/firestore';
 import { combineLatest, from, Observable, of } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
-import { Trip, Visit, VisitStatus, StatusListRow, EnrichedVisit, Port } from '../../models';
+import { AuditLog, Trip, Visit, VisitStatus, StatusListRow, EnrichedVisit, Port } from '../../models';
 import type { Query, QueryConstraint, QueryDocumentSnapshot } from '@angular/fire/firestore';
 
 
@@ -819,5 +819,22 @@ export class VisitRepository {
     await batch.commit();
     
     return snapshot.size;
+  }
+  /**
+   * Retrieves the full change history for a single visit document.
+   *
+   * LEARNING: WHY A PROMISE (getDocs) INSTEAD OF AN OBSERVABLE (collectionData)?
+   * Audit history is a one-shot read — we load it once when the dialog opens.
+   * Using collectionData() would keep a live subscription open and re-emit every
+   * time a new log is written, causing unnecessary re-renders and extra quota usage.
+   *
+   * @param visitId The Firestore document ID of the visit
+   * @returns Array of AuditLog entries ordered newest → oldest
+   */
+  async getAuditHistory(visitId: string): Promise<AuditLog[]> {
+    const logsRef = collection(this.firestore, `visits_new/${visitId}/audit_logs`);
+    const q = query(logsRef, orderBy('timestamp', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as AuditLog));
   }
 }

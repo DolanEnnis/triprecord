@@ -22,7 +22,8 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ShipIntelligenceDialogComponent } from '../dialogs/ship-intelligence-dialog.component';
 import { OldTripWarningDialogComponent } from '../dialogs/old-trip-warning-dialog.component';
 import { ConfirmDialogComponent } from '../dialogs/confirm-dialog.component';
-import { Trip, Visit, Ship, Port, VisitStatus, TripType, Source, EnrichedVisit } from '../models';
+import { Trip, Visit, Ship, Port, VisitStatus, TripType, Source, EnrichedVisit, AuditablePayload } from '../models';
+import { AuditHistoryDialogComponent } from '../dialogs/audit-history-dialog.component';
 import { combineLatest, filter, map, switchMap, of, forkJoin, catchError, tap, take, Observable } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Timestamp } from '@angular/fire/firestore';
@@ -97,7 +98,9 @@ function pilotValidator(pilotService: PilotService, originalPilotName?: string |
     DateTimePickerComponent,
     PreviousVisitsListComponent,
     TimeAgoPipe,  // For displaying relative time in header
-    ConfirmDialogComponent
+    // Note: Dialog components opened via MatDialog.open() (ConfirmDialogComponent,
+    // AuditHistoryDialogComponent, etc.) do NOT go here — they are resolved by DI
+    // at runtime, not by the template compiler. Adding them causes NG8113 warnings.
   ],
   templateUrl: './edit-trip.component.html',
   styleUrls: ['./edit-trip.component.css']
@@ -746,6 +749,15 @@ export class EditTripComponent implements OnInit, IFormComponent {
     const updatedBy = this.authService.currentUserSig()?.displayName || 'Unknown';
     const now = Timestamp.now();
 
+    // AUDIT STAMP: Attach metadata to every write so Cloud Function triggers
+    // can identify WHO made the change and from WHERE without a separate lookup.
+    // Using UID (not displayName) because it's guaranteed unique and can't be
+    // changed by the client, making it a reliable audit key.
+    const auditStamp: AuditablePayload = {
+      _modifiedBy: this.authService.currentUserSig()?.uid || 'unknown',
+      _modifiedFrom: this.router.url,
+    };
+
     try {
       // 1. Update Ship
       if (this.shipId) {
@@ -755,7 +767,8 @@ export class EditTripComponent implements OnInit, IFormComponent {
           imoNumber: formVal.ship.imoNumber ?? null,
           marineTrafficLink: formVal.ship.marineTrafficLink ?? null,
           shipNotes: formVal.ship.shipNotes ?? null,
-          shipName_lowercase: formVal.ship.shipName.toLowerCase()
+          shipName_lowercase: formVal.ship.shipName.toLowerCase(),
+          ...auditStamp, // Triggers onShipWritten Cloud Function
         });
       }
 
@@ -774,7 +787,8 @@ export class EditTripComponent implements OnInit, IFormComponent {
           visitNotes: formVal.visit.visitNotes ?? null,
           source: formVal.visit.source ?? 'Other', // Default to 'Other' if undefined
           updatedBy: updatedBy,
-          statusLastUpdated: now
+          statusLastUpdated: now,
+          ...auditStamp, // Triggers onVisitWritten Cloud Function
         });
       }
 
@@ -808,7 +822,8 @@ export class EditTripComponent implements OnInit, IFormComponent {
           timeOff: formVal.inwardTrip.timeOff ? Timestamp.fromDate(formVal.inwardTrip.timeOff) : null,
           good: formVal.inwardTrip.good ?? null,
           lastModifiedBy: updatedBy,
-          lastModifiedAt: now
+          lastModifiedAt: now,
+          ...auditStamp, // Triggers onTripWritten Cloud Function
         };
         await this.tripRepo.updateTrip(this.inwardTripId, inwardTripUpdate);
       } else if (formVal.inwardTrip?.pilot || formVal.inwardTrip?.boarding) {
@@ -863,7 +878,8 @@ export class EditTripComponent implements OnInit, IFormComponent {
           timeOff: formVal.outwardTrip.timeOff ? Timestamp.fromDate(formVal.outwardTrip.timeOff) : null,
           good: formVal.outwardTrip.good ?? null,
           lastModifiedBy: updatedBy,
-          lastModifiedAt: now
+          lastModifiedAt: now,
+          ...auditStamp, // Triggers onTripWritten Cloud Function
         };
         await this.tripRepo.updateTrip(this.outwardTripId, outwardTripUpdate);
       } else if (formVal.outwardTrip?.pilot || formVal.outwardTrip?.boarding) {
@@ -925,7 +941,8 @@ export class EditTripComponent implements OnInit, IFormComponent {
             port: tripData.port ?? null,
             pilotNotes: tripData.pilotNotes ?? '',
             lastModifiedBy: updatedBy,
-            lastModifiedAt: now
+            lastModifiedAt: now,
+            ...auditStamp, // Triggers onTripWritten Cloud Function
           };
           await this.tripRepo.updateTrip(tripId, updatePayload);
         } else {
@@ -947,7 +964,8 @@ export class EditTripComponent implements OnInit, IFormComponent {
             monthNo: null,
             car: null,
             timeOff: null,
-            good: null
+            good: null,
+            ...auditStamp, // Triggers onTripWritten Cloud Function
           };
           
           await this.tripRepo.addTrip(newTrip);
@@ -977,6 +995,41 @@ export class EditTripComponent implements OnInit, IFormComponent {
       this.snackBar.open('Error saving changes', 'Close');
     } finally {
       this.saving.set(false);
+    }
+  }
+
+  /**
+   * Opens the Audit History dialog for the current visit or ship.
+   *
+   * LEARNING: GENERIC DIALOGS VIA DATA INJECTION
+   * Rather than creating separate dialogs for trip history, visit history, and ship history,
+   * we pass the `documentId` and `collectionName` as dialog data. The AuditHistoryDialogComponent
+   * dispatches to the correct repository internally. This is the Open/Closed principle:
+   * the dialog is open for extension (new collection types) without modifying existing code.
+   *
+   * @param type 'visit' | 'ship' — which document's history to show
+   */
+  openAuditHistory(type: 'visit' | 'ship'): void {
+    if (type === 'visit' && this.visitId) {
+      this.dialog.open(AuditHistoryDialogComponent, {
+        width: '720px',
+        maxHeight: '90vh',
+        data: {
+          documentId: this.visitId,
+          collectionName: 'visits_new',
+          displayLabel: this.form.get('ship.shipName')?.value ?? 'Visit',
+        },
+      });
+    } else if (type === 'ship' && this.shipId) {
+      this.dialog.open(AuditHistoryDialogComponent, {
+        width: '720px',
+        maxHeight: '90vh',
+        data: {
+          documentId: this.shipId,
+          collectionName: 'ships',
+          displayLabel: this.form.get('ship.shipName')?.value ?? 'Ship',
+        },
+      });
     }
   }
 

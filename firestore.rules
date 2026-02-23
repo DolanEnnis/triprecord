@@ -115,6 +115,13 @@ service cloud.firestore {
       
       // Only admins can delete visits (prevents accidental data loss)
       allow delete: if isAdmin();
+
+      // AUDIT LOGS: Clients can read history, but NEVER write.
+      // Cloud Functions use Admin SDK which bypasses these rules.
+      match /audit_logs/{logId} {
+        allow read: if isSignedIn();
+        allow write: if false;
+      }
     }
 
     // ========================================
@@ -138,12 +145,23 @@ service cloud.firestore {
                         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
                           'pilotNotes', 'ownNote', 
                           'car', 'good', 'timeOff', 'pilotNo', 'monthNo',
-                          'lastModifiedAt', 'lastModifiedBy'
+                          'lastModifiedAt', 'lastModifiedBy',
+                          // Audit stamp fields: written by client on every save so the
+                          // Cloud Function trigger can identify who/where the change came from.
+                          // The function reads these and strips them before writing the audit log.
+                          '_modifiedBy', '_modifiedFrom'
                         ])
                       ));
       
       // Only admins can delete trips
       allow delete: if isAdmin();
+
+      // AUDIT LOGS: Clients can read history, but NEVER write.
+      // Cloud Functions use Admin SDK which bypasses these rules.
+      match /audit_logs/{logId} {
+        allow read: if isSignedIn();
+        allow write: if false;
+      }
     }
 
     // ========================================
@@ -160,6 +178,13 @@ service cloud.firestore {
       
       // Only admins can delete ships
       allow delete: if isAdmin();
+
+      // AUDIT LOGS: Clients can read history, but NEVER write.
+      // Cloud Functions use Admin SDK which bypasses these rules.
+      match /audit_logs/{logId} {
+        allow read: if isSignedIn();
+        allow write: if false;
+      }
     }
     
     // ========================================

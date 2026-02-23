@@ -29,7 +29,7 @@ import { debounceTime, distinctUntilChanged, switchMap, startWith } from 'rxjs/o
 
 import { VisitWorkflowService } from '../services/workflows/visit-workflow.service';
 import { AuthService} from '../auth/auth';
-import { Port, Ship, Visit, NewVisitData, Source } from '../models';
+import { Port, Ship, Visit, NewVisitData, Source, AuditablePayload } from '../models';
 import { ShipRepository } from '../services/repositories/ship.repository';
 import { VisitRepository } from '../services/repositories/visit.repository';
 import { UserRepository } from '../services/repositories/user.repository';
@@ -359,8 +359,15 @@ export class NewVisitComponent implements OnInit, IFormComponent {
         source: formValue.source,
       };
 
+      // Build audit stamp so the Cloud Function can log who created this visit and from where.
+      // The Router URL (e.g. '/new-visit') is the canonical route identifier.
+      const auditStamp: AuditablePayload = {
+        _modifiedBy: this.authService.currentUserSig()?.uid || 'unknown',
+        _modifiedFrom: this.router.url,
+      };
+
       // Pass forceNewShip flag to create a separate ship record if user confirmed
-      await this.visitWorkflowService.createNewVisit(newVisitData, this.forceNewShip());
+      await this.visitWorkflowService.createNewVisit(newVisitData, this.forceNewShip(), auditStamp);
       
       // Mark form as submitted to prevent unsaved changes warning
       this.formSubmitted = true;

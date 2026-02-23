@@ -17,7 +17,7 @@ import {
   deleteDoc,
 } from '@angular/fire/firestore';
 import { from, map, Observable, of } from 'rxjs';
-import { Ship, NewVisitData } from '../../models';
+import { AuditLog, Ship, NewVisitData } from '../../models';
 
 
 /**
@@ -452,6 +452,27 @@ export class ShipRepository {
   async deleteShip(shipId: string): Promise<void> {
     const shipDocRef = doc(this.firestore, `ships/${shipId}`);
     await deleteDoc(shipDocRef);
+  }
+
+  /**
+   * Retrieves the full change history for a single ship document.
+   *
+   * LEARNING: WHY A PROMISE (getDocs) INSTEAD OF AN OBSERVABLE (collectionData)?
+   * Audit history is a one-shot read — we load it once when the dialog opens.
+   * Using collectionData() would create a live subscription that stays open and
+   * re-emits every time a new audit log entry is written. That causes unnecessary
+   * re-renders in the dialog and wastes Firestore read quota.
+   * getDocs() fires once and completes — perfect for read-once history views.
+   *
+   * @param shipId The Firestore document ID of the ship
+   * @returns Array of AuditLog entries ordered newest → oldest
+   */
+  async getAuditHistory(shipId: string): Promise<AuditLog[]> {
+    const logsRef = collection(this.firestore, `ships/${shipId}/audit_logs`);
+    // Order newest-first so the most recent change appears at the top of the dialog
+    const q = query(logsRef, orderBy('timestamp', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as AuditLog));
   }
 
 }
