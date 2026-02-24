@@ -9,8 +9,8 @@ import { Timestamp } from '@angular/fire/firestore';
  * function can identify WHO made the change and from WHERE, without needing
  * a separate API call. The Admin SDK then strips them when building the audit log.
  *
- * The underscore prefix (_) is a strong convention signalling these are
- * internal metadata fields — not for display in the UI.
+ * The underscore prefix (_) signals these are internal metadata fields —
+ * not for display in the UI, and excluded from the diff calculation.
  */
 export interface AuditablePayload {
   /** Firebase UID of the user performing the write (e.g. 'abc123xyz') */
@@ -20,55 +20,59 @@ export interface AuditablePayload {
 }
 
 /**
- * AuditLog<T> — the shape of a single document in any `audit_logs` subcollection.
+ * AuditLog — the shape of a single document in any `audit_logs` subcollection.
  *
- * The generic `T` lets us type the before/after snapshots:
- * - AuditLog<Trip> for trips
- * - AuditLog<Visit> for visits_new
- * - AuditLog<Ship> for ships
+ * DELTA FORMAT (new logs):
+ *   Stores only the fields that changed via the `changes` map.
+ *   Each entry: { old: previousValue, new: updatedValue }
+ *
+ * BACKWARDS COMPATIBLE:
+ *   Full-state logs written before this migration had `previousState` and
+ *   `newState` instead. Both are optional so old data still type-checks.
  *
  * @firestore Path: `/{collection}/{docId}/audit_logs/{logId}`
  */
-export interface AuditLog<T = Record<string, unknown>> {
+export interface AuditLog {
   /** Firestore document ID (auto-set on retrieval) */
   id?: string;
 
   /**
-   * Server-generated timestamp — guarantees correct ordering even if clocks drift.
+   * Server-generated timestamp.
    *
-   * LEARNING: WHY TIMESTAMP (not FieldValue) here?
-   * FieldValue.serverTimestamp() is only used during the WRITE (in the Cloud Function).
-   * By the time client code reads the document via getDocs(), Firestore has already
-   * resolved the sentinel to a concrete Timestamp. So the read-side type is Timestamp.
+   * LEARNING: Typed as Timestamp because FieldValue.serverTimestamp() is only
+   * used at write time (inside the Cloud Function). By the time the client
+   * reads the document via getDocs(), Firestore has already resolved it to
+   * a concrete Timestamp value.
    */
   timestamp: Timestamp;
-
 
   /** Whether this was a document creation, modification, or deletion */
   action: 'CREATE' | 'UPDATE' | 'DELETE';
 
-  /** Who triggered the write (from _modifiedBy stamp, or 'unknown') */
+  /** Firebase UID of the user who triggered the change (or 'system') */
   modifiedBy: string;
 
   /**
-   * Which Angular route triggered the write (from _modifiedFrom stamp, or 'unknown').
-   * Example: '/edit/abc123', '/new-visit', '/trip-confirmation'
+   * Angular route that triggered the write (or 'system' for Cloud Functions).
+   * Example: '/edit/abc123', '/new-visit'
    */
   modifiedFrom: string;
 
   /**
-   * The document's state just BEFORE the write.
-   * - null on CREATE (no previous state exists)
-   * - Populated on UPDATE and DELETE
-   * Note: _modifiedBy and _modifiedFrom are stripped from these snapshots.
+   * DELTA FORMAT — map of fields that changed.
+   * Only present on UPDATE log entries. The key is the field name.
+   *
+   * Example:
+   *   { pilot: { old: 'John Murphy', new: 'Mary Walsh' },
+   *     boarding: { old: '2024-01-01T10:00', new: '2024-01-01T11:00' } }
    */
-  previousState: Omit<T, '_modifiedBy' | '_modifiedFrom'> | null;
+  changes?: Record<string, { old: unknown; new: unknown }>;
 
-  /**
-   * The document's state just AFTER the write.
-   * - null on DELETE
-   * - Populated on CREATE and UPDATE
-   * Note: _modifiedBy and _modifiedFrom are stripped from these snapshots.
-   */
-  newState: Omit<T, '_modifiedBy' | '_modifiedFrom'> | null;
+  // ── Legacy full-state fields (backwards compatibility only) ──────────────
+  // These existed before the delta migration. New logs will NOT have these.
+  // The UI checks for `changes` first and falls back to these if absent.
+  /** @deprecated Use `changes` instead */
+  previousState?: Record<string, unknown> | null;
+  /** @deprecated Use `changes` instead */
+  newState?: Record<string, unknown> | null;
 }

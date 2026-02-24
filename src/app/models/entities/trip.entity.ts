@@ -98,10 +98,7 @@ export interface Trip {
   
   /** Vehicle/transport used by pilot */
   car?: string | null;
-  
-  /** Time when pilot was released from duty */
-  timeOff?: Timestamp | null;
-  
+
   /** Pilot's rating of the job (internal metric) */
   good?: number | null;
 
@@ -139,6 +136,29 @@ export interface Trip {
    * null when unconfirmed. Only set when isConfirmed = true.
    */
   confirmedAt?: Timestamp | FieldValue | null;
+
+  // ============================================
+  // DOCKET (ATTACHED DOCUMENT)
+  // ============================================
+
+  /**
+   * Firebase Storage download URL for the attached docket.
+   * Populated after a pilot uploads a docket during trip confirmation.
+   */
+  docketUrl?: string;
+
+  /**
+   * Internal Firebase Storage path (e.g. `dockets/{tripId}/docket_1708800000.jpg`).
+   * Used to delete the old file when a pilot replaces a docket, keeping
+   * storage costs lean. Never expose this raw path to the UI.
+   */
+  docketPath?: string;
+
+  /**
+   * MIME-derived type of the attached docket.
+   * Drives the viewer: 'image' → thumbnail + lightbox, 'pdf' → "View PDF" button.
+   */
+  docketType?: 'image' | 'pdf';
 
   // ============================================
   // AUDIT FIELDS

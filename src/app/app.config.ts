@@ -6,6 +6,7 @@ import { provideFirebaseApp, initializeApp } from '@angular/fire/app';
 import { getAuth, provideAuth } from '@angular/fire/auth';
 import { getFirestore, provideFirestore } from '@angular/fire/firestore';
 import { getFunctions, provideFunctions } from '@angular/fire/functions';
+import { getStorage, provideStorage } from '@angular/fire/storage';
 import { environment } from '../environments/environment';
 import { DatePipe, registerLocaleData } from '@angular/common';
 import { provideHttpClient } from '@angular/common/http';
@@ -26,6 +27,7 @@ export const appConfig: ApplicationConfig = {
     provideAuth(() => getAuth()),
     provideFirestore(() => getFirestore()),
     provideFunctions(() => getFunctions(undefined, 'europe-west1')),
+    provideStorage(() => getStorage(undefined, 'shannonpilots-6fedd.appspot.com')),
     provideHttpClient(),
     provideNativeDateAdapter(),
     DatePipe,

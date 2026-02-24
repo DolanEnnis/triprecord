@@ -1,12 +1,10 @@
 import { inject, Injectable} from '@angular/core';
-import { Observable, of } from 'rxjs';
+import { Observable } from 'rxjs';
 import { Timestamp } from '@angular/fire/firestore';
 // Only import DTO models
 import { Charge, UnifiedTrip, NewVisitData, VisitStatus } from '../../models';
 
-
 import { AuthService } from '../../auth/auth';
-import { ChargeRepository } from '../repositories/charge.repository';
 import { ShipRepository } from '../repositories/ship.repository';
 import { UnifiedTripLogService } from './unified-trip-log.service';
 import { VisitWorkflowService } from '../workflows/visit-workflow.service';
@@ -19,7 +17,7 @@ import { VisitRepository } from '../repositories/visit.repository';
   providedIn: 'root',
 })
 export class DataService {
-  private readonly chargeRepository: ChargeRepository = inject(ChargeRepository);
+  // ChargeRepository has been fully retired — all operations now go through TripRepository.
   private readonly shipRepository: ShipRepository = inject(ShipRepository);
   private readonly tripRepository: TripRepository = inject(TripRepository);
   private readonly unifiedTripLogService: UnifiedTripLogService = inject(UnifiedTripLogService);
@@ -102,24 +100,57 @@ export class DataService {
   }
 
   /**
-   * Updates an existing charge document. (Retained, no change)
+   * Updates a confirmed trip.
+   *
+   * MIGRATION: Previously wrote to /charges. Now writes directly to /trips,
+   * where all confirmed records live since the data migration.
+   * The `chargeId` passed in is already the /trips document ID because
+   * the trip-confirmation table is built from UnifiedTrip, which sources its
+   * `id` from the /trips collection.
+   *
+   * LEARNING: TYPE BOUNDARY CONVERSION
+   * The `Charge` DTO uses a plain JS `Date` for `boarding` (convenient for display
+   * and CSV export), but the `Trip` entity stores it as a Firestore `Timestamp`.
+   * We convert at this service boundary — the same pattern used in
+   * `confirmTripAndCreateCharge()` above.
    */
   async updateCharge(chargeId: string, chargeData: Partial<Charge>): Promise<void> {
-    return this.chargeRepository.updateCharge(chargeId, chargeData);
+    // Map Charge fields to their Trip equivalents, converting types as needed.
+    const tripUpdatePayload: Partial<import('../../models').Trip> = {
+      ...(chargeData.ship && { shipName: chargeData.ship }),
+      ...(chargeData.gt !== undefined && { gt: chargeData.gt }),
+      ...(chargeData.port !== undefined && { port: chargeData.port }),
+      ...(chargeData.pilot && { pilot: chargeData.pilot }),
+      ...(chargeData.typeTrip && { typeTrip: chargeData.typeTrip }),
+      // Convert JS Date → Firestore Timestamp (rejected by Firestore otherwise)
+      ...(chargeData.boarding && { boarding: Timestamp.fromDate(chargeData.boarding) }),
+      ...(chargeData.sailingNote !== undefined && { pilotNotes: chargeData.sailingNote }),
+      ...(chargeData.extra !== undefined && { extraChargesNotes: chargeData.extra }),
+      // Pass docket metadata through to the Trip record
+      ...(chargeData.docketUrl !== undefined && { docketUrl: chargeData.docketUrl }),
+      ...(chargeData.docketPath !== undefined && { docketPath: chargeData.docketPath }),
+      ...(chargeData.docketType !== undefined && { docketType: chargeData.docketType }),
+    };
+    return this.tripRepository.updateTrip(chargeId, tripUpdatePayload);
   }
 
   /**
-   * Deletes a charge document. (Retained, no change)
+   * Deletes a confirmed trip record.
+   *
+   * MIGRATION: Previously deleted from /charges. Now deletes from /trips.
    */
   async deleteCharge(chargeId: string): Promise<void> {
-    return this.chargeRepository.deleteCharge(chargeId);
+    return this.tripRepository.deleteTrip(chargeId);
   }
 
   /**
-   * Checks for duplicate charges. (Retained, no change)
+   * Checks whether a confirmed trip already exists (duplicate detection).
+   *
+   * MIGRATION: The old version queried /charges, which is no longer written to.
+   * Now delegates to TripRepository which queries /trips with isConfirmed == true.
    */
   async doesChargeExist(chargeData: { ship: string; boarding: Date; typeTrip: string }): Promise<boolean> {
-    return this.chargeRepository.doesChargeExist(chargeData);
+    return this.tripRepository.doesConfirmedTripExist(chargeData);
   }
 
   /**

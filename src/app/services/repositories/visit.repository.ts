@@ -356,7 +356,6 @@ export class VisitRepository {
             pilotNo: null,
             monthNo: null,
             car: null,
-            timeOff: null,
             good: null,
           };
 

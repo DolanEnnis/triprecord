@@ -20,9 +20,6 @@
         <mat-icon>table_chart</mat-icon> Sheet-Info
       </a>
     }
-    <a mat-list-item routerLink="/charges" (click)="onClose()">
-      <mat-icon>receipt_long</mat-icon> Charges
-    </a>
     @if(authService.canConfirmTrips()) {
       <a mat-list-item routerLink="/trip-confirmation" (click)="onClose()">
         <mat-icon>home</mat-icon> Trip Confirmation

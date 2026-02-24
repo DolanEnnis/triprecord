@@ -8,6 +8,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { Router } from '@angular/router';
 import { ShipRepository } from '../services/repositories/ship.repository';
 import { VisitRepository } from '../services/repositories/visit.repository';
@@ -15,6 +17,7 @@ import { Observable, of } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, finalize, map } from 'rxjs/operators';
 import { ShipDetailsCard } from '../ship-details-card/ship-details-card';
 import { PreviousVisitsListComponent } from '../previous-visits/previous-visits-list/previous-visits-list.component';
+import { AuditHistoryDialogComponent } from '../dialogs/audit-history-dialog.component';
 import { EnrichedVisit } from '../models';
 
 /**
@@ -43,6 +46,8 @@ import { EnrichedVisit } from '../models';
     MatButtonModule,
     MatCardModule,
     MatProgressSpinnerModule,
+    MatTooltipModule,
+    MatDialogModule,
     ShipDetailsCard,
     PreviousVisitsListComponent
   ],
@@ -53,6 +58,7 @@ export class ShipsComponent implements OnInit {
   private readonly shipRepository = inject(ShipRepository);
   private readonly visitRepository = inject(VisitRepository);
   private readonly router = inject(Router);
+  private readonly dialog = inject(MatDialog);
 
   // Search form control
   searchControl = new FormControl('');
@@ -185,5 +191,28 @@ export class ShipsComponent implements OnInit {
       // This forces the valueChanges observable to emit
       this.searchControl.setValue(currentSearch);
     }
+  }
+
+  /**
+   * Opens the Audit History dialog for the currently selected ship.
+   *
+   * LEARNING: REUSING A GENERIC DIALOG
+   * We pass the shipId and collectionName as dialog data — the
+   * AuditHistoryDialogComponent handles fetching and rendering.
+   * No new dialog component needed; the existing one is collection-agnostic.
+   */
+  openShipHistory(): void {
+    const shipId = this.selectedShipId();
+    if (!shipId) return;
+
+    this.dialog.open(AuditHistoryDialogComponent, {
+      width: '720px',
+      maxHeight: '90vh',
+      data: {
+        documentId: shipId,
+        collectionName: 'ships',
+        displayLabel: this.selectedShipName(),
+      },
+    });
   }
 }

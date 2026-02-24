@@ -66,7 +66,16 @@
   <!-- SHIP DETAILS SECTION - Only shown when a ship is selected -->
   @if (selectedShipId()) {
     <div class="details-section">
-      <h2 class="ship-name-header">{{selectedShipName()}}</h2>
+      <div class="ship-details-header">
+        <h2 class="ship-name-header">{{selectedShipName()}}</h2>
+        <button mat-icon-button
+                (click)="openShipHistory()"
+                matTooltip="View ship change history"
+                type="button">
+          <mat-icon>history</mat-icon>
+        </button>
+      </div>
+
       
       <!-- Ship Details Card Component -->
       <app-ship-details-card [shipId]="selectedShipId()!"></app-ship-details-card>

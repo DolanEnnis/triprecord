@@ -1,0 +1,75 @@
+<div class="docket-upload-container">
+
+  <!-- Hidden file input: accept images and PDFs only, capture="environment"
+       tells mobile browsers to prefer the rear camera when using camera mode. -->
+  <input
+    type="file"
+    #fileInput
+    accept="image/jpeg,image/png,application/pdf"
+    capture="environment"
+    (change)="onFileSelected($event)"
+    class="hidden-file-input"
+    id="docketFileInput"
+  />
+
+  <!-- Main Attach Button.
+       LEARNING: MatButton needs mat-icon as a DIRECT child for correct content projection.
+       Placing mat-icon inside an @else block alongside a span tag prevents Angular from
+       projecting the icon into the correct slot. The fix: use a separate @if block just
+       for mat-icon so it's always a single-node block, and a separate @if/@else for text. -->
+  <button
+    mat-stroked-button
+    type="button"
+    (click)="triggerFilePicker(fileInput)"
+    [disabled]="uploading()"
+    class="attach-button"
+    matTooltip="Attach a photo or PDF docket (max 1.5MB for PDFs, images are auto-resized)"
+    id="attachDocketButton"
+  >
+    <!-- mat-icon lives in its own @if so it is the sole root node of that block -->
+    @if (!uploading()) {
+      <mat-icon>{{ currentDocketUrl() ? 'swap_horiz' : 'attach_file' }}</mat-icon>
+    }
+    <!-- Separate @if for the spinner/text content -->
+    @if (uploading()) {
+      <mat-progress-spinner
+        mode="indeterminate"
+        diameter="18"
+        class="upload-spinner"
+      ></mat-progress-spinner>
+      <span>Uploading...</span>
+    } @else {
+      <span>{{ currentDocketUrl() ? 'Replace Docket' : 'Attach Docket' }}</span>
+    }
+  </button>
+
+  <!-- Preview area: shown once a docket is attached -->
+  @if (currentDocketUrl() && !uploading()) {
+    <div class="docket-preview">
+      @if (currentDocketType() === 'image') {
+        <!-- Image preview: clicking opens full-size in new tab -->
+        <a [href]="currentDocketUrl()" target="_blank" rel="noopener noreferrer" class="docket-thumbnail-link">
+          <img
+            [src]="currentDocketUrl()"
+            alt="Attached docket"
+            class="docket-thumbnail"
+          />
+          <mat-icon class="zoom-icon">zoom_in</mat-icon>
+        </a>
+      } @else if (currentDocketType() === 'pdf') {
+        <!-- PDF indicator with link -->
+        <a
+          [href]="currentDocketUrl()"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="pdf-preview-link"
+        >
+          <mat-icon class="pdf-icon">picture_as_pdf</mat-icon>
+          <span>View PDF</span>
+          <mat-icon class="open-icon">open_in_new</mat-icon>
+        </a>
+      }
+    </div>
+  }
+
+</div>

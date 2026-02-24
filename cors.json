@@ -1,0 +1,13 @@
+[
+  {
+    "origin": [
+      "http://localhost:4200",
+      "http://127.0.0.1:4200",
+      "https://shannonpilots-6fedd.web.app",
+      "https://shannonpilots-6fedd.firebaseapp.com"
+    ],
+    "method": ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"],
+    "responseHeader": ["*"],
+    "maxAgeSeconds": 3600
+  }
+]

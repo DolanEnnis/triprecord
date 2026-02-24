@@ -1,0 +1,30 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ========================================
+    // DOCKETS (Trip Attachments)
+    // ========================================
+    // Pilots attach dockets (PDFs or photos) during trip confirmation.
+    // Files are stored at: dockets/{tripId}/{fileName}
+
+    match /dockets/{tripId}/{fileName} {
+      // Any authenticated user can read docket files.
+      // (Admins need to view dockets from the edit-trip page.)
+      allow read: if request.auth != null;
+
+      // Only authenticated users can write docket files.
+      // Size guard: 1.5MB max. This prevents 12MB phone photos being
+      // uploaded without the client-side resize running first.
+      // The client-side resizer is the primary defence; this is the fallback.
+      allow write: if request.auth != null
+                   && request.resource.size < 1.5 * 1024 * 1024;
+
+      // Only authenticated users can delete their own dockets.
+      // (The component calls deleteObject() when replacing a docket.)
+      allow delete: if request.auth != null;
+    }
+
+    // All other paths are denied by default.
+  }
+}

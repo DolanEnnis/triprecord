@@ -73,6 +73,32 @@
       <textarea matInput formControlName="sailingNote"></textarea>
     </mat-form-field>
   </div>
+
+  <!-- Docket Upload: shown in fromVisit and editCharge modes only.
+       In 'new' mode there is no tripId yet (it's created on save), so
+       the pilot can attach a docket after confirmation from the edit-trip page. -->
+  @if (mode !== 'new' && docketTripId) {
+    <div class="docket-section">
+      <p class="docket-label">
+        <mat-icon class="docket-label-icon">attach_file</mat-icon>
+        Docket
+      </p>
+
+      <!-- LEARNING: PARENT-CHILD WIRING
+           The parent (this dialog) listens for two output events:
+           - (docketUploaded): fires when a file is fully uploaded → stores URL/path/type
+           - (uploadingChange): fires while upload is in progress → disables Save button
+           This guarantees the Firestore write ONLY happens AFTER the Storage upload completes. -->
+      <app-docket-upload
+        [tripId]="docketTripId"
+        [existingDocketUrl]="chargeToEdit?.docketUrl"
+        [existingDocketPath]="chargeToEdit?.docketPath"
+        [existingDocketType]="chargeToEdit?.docketType"
+        (docketUploaded)="onDocketUploaded($event)"
+        (uploadingChange)="onDocketUploadingChange($event)"
+      ></app-docket-upload>
+    </div>
+  }
 </div>
 
 <div mat-dialog-actions align="end">
@@ -87,10 +113,10 @@
     Tooltip wrapper for disabled button pattern
     - Disabled buttons don't receive mouse events
     - Wrapper receives hover and displays tooltip
-    - Dynamic tooltip shows validation errors or save status
+    - Dynamic tooltip shows validation errors, save status, or upload-in-progress message
   -->
   <div [matTooltip]="getSaveButtonTooltip()" class="save-button-wrapper">
-    <button mat-flat-button color="primary" (click)="onSave()" [disabled]="form.invalid || isSaving">
+    <button mat-flat-button color="primary" (click)="onSave()" [disabled]="form.invalid || isSaving || isDocketUploading">
       @if (isSaving) {
         <mat-progress-spinner mode="indeterminate" diameter="20"></mat-progress-spinner>
       } @else {

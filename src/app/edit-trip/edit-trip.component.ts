@@ -205,6 +205,20 @@ export class EditTripComponent implements OnInit, IFormComponent {
   inwardTripConfirmed = signal(false);
   outwardTripConfirmed = signal(false);
 
+  /**
+   * Stores the raw Trip document for the outward trip.
+   * Unlike the form (which only tracks editable fields), this holds ALL fields
+   * including docketUrl, docketPath, and docketType — which are read-only in
+   * the admin view and don't need to be in the reactive form.
+   */
+  outwardTripData = signal<Trip | null>(null);
+
+  /**
+   * Controls the fullscreen image lightbox for docket images.
+   * Simple boolean signal: true = lightbox open, false = closed.
+   */
+  lightboxOpen = signal(false);
+
   // Autocomplete filtering
   // These Signals hold the current input value to filter the pilot list
   inwardPilotFilter = signal<string>('');
@@ -291,7 +305,6 @@ export class EditTripComponent implements OnInit, IFormComponent {
         pilotNo: [null],
         monthNo: [null],
         car: [''],
-        timeOff: [null],
         good: [null]
       }),
       outwardTrip: this.fb.group({
@@ -305,7 +318,6 @@ export class EditTripComponent implements OnInit, IFormComponent {
         pilotNo: [null],
         monthNo: [null],
         car: [''],
-        timeOff: [null],
         good: [null]
       }),
       additionalTrips: this.fb.array([]) // FormArray for dynamic additional trips
@@ -499,7 +511,6 @@ export class EditTripComponent implements OnInit, IFormComponent {
               pilotNo: inTrip.pilotNo,
               monthNo: inTrip.monthNo,
               car: inTrip.car,
-              timeOff: inTrip.timeOff instanceof Timestamp ? inTrip.timeOff.toDate() : inTrip.timeOff,
               good: inTrip.good
             }
           });
@@ -547,11 +558,14 @@ export class EditTripComponent implements OnInit, IFormComponent {
               pilotNo: outTrip.pilotNo,
               monthNo: outTrip.monthNo,
               car: outTrip.car,
-              timeOff: outTrip.timeOff instanceof Timestamp ? outTrip.timeOff.toDate() : outTrip.timeOff,
               good: outTrip.good
             }
           });
           
+          // Store the raw trip object so the admin docket viewer can access
+          // docketUrl and docketType (not included in the reactive form)
+          this.outwardTripData.set(outTrip);
+
           // Update validator to accept the original (potentially retired) pilot name
           const outwardPilotControl = this.form.get('outwardTrip.pilot');
           outwardPilotControl?.clearValidators();
@@ -819,7 +833,6 @@ export class EditTripComponent implements OnInit, IFormComponent {
           pilotNo: formVal.inwardTrip.pilotNo ?? null,
           monthNo: formVal.inwardTrip.monthNo ?? null,
           car: formVal.inwardTrip.car ?? null,
-          timeOff: formVal.inwardTrip.timeOff ? Timestamp.fromDate(formVal.inwardTrip.timeOff) : null,
           good: formVal.inwardTrip.good ?? null,
           lastModifiedBy: updatedBy,
           lastModifiedAt: now,
@@ -848,7 +861,6 @@ export class EditTripComponent implements OnInit, IFormComponent {
           pilotNo: null,
           monthNo: null,
           car: null,
-          timeOff: null,
           good: null
         };
         this.inwardTripId = await this.tripRepo.addTrip(newInwardTrip);
@@ -875,7 +887,6 @@ export class EditTripComponent implements OnInit, IFormComponent {
           pilotNo: formVal.outwardTrip.pilotNo ?? null,
           monthNo: formVal.outwardTrip.monthNo ?? null,
           car: formVal.outwardTrip.car ?? null,
-          timeOff: formVal.outwardTrip.timeOff ? Timestamp.fromDate(formVal.outwardTrip.timeOff) : null,
           good: formVal.outwardTrip.good ?? null,
           lastModifiedBy: updatedBy,
           lastModifiedAt: now,
@@ -904,7 +915,6 @@ export class EditTripComponent implements OnInit, IFormComponent {
           pilotNo: null,
           monthNo: null,
           car: null,
-          timeOff: null,
           good: null
         };
         this.outwardTripId = await this.tripRepo.addTrip(newOutwardTrip);
@@ -963,7 +973,6 @@ export class EditTripComponent implements OnInit, IFormComponent {
             pilotNo: null,
             monthNo: null,
             car: null,
-            timeOff: null,
             good: null,
             ...auditStamp, // Triggers onTripWritten Cloud Function
           };
@@ -1007,29 +1016,39 @@ export class EditTripComponent implements OnInit, IFormComponent {
    * dispatches to the correct repository internally. This is the Open/Closed principle:
    * the dialog is open for extension (new collection types) without modifying existing code.
    *
-   * @param type 'visit' | 'ship' — which document's history to show
+   * @param type Which document's history to show
    */
-  openAuditHistory(type: 'visit' | 'ship'): void {
-    if (type === 'visit' && this.visitId) {
+  openAuditHistory(type: 'visit' | 'ship' | 'inward' | 'outward'): void {
+    const shipName = this.form.get('ship.shipName')?.value ?? 'Unknown';
+
+    // Helper to open the dialog with the right data
+    const open = (documentId: string | null, collectionName: 'visits_new' | 'ships' | 'trips', label: string) => {
+      if (!documentId) {
+        this.snackBar.open('Save the record first before viewing its history.', 'OK', { duration: 3000 });
+        return;
+      }
       this.dialog.open(AuditHistoryDialogComponent, {
         width: '720px',
         maxHeight: '90vh',
-        data: {
-          documentId: this.visitId,
-          collectionName: 'visits_new',
-          displayLabel: this.form.get('ship.shipName')?.value ?? 'Visit',
-        },
+        data: { documentId, collectionName, displayLabel: label },
       });
-    } else if (type === 'ship' && this.shipId) {
-      this.dialog.open(AuditHistoryDialogComponent, {
-        width: '720px',
-        maxHeight: '90vh',
-        data: {
-          documentId: this.shipId,
-          collectionName: 'ships',
-          displayLabel: this.form.get('ship.shipName')?.value ?? 'Ship',
-        },
-      });
+    };
+
+    switch (type) {
+      case 'visit':
+        open(this.visitId, 'visits_new', shipName);
+        break;
+      case 'ship':
+        open(this.shipId, 'ships', shipName);
+        break;
+      // LEARNING: Both inward and outward trips live in the same 'trips' collection.
+      // We just pass different document IDs. The dialog and repository are collection-agnostic.
+      case 'inward':
+        open(this.inwardTripId, 'trips', `${shipName} — Inward`);
+        break;
+      case 'outward':
+        open(this.outwardTripId, 'trips', `${shipName} — Outward`);
+        break;
     }
   }
 

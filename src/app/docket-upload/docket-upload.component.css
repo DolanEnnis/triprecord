@@ -1,0 +1,107 @@
+/* =====================================================
+   DOCKET UPLOAD COMPONENT STYLES
+   ===================================================== */
+
+.docket-upload-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 0;
+}
+
+/* The browser's native file input is never visible —
+   we trigger it programmatically from the styled button */
+.hidden-file-input {
+  display: none;
+}
+
+.attach-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 160px;
+}
+
+.upload-spinner {
+  /* Align spinner with button text */
+  display: inline-block;
+}
+
+/* ── PREVIEW AREA ── */
+.docket-preview {
+  display: flex;
+  align-items: center;
+}
+
+/* Image thumbnail + zoom icon overlay */
+.docket-thumbnail-link {
+  position: relative;
+  display: inline-block;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+}
+
+.docket-thumbnail {
+  display: block;
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  transition: opacity 0.2s ease;
+}
+
+.docket-thumbnail-link:hover .docket-thumbnail {
+  opacity: 0.7;
+}
+
+.zoom-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  color: white;
+  font-size: 28px;
+  width: 28px;
+  height: 28px;
+  transition: opacity 0.2s ease;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.docket-thumbnail-link:hover .zoom-icon {
+  opacity: 1;
+}
+
+/* PDF preview link */
+.pdf-preview-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  text-decoration: none;
+  color: inherit;
+  font-size: 0.875rem;
+  transition: background-color 0.2s ease;
+}
+
+.pdf-preview-link:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.pdf-icon {
+  color: #dc3545; /* Red — universally recognisable as PDF */
+  font-size: 22px;
+  width: 22px;
+  height: 22px;
+}
+
+.open-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  color: rgba(0, 0, 0, 0.54);
+}

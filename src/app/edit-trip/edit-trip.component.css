@@ -326,6 +326,13 @@
   margin-bottom: 16px;
 }
 
+.pilot-four-col-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
 /* Two-column grid for Car and Time Off */
 .pilot-two-col-grid {
   display: grid;
@@ -342,7 +349,9 @@
   }
 
   /* Stack all fields vertically on mobile */
-  .pilot-own-section div[style*="grid-template-columns"] {
+  .pilot-own-section .pilot-four-col-grid,
+  .pilot-own-section .pilot-three-col-grid,
+  .pilot-own-section .pilot-two-col-grid {
     display: flex !important;
     flex-direction: column !important;
   }
@@ -386,6 +395,13 @@
   .pilot-own-section {
     margin: 16px -4px 0 -4px;
     padding: 8px;
+  }
+}
+
+/* TABLET: 2x2 grid for pilot info */
+@media (min-width: 481px) and (max-width: 1024px) {
+  .pilot-four-col-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -482,4 +498,100 @@
     display: grid !important;
   }
 }
+
+/* ============================================================
+   DOCKET VIEWER SECTION (Admin View)
+   ============================================================ */
+
+.docket-viewer-section {
+  margin: 24px 0;
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  border: 1px solid rgba(0,0,0,0.08);
+}
+
+.docket-viewer-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 0;
+  margin-bottom: 16px;
+  font-size: 1.1rem;
+  color: #555;
+  font-weight: 500;
+}
+
+.docket-image-container {
+  display: inline-block;
+}
+
+.docket-preview-img {
+  display: block;
+  max-width: 240px;
+  max-height: 240px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid #ddd;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s ease;
+}
+
+.docket-preview-img:hover {
+  transform: scale(1.03);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+}
+
+.view-pdf-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 24px;
+}
+
+/* Fullscreen Lightbox Overlay */
+.lightbox-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.lightbox-img {
+  max-width: 92%;
+  max-height: 92%;
+  object-fit: contain;
+  box-shadow: 0 0 40px rgba(0,0,0,0.6);
+  border-radius: 2px;
+  animation: zoomIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  color: white !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(4px);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes zoomIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
 

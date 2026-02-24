@@ -101,13 +101,15 @@ export class VisitWorkflowService {
         isConfirmed: false,
         recordedBy: recordedBy,
         recordedAt: now,
-        ownNote: undefined,
-        pilotNo: undefined,
-        monthNo: undefined,
-        car: undefined,
-        timeOff: undefined,
-        good: undefined,
-        
+        // LEARNING: Use `null` not `undefined` for Firestore.
+        // `undefined` is a JS concept meaning "not set" — Firestore's SDK
+        // cannot serialize it and will throw. `null` is the correct sentinel
+        // for "this field exists but has no value yet".
+        ownNote: null,
+        pilotNo: null,
+        monthNo: null,
+        car: null,
+        good: null,
         // Denormalized Ship Data
         shipName: data.shipName,
         gt: data.grossTonnage,
@@ -130,12 +132,11 @@ export class VisitWorkflowService {
         isConfirmed: false,
         recordedBy: recordedBy,
         recordedAt: now,
-        ownNote: undefined,
-        pilotNo: undefined,
-        monthNo: undefined,
-        car: undefined,
-        timeOff: undefined,
-        good: undefined,
+        ownNote: null,
+        pilotNo: null,
+        monthNo: null,
+        car: null,
+        good: null,
 
         // Denormalized Ship Data
         shipName: data.shipName,
@@ -203,7 +204,6 @@ export class VisitWorkflowService {
         pilotNo: null,
         monthNo: null,
         car: null,
-        timeOff: null,
         good: null,
       };
       return this.tripRepository.addTrip(newTrip);
@@ -255,7 +255,6 @@ export class VisitWorkflowService {
         pilotNo: null,
         monthNo: null,
         car: null,
-        timeOff: null,
         good: null,
 
         // Denormalized Ship Data
@@ -295,7 +294,6 @@ export class VisitWorkflowService {
         pilotNo: null,
         monthNo: null,
         car: null,
-        timeOff: null,
         good: null,
 
         // Denormalized Ship Data

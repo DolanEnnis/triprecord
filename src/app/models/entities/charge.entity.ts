@@ -79,4 +79,17 @@ export interface Charge {
   
   /** Firebase UID of user who created this charge */
   createdById?: string;
+
+  // ============================================
+  // DOCKET (ATTACHED DOCUMENT)
+  // ============================================
+
+  /** Firebase Storage download URL for the attached docket */
+  docketUrl?: string;
+
+  /** Internal Firebase Storage path used for cleanup when replacing a docket */
+  docketPath?: string;
+
+  /** MIME-derived type of the attached docket */
+  docketType?: 'image' | 'pdf';
 }

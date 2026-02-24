@@ -6,8 +6,7 @@
       </button>
       <h2>Edit Visit</h2>
 
-      <!-- UPDATED INFO: Read-only display of when/who last updated this visit -->
-      <!-- Mirrors the "Updated" column from the status-list page -->
+      <!-- UPDATED INFO -->
       @if (visitUpdatedAt()) {
         <div class="updated-info">
           <span class="updated-time">{{ visitUpdatedAt() | timeAgo }}</span>
@@ -51,6 +50,14 @@
             <mat-icon class="expand-icon mobile-only">{{
               shipDetailsExpanded() ? "expand_less" : "expand_more"
             }}</mat-icon>
+            @if (shipDetailsExpanded()) {
+              <button mat-icon-button
+                      (click)="openAuditHistory('ship'); $event.stopPropagation()"
+                      matTooltip="View ship change history"
+                      type="button">
+                <mat-icon>history</mat-icon>
+              </button>
+            }
           </mat-card-title>
         </mat-card-header>
 
@@ -172,16 +179,14 @@
             <mat-icon class="expand-icon">{{
               visitStatusExpanded() ? "expand_less" : "expand_more"
             }}</mat-icon>
-            <!-- Audit History Button: stopPropagation prevents the click from toggling the section -->
-            <button
-              mat-icon-button
-              (click)="openAuditHistory('visit'); $event.stopPropagation()"
-              matTooltip="View visit change history"
-              class="audit-history-btn"
-              type="button"
-            >
-              <mat-icon>history</mat-icon>
-            </button>
+            @if (visitStatusExpanded()) {
+              <button mat-icon-button
+                      (click)="openAuditHistory('visit'); $event.stopPropagation()"
+                      matTooltip="View visit change history"
+                      type="button">
+                <mat-icon>history</mat-icon>
+              </button>
+            }
           </mat-card-title>
         </mat-card-header>
 
@@ -282,6 +287,14 @@
             <mat-icon class="expand-icon">{{
               inwardTripExpanded() ? "expand_less" : "expand_more"
             }}</mat-icon>
+            @if (inwardTripExpanded()) {
+              <button mat-icon-button
+                      (click)="openAuditHistory('inward'); $event.stopPropagation()"
+                      matTooltip="View inward trip change history"
+                      type="button">
+                <mat-icon>history</mat-icon>
+              </button>
+            }
           </mat-card-title>
         </mat-card-header>
 
@@ -402,8 +415,8 @@
                   ></textarea>
                 </mat-form-field>
 
-                <!-- Pilot No, Month No, Good on one line -->
-                <div class="pilot-three-col-grid">
+                <!-- Pilot No, Month No, Good, Car on one line -->
+                <div class="pilot-four-col-grid">
                   <mat-form-field appearance="outline">
                     <mat-label>Pilot No</mat-label>
                     <input matInput type="number" formControlName="pilotNo" />
@@ -424,19 +437,11 @@
                       max="6"
                     />
                   </mat-form-field>
-                </div>
 
-                <!-- Car and Time Off on one line -->
-                <div class="pilot-two-col-grid">
                   <mat-form-field appearance="outline">
                     <mat-label>Car</mat-label>
                     <input matInput formControlName="car" />
                   </mat-form-field>
-
-                  <app-date-time-picker
-                    formControlName="timeOff"
-                    label="Time Off"
-                  ></app-date-time-picker>
                 </div>
               </div>
             }
@@ -460,6 +465,14 @@
             <mat-icon class="expand-icon">{{
               outwardTripExpanded() ? "expand_less" : "expand_more"
             }}</mat-icon>
+            @if (outwardTripExpanded()) {
+              <button mat-icon-button
+                      (click)="openAuditHistory('outward'); $event.stopPropagation()"
+                      matTooltip="View outward trip change history"
+                      type="button">
+                <mat-icon>history</mat-icon>
+              </button>
+            }
           </mat-card-title>
         </mat-card-header>
 
@@ -580,8 +593,8 @@
                   ></textarea>
                 </mat-form-field>
 
-                <!-- Pilot No, Month No, Good on one line -->
-                <div class="pilot-three-col-grid">
+                <!-- Pilot No, Month No, Good, Car on one line -->
+                <div class="pilot-four-col-grid">
                   <mat-form-field appearance="outline">
                     <mat-label>Pilot No</mat-label>
                     <input matInput type="number" formControlName="pilotNo" />
@@ -602,19 +615,11 @@
                       max="6"
                     />
                   </mat-form-field>
-                </div>
 
-                <!-- Car and Time Off on one line -->
-                <div class="pilot-two-col-grid">
                   <mat-form-field appearance="outline">
                     <mat-label>Car</mat-label>
                     <input matInput formControlName="car" />
                   </mat-form-field>
-
-                  <app-date-time-picker
-                    formControlName="timeOff"
-                    label="Time Off"
-                  ></app-date-time-picker>
                 </div>
               </div>
             }
@@ -778,6 +783,55 @@
         }
       </mat-card>
     </form>
+
+    <!-- DOCKET VIEWER SECTION
+         Shown when a pilot has attached a docket during trip confirmation.
+         This is read-only in admin view — the pilot attaches dockets from the CreateChargeDialog.
+    -->
+    @if (outwardTripData()?.docketUrl) {
+      <div class="docket-viewer-section">
+        <h3 class="docket-viewer-title">
+          <mat-icon>attach_file</mat-icon>
+          Attached Docket
+        </h3>
+
+        @if (outwardTripData()?.docketType === 'image') {
+          <!-- IMAGE DOCKET: Thumbnail with click-to-fullscreen lightbox -->
+          <div class="docket-image-container">
+            <img
+              [src]="outwardTripData()!.docketUrl"
+              alt="Trip docket"
+              class="docket-preview-img"
+              (click)="lightboxOpen.set(true)"
+              matTooltip="Click to view full size"
+            />
+          </div>
+
+          <!-- Fullscreen Lightbox Overlay -->
+          @if (lightboxOpen()) {
+            <div class="lightbox-overlay" (click)="lightboxOpen.set(false)" role="dialog" aria-label="Docket image fullscreen">
+              <button mat-icon-button class="lightbox-close" (click)="lightboxOpen.set(false)" aria-label="Close">
+                <mat-icon>close</mat-icon>
+              </button>
+              <img [src]="outwardTripData()!.docketUrl" alt="Trip docket fullscreen" class="lightbox-img" />
+            </div>
+          }
+        } @else if (outwardTripData()?.docketType === 'pdf') {
+          <!-- PDF DOCKET: View button -->
+          <a
+            [href]="outwardTripData()!.docketUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            mat-stroked-button
+            class="view-pdf-button"
+          >
+            <mat-icon>picture_as_pdf</mat-icon>
+            View PDF Docket
+          </a>
+        }
+      </div>
+    }
+
     <!-- TRIP HISTORY SECTION - Shows previous visits for this ship -->
     @if (shipVisits().length > 0) {
       <div class="visits-section">

@@ -219,6 +219,46 @@ export class TripRepository {
   }
 
   /**
+   * Checks whether a confirmed trip already exists for the given ship, trip type,
+   * and boarding date (within the same calendar day).
+   *
+   * LEARNING: WHY WE MOVED THIS FROM /charges TO /trips
+   * The old `doesChargeExist()` queried the `/charges` collection, but since all
+   * new confirmations are now written to `/trips`, that query was always returning
+   * `false` for new records — effectively breaking duplicate detection.
+   *
+   * We query `/trips` with:
+   *  - isConfirmed == true  → only look at confirmed (billing) records
+   *  - shipName == ship     → matches the denormalized billing field (not the visit-level `ship` field)
+   *  - typeTrip == typeTrip → same movement type (In/Out/Shift etc.)
+   *  - boarding within the same calendar day → 00:00:00 → 23:59:59
+   *
+   * @returns true if a matching confirmed trip already exists
+   */
+  async doesConfirmedTripExist(chargeData: { ship: string; boarding: Date; typeTrip: string }): Promise<boolean> {
+    const tripsCollection = collection(this.firestore, 'trips');
+
+    const startOfDay = new Date(chargeData.boarding);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(chargeData.boarding);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Firestore compound query: confirmed trip for the same ship/type on the same day.
+    const q = query(
+      tripsCollection,
+      where('isConfirmed', '==', true),
+      where('shipName', '==', chargeData.ship),
+      where('typeTrip', '==', chargeData.typeTrip),
+      where('boarding', '>=', Timestamp.fromDate(startOfDay)),
+      where('boarding', '<=', Timestamp.fromDate(endOfDay))
+    );
+
+    const querySnapshot = await getDocs(q);
+    return !querySnapshot.empty;
+  }
+
+  /**
    * Retrieves the full change history for a single trip document.
    *
    * LEARNING: WHY A PROMISE (getDocs) INSTEAD OF AN OBSERVABLE (collectionData)?

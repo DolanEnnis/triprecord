@@ -1,11 +1,9 @@
 import { Component, Inject, inject, OnInit, signal } from '@angular/core';
-import { CommonModule, DatePipe } from '@angular/common';
+import { CommonModule, DatePipe, KeyValuePipe } from '@angular/common';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatDividerModule } from '@angular/material/divider';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Timestamp } from '@angular/fire/firestore';
 
@@ -19,11 +17,8 @@ import { TimeAgoPipe } from '../shared/pipes/time-ago.pipe';
 // Dialog input data interface
 // -------------------------------------------------------
 export interface AuditHistoryDialogData {
-  /** The Firestore document ID to fetch history for */
   documentId: string;
-  /** Which collection this document belongs to — determines which repository to call */
   collectionName: 'trips' | 'visits_new' | 'ships';
-  /** Human-readable label for the dialog header (e.g., "Inward Trip", "MV Limerick") */
   displayLabel?: string;
 }
 
@@ -33,19 +28,15 @@ export interface AuditHistoryDialogData {
 
 /**
  * LEARNING: Firestore Timestamps vs JavaScript Dates
- * Firestore stores timestamps as an object with `seconds` and `nanoseconds`.
- * When we retrieve data the type is Timestamp, but after JSON round-tripping
- * it may just be a plain object. The AuditLog entity types `timestamp` as
- * `Timestamp | FieldValue` because FieldValue.serverTimestamp() is used when
- * WRITING. By the time we READ a document, Firestore has resolved it to a
- * concrete Timestamp. We accept `unknown` here so TypeScript doesn't complain
- * about the union — our runtime checks handle all actual shapes safely.
+ *
+ * By the time client code reads an audit log, Firestore has already resolved
+ * FieldValue.serverTimestamp() into a concrete Timestamp object with `.toDate()`.
+ * We accept `unknown` here because the AuditLog.timestamp union type includes
+ * legacy possibilities — our runtime guards handle all real shapes safely.
  */
 function toDate(ts: unknown): Date | null {
   if (!ts) return null;
-  // AngularFire Timestamp class instance
   if (ts instanceof Timestamp) return ts.toDate();
-  // Plain { seconds, nanoseconds } object (after JSON round-trip)
   if (typeof ts === 'object' && ts !== null && 'seconds' in ts) {
     return new Date((ts as { seconds: number }).seconds * 1000);
   }
@@ -53,21 +44,21 @@ function toDate(ts: unknown): Date | null {
 }
 
 /**
- * Computes the keys that changed between two state snapshots.
- * Used to show a meaningful "what changed" diff in the history list.
+ * Formats a raw Firestore value for readable display in the diff table.
+ * Handles Timestamps, nulls, objects, and primitives.
  */
-function getChangedKeys(
-  prev: Record<string, unknown> | null,
-  next: Record<string, unknown> | null
-): string[] {
-  if (!prev || !next) return [];
-
-  // Combine keys from both states, then filter to only those that differ
-  const allKeys = new Set([...Object.keys(prev), ...Object.keys(next)]);
-  return Array.from(allKeys).filter(key => {
-    // JSON.stringify handles nested objects and arrays safely
-    return JSON.stringify(prev[key]) !== JSON.stringify(next[key]);
-  });
+function formatValue(value: unknown): string {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'object' && 'seconds' in (value as object)) {
+    const d = toDate(value);
+    return d ? d.toLocaleDateString('en-IE', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    }) : '—';
+  }
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
 }
 
 // -------------------------------------------------------
@@ -78,9 +69,9 @@ function getChangedKeys(
   selector: 'app-audit-history-dialog',
   standalone: true,
   imports: [
-    CommonModule, DatePipe, TimeAgoPipe,
+    CommonModule, DatePipe, KeyValuePipe, TimeAgoPipe,
     MatDialogModule, MatButtonModule, MatIconModule,
-    MatProgressSpinnerModule, MatDividerModule, MatChipsModule, MatTooltipModule,
+    MatProgressSpinnerModule, MatTooltipModule,
   ],
   template: `
     <!-- Dialog Header -->
@@ -96,15 +87,15 @@ function getChangedKeys(
 
       <!-- Loading State -->
       @if (loading()) {
-        <div class="loading-state">
-          <mat-spinner diameter="40"></mat-spinner>
+        <div class="state-box">
+          <mat-spinner diameter="36"></mat-spinner>
           <p>Loading history...</p>
         </div>
       }
 
       <!-- Error State -->
       @if (error()) {
-        <div class="error-state">
+        <div class="state-box error">
           <mat-icon>error_outline</mat-icon>
           <p>{{ error() }}</p>
         </div>
@@ -112,22 +103,24 @@ function getChangedKeys(
 
       <!-- Empty State -->
       @if (!loading() && !error() && logs().length === 0) {
-        <div class="empty-state">
+        <div class="state-box empty">
           <mat-icon>library_books</mat-icon>
           <p>No history found for this record.</p>
           <small>Changes made after the audit system was deployed will appear here.</small>
         </div>
       }
 
-      <!-- Log Timeline -->
+      <!-- ═══════════════════════════════════════════════════════════════
+           LOG TIMELINE
+           ═══════════════════════════════════════════════════════════════ -->
       @if (!loading() && logs().length > 0) {
         <div class="timeline">
           @for (log of logs(); track log.id) {
-            <div class="timeline-entry" [class.entry-create]="log.action === 'CREATE'" [class.entry-delete]="log.action === 'DELETE'">
+            <div class="entry" [class.entry-create]="log.action === 'CREATE'" [class.entry-delete]="log.action === 'DELETE'">
 
-              <!-- Action Badge + Timestamp -->
+              <!-- Header row: badge + time -->
               <div class="entry-header">
-                <span class="action-badge" [class]="'badge-' + log.action.toLowerCase()">
+                <span class="badge" [class]="'badge-' + log.action.toLowerCase()">
                   {{ log.action }}
                 </span>
                 <span class="entry-time" [matTooltip]="toDate(log.timestamp) | date:'medium'">
@@ -135,34 +128,40 @@ function getChangedKeys(
                 </span>
               </div>
 
-              <!-- Who + Where -->
+              <!-- Who + where -->
               <div class="entry-meta">
                 <span class="meta-item">
-                  <mat-icon class="meta-icon">person</mat-icon>
-                  {{ log.modifiedBy || 'Unknown' }}
+                  <mat-icon class="meta-icon">person</mat-icon>{{ log.modifiedBy || 'Unknown' }}
                 </span>
                 <span class="meta-item">
-                  <mat-icon class="meta-icon">link</mat-icon>
-                  {{ log.modifiedFrom || 'Unknown' }}
+                  <mat-icon class="meta-icon">link</mat-icon>{{ log.modifiedFrom || 'Unknown' }}
                 </span>
               </div>
 
-              <!-- Changed Fields Diff (UPDATE only) -->
-              @if (log.action === 'UPDATE') {
-                @let changedKeys = getChangedKeys(log.previousState, log.newState);
-                @if (changedKeys.length > 0) {
+              <!-- ─────────────────────────────────────────────────────────
+                   DELTA FORMAT (new logs): iterate over the changes map.
+
+                   LEARNING: KeyValuePipe + @for
+                   The changes property is a plain JS object (Record<string, ...>).
+                   Angular's @for directive needs an iterable (array/Map), not an
+                   object. KeyValuePipe (| keyvalue) converts the object into an
+                   array of {key, value} pairs so @for can iterate over it cleanly.
+                   ───────────────────────────────────────────────────────── -->
+              @if (log.changes) {
+                @let entries = log.changes | keyvalue;
+                @if (entries.length > 0) {
                   <div class="diff-section">
-                    <p class="diff-title">Changed fields ({{ changedKeys.length }}):</p>
+                    <p class="diff-title">{{ entries.length }} field{{ entries.length === 1 ? '' : 's' }} changed:</p>
                     <div class="diff-table">
-                      @for (key of changedKeys; track key) {
+                      @for (entry of entries; track entry.key) {
                         <div class="diff-row">
-                          <span class="diff-key">{{ key }}</span>
-                          <span class="diff-before" [matTooltip]="'Previous: ' + formatValue(log.previousState?.[key])">
-                            {{ formatValue(log.previousState?.[key]) }}
+                          <span class="diff-key">{{ entry.key }}</span>
+                          <span class="diff-old" [matTooltip]="'Was: ' + formatValue(entry.value.old)">
+                            {{ formatValue(entry.value.old) }}
                           </span>
                           <mat-icon class="diff-arrow">arrow_forward</mat-icon>
-                          <span class="diff-after" [matTooltip]="'New: ' + formatValue(log.newState?.[key])">
-                            {{ formatValue(log.newState?.[key]) }}
+                          <span class="diff-new" [matTooltip]="'Now: ' + formatValue(entry.value.new)">
+                            {{ formatValue(entry.value.new) }}
                           </span>
                         </div>
                       }
@@ -171,14 +170,23 @@ function getChangedKeys(
                 }
               }
 
-              <!-- CREATE: show what was set -->
-              @if (log.action === 'CREATE' && log.newState) {
-                <p class="entry-note">Record created with {{ objectKeys(log.newState).length }} fields.</p>
+              <!-- ─────────────────────────────────────────────────────────
+                   LEGACY FORMAT (pre-migration logs): show simplified view.
+                   These logs have previousState/newState instead of changes.
+                   ───────────────────────────────────────────────────────── -->
+              @if (!log.changes && log.action === 'UPDATE') {
+                <div class="legacy-note">
+                  <mat-icon class="legacy-icon">history_edu</mat-icon>
+                  Legacy log — full-state snapshot (pre-delta migration).
+                </div>
               }
 
-              <!-- DELETE: show what was removed -->
-              @if (log.action === 'DELETE' && log.previousState) {
-                <p class="entry-note warn-note">Record deleted ({{ objectKeys(log.previousState).length }} fields removed).</p>
+              <!-- CREATE/DELETE: no diff to show, action speaks for itself -->
+              @if (log.action === 'CREATE') {
+                <p class="entry-note">Record created.</p>
+              }
+              @if (log.action === 'DELETE') {
+                <p class="entry-note warn-note">Record deleted.</p>
               }
 
             </div>
@@ -188,7 +196,6 @@ function getChangedKeys(
 
     </div>
 
-    <!-- Dialog Actions -->
     <div mat-dialog-actions align="end">
       <button mat-button mat-dialog-close>Close</button>
     </div>
@@ -201,165 +208,128 @@ function getChangedKeys(
       font-size: 1.1rem;
     }
     .title-icon { color: #5c6bc0; font-size: 22px; }
-    .title-label { color: #666; font-size: 0.95rem; font-weight: 400; }
+    .title-label { color: #777; font-size: 0.9rem; font-weight: 400; }
 
     .dialog-content {
       min-height: 120px;
       max-height: 65vh;
       overflow-y: auto;
-      padding: 8px 4px;
+      padding: 4px 2px;
     }
 
-    /* States */
-    .loading-state, .error-state, .empty-state {
+    /* ── States ──────────────────────────── */
+    .state-box {
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      gap: 12px;
+      gap: 10px;
       padding: 40px 16px;
       color: #666;
       text-align: center;
     }
-    .error-state mat-icon { color: #f44336; font-size: 36px; }
-    .empty-state mat-icon { font-size: 40px; color: #bbb; }
-    .empty-state small { color: #aaa; font-size: 0.8rem; }
+    .state-box.error mat-icon { color: #f44336; font-size: 36px; }
+    .state-box.empty mat-icon { font-size: 40px; color: #bbb; }
+    .state-box.empty small { color: #aaa; font-size: 0.8rem; }
 
-    /* Timeline */
-    .timeline {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
+    /* ── Timeline ────────────────────────── */
+    .timeline { display: flex; flex-direction: column; gap: 10px; }
 
-    .timeline-entry {
+    .entry {
       border: 1px solid #e0e0e0;
       border-radius: 8px;
-      padding: 12px 14px;
+      padding: 10px 14px;
       background: #fafafa;
       border-left: 4px solid #5c6bc0;
     }
     .entry-create { border-left-color: #43a047; }
     .entry-delete { border-left-color: #e53935; }
 
-    .entry-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 6px;
-    }
+    .entry-header { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
 
-    .action-badge {
-      font-size: 0.7rem;
+    .badge {
+      font-size: 0.68rem;
       font-weight: 700;
       letter-spacing: 0.5px;
-      padding: 2px 8px;
-      border-radius: 12px;
+      padding: 2px 7px;
+      border-radius: 10px;
       text-transform: uppercase;
     }
     .badge-update { background: #e3f2fd; color: #1565c0; }
     .badge-create { background: #e8f5e9; color: #2e7d32; }
     .badge-delete { background: #ffebee; color: #b71c1c; }
 
-    .entry-time {
-      font-size: 0.82rem;
-      color: #777;
-      cursor: default;
-    }
+    .entry-time { font-size: 0.8rem; color: #888; cursor: default; }
 
     .entry-meta {
       display: flex;
       flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 8px;
+      gap: 10px;
+      margin-bottom: 6px;
     }
     .meta-item {
       display: flex;
       align-items: center;
       gap: 3px;
-      font-size: 0.82rem;
-      color: #444;
+      font-size: 0.8rem;
+      color: #555;
     }
-    .meta-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
-      color: #888;
-    }
+    .meta-icon { font-size: 13px; width: 13px; height: 13px; color: #999; }
 
-    /* Diff Table */
-    .diff-section { margin-top: 6px; }
-    .diff-title {
-      font-size: 0.78rem;
-      color: #666;
-      margin: 0 0 6px;
-      font-weight: 500;
-    }
+    /* ── Delta Diff Table ────────────────── */
+    .diff-section { margin-top: 4px; }
+    .diff-title { font-size: 0.76rem; color: #777; margin: 0 0 5px; font-weight: 500; }
+
     .diff-table {
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      max-height: 180px;
+      gap: 3px;
+      max-height: 200px;
       overflow-y: auto;
     }
     .diff-row {
       display: grid;
-      grid-template-columns: 140px 1fr 20px 1fr;
+      /* field-name | old-value | arrow | new-value */
+      grid-template-columns: 130px 1fr 18px 1fr;
       align-items: center;
       gap: 6px;
-      font-size: 0.78rem;
+      font-size: 0.76rem;
       background: #fff;
       padding: 3px 6px;
       border-radius: 4px;
       border: 1px solid #eee;
     }
-    .diff-key {
-      font-weight: 600;
-      color: #333;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .diff-before {
-      color: #c62828;
-      font-family: monospace;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .diff-arrow { font-size: 14px; color: #aaa; }
-    .diff-after {
-      color: #2e7d32;
-      font-family: monospace;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
+    .diff-key { font-weight: 600; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .diff-old { color: #c62828; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .diff-arrow { font-size: 13px; color: #bbb; }
+    .diff-new { color: #2e7d32; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-    .entry-note {
-      font-size: 0.8rem;
-      color: #666;
-      margin: 4px 0 0;
+    /* ── Legacy & Notes ──────────────────── */
+    .legacy-note {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.76rem;
+      color: #999;
+      font-style: italic;
+      margin-top: 4px;
     }
+    .legacy-icon { font-size: 14px; }
+    .entry-note { font-size: 0.8rem; color: #777; margin: 4px 0 0; }
     .warn-note { color: #b71c1c; }
   `]
 })
 export class AuditHistoryDialogComponent implements OnInit {
-  // LEARNING: inject() is the modern Angular DI pattern for standalone components.
-  // It replaces constructor injection and works well with OnInit lifecycle hooks.
-  private readonly tripRepo = inject(TripRepository);
+  private readonly tripRepo  = inject(TripRepository);
   private readonly visitRepo = inject(VisitRepository);
-  private readonly shipRepo = inject(ShipRepository);
+  private readonly shipRepo  = inject(ShipRepository);
 
-  // Angular Signals for reactive state (preferred over BehaviorSubject in modern Angular)
-  readonly logs = signal<AuditLog[]>([]);
+  readonly logs    = signal<AuditLog[]>([]);
   readonly loading = signal(true);
-  readonly error = signal<string | null>(null);
+  readonly error   = signal<string | null>(null);
 
-  // Expose helpers to the template
-  readonly toDate = toDate;
-  readonly getChangedKeys = getChangedKeys;
-  readonly objectKeys = Object.keys;
+  // Expose pure functions to the template
+  readonly toDate      = toDate;
+  readonly formatValue = formatValue;
 
   constructor(
     public dialogRef: MatDialogRef<AuditHistoryDialogComponent>,
@@ -369,8 +339,7 @@ export class AuditHistoryDialogComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     try {
       // LEARNING: Dispatch to the correct repository based on collectionName.
-      // This makes the dialog fully generic — the same component works for
-      // trips, visits, and ships just by passing different collectionName + documentId.
+      // Single generic dialog handles trips, visits, and ships via the data payload.
       let history: AuditLog[];
 
       if (this.data.collectionName === 'trips') {
@@ -383,27 +352,11 @@ export class AuditHistoryDialogComponent implements OnInit {
 
       this.logs.set(history);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error loading history.';
-      this.error.set(`Could not load audit history: ${message}`);
-      console.error('[AuditHistoryDialog] Failed to load history:', err);
+      const msg = err instanceof Error ? err.message : 'Unknown error.';
+      this.error.set(`Could not load audit history: ${msg}`);
+      console.error('[AuditHistoryDialog]', err);
     } finally {
-      // Always stop the spinner, whether we succeeded or failed
       this.loading.set(false);
     }
-  }
-
-  /**
-   * Formats a raw Firestore field value for display in the diff table.
-   * Handles Timestamps, null, objects, and primitives.
-   */
-  formatValue(value: unknown): string {
-    if (value === null || value === undefined) return '—';
-    // Firestore Timestamp objects have a seconds property
-    if (typeof value === 'object' && 'seconds' in (value as object)) {
-      const d = toDate(value as { seconds: number; nanoseconds: number });
-      return d ? d.toLocaleDateString('en-IE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
-    }
-    if (typeof value === 'object') return JSON.stringify(value);
-    return String(value);
   }
 }

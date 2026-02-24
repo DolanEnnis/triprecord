@@ -1,4 +1,5 @@
-import { Component, inject, Inject, OnInit, Optional, signal, computed } from '@angular/core';
+import { Component, inject, Inject, OnInit, Optional, signal, computed, ViewChild } from '@angular/core';
+import { DocketUploadComponent } from '../docket-upload/docket-upload.component';
 import { Router } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, ValidatorFn, AbstractControl, ValidationErrors } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -98,6 +99,7 @@ export type ChargeDialogData =
     MatSelectModule,
     MatTooltipModule,
     MatIconModule,
+    DocketUploadComponent,
   ],
   templateUrl: './create-charge-dialog.html',
   styleUrl: './create-charge-dialog.css',
@@ -126,6 +128,29 @@ export class CreateChargeDialogComponent implements OnInit {
 
   // --- UI state ---
   isSaving = false;
+
+  /**
+   * True while the DocketUploadComponent is uploading a file.
+   * We must disable the Save button during this window — if the pilot
+   * hits Save before the upload resolves, the docket URL won't be included
+   * in the Firestore payload (broken link in the database).
+   */
+  isDocketUploading = false;
+
+  // --- Docket state (populated by DocketUploadComponent on successful upload) ---
+  private pendingDocketUrl: string | undefined;
+  private pendingDocketPath: string | undefined;
+  private pendingDocketType: 'image' | 'pdf' | undefined;
+
+  /**
+   * Provides the tripId to <app-docket-upload>.
+   * - In 'fromVisit' mode: the existing tripId from the visit event.
+   * - In 'editCharge' mode: the charge/trip document ID.
+   * - In 'new' mode: we don't have a tripId yet (set post-save); docket upload is hidden.
+   */
+  get docketTripId(): string | null {
+    return this.eventToProcess?.tripId ?? this.chargeToEdit?.id ?? null;
+  }
   /** Observable of ship name suggestions, driven by the 'ship' form control's value changes. */
   filteredShips$!: Observable<{ ship: string, gt: number }[]>;
 
@@ -267,7 +292,8 @@ export class CreateChargeDialogComponent implements OnInit {
    * then delegates to the appropriate private method based on the current mode.
    */
   async onSave(): Promise<void> {
-    if (this.form.invalid || this.isSaving) {
+    // Block save if form is invalid, already saving, OR if docket is still uploading
+    if (this.form.invalid || this.isSaving || this.isDocketUploading) {
       return;
     }
 
@@ -343,6 +369,27 @@ export class CreateChargeDialogComponent implements OnInit {
   }
 
   /**
+   * Called by <app-docket-upload> when a file has been successfully uploaded.
+   * We store the result here so it can be merged into the Firestore payload when
+   * the pilot finally clicks "Save Charge".
+   *
+   * LEARNING: PARENT-CHILD COMMUNICATION PATTERN
+   * The child component (DocketUploadComponent) emits an output event.
+   * The parent stores the value in a private field and passes it to the
+   * DataService. This keeps the upload logic fully encapsulated in the child.
+   */
+  onDocketUploaded(result: { docketUrl: string; docketPath: string; docketType: 'image' | 'pdf' }): void {
+    this.pendingDocketUrl  = result.docketUrl;
+    this.pendingDocketPath = result.docketPath;
+    this.pendingDocketType = result.docketType;
+  }
+
+  /** Syncs the isDocketUploading flag with the child component's output event. */
+  onDocketUploadingChange(uploading: boolean): void {
+    this.isDocketUploading = uploading;
+  }
+
+  /**
    * Creates a brand-new Visit and Trip document in Firestore from the form data.
    * Used in 'new' mode (standalone charge, not linked to an existing visit event).
    */
@@ -360,6 +407,11 @@ export class CreateChargeDialogComponent implements OnInit {
   /**
    * Confirms an existing visit event and creates the billing Charge record.
    * Used in 'fromVisit' mode — the tripId and visitId must already exist.
+   *
+   * ATOMIC GUARANTEE: The docket upload completes BEFORE onSave() is called
+   * (Save is disabled during upload). We include pendingDocketUrl in the same
+   * updateTrip call so there is never a moment where the Trip doc exists
+   * without the correct docketUrl — no partial writes.
    */
   private async saveChargeFromVisit(): Promise<void> {
     try {
@@ -369,8 +421,15 @@ export class CreateChargeDialogComponent implements OnInit {
         throw new Error('Cannot save charge: Trip or Visit ID is missing. This might be an old record.');
       }
 
+      // Build docket payload (only included if a file was uploaded)
+      const docketPayload = this.pendingDocketUrl ? {
+        docketUrl:  this.pendingDocketUrl,
+        docketPath: this.pendingDocketPath,
+        docketType: this.pendingDocketType,
+      } : {};
+
       await this.dataService.confirmTripAndCreateCharge(
-        this.form.value,
+        { ...this.form.value, ...docketPayload },
         this.eventToProcess.tripId,
         this.eventToProcess.visitId
       );
@@ -407,7 +466,14 @@ export class CreateChargeDialogComponent implements OnInit {
         }
       }
 
-      await this.dataService.updateCharge(this.chargeToEdit!.id!, this.form.value);
+      // Merge docket fields into the update payload if a new file was uploaded
+      const docketPayload = this.pendingDocketUrl ? {
+        docketUrl:  this.pendingDocketUrl,
+        docketPath: this.pendingDocketPath,
+        docketType: this.pendingDocketType,
+      } : {};
+
+      await this.dataService.updateCharge(this.chargeToEdit!.id!, { ...this.form.value, ...docketPayload });
       this.dialogRef.close('success');
     } catch (error: any) {
       console.error('Error updating charge:', error);
@@ -498,6 +564,10 @@ export class CreateChargeDialogComponent implements OnInit {
    *          or a positive label when the form is ready to submit.
    */
   getSaveButtonTooltip(): string {
+    if (this.isDocketUploading) {
+      return 'Please wait for the docket to finish uploading...';
+    }
+
     if (this.form.valid && !this.isSaving) {
       return this.mode === 'editCharge' ? 'Update charge' : 'Save charge';
     }
