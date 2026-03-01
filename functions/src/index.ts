@@ -735,4 +735,4 @@ export const checkShannonNight = onSchedule({
 export { bridgeChargesToTrips } from "./bridgeChargesToTrips";
 export { gapFillCharges } from "./gapFillCharges";
 export { onShipUpdated } from "./syncShipDetails";
-
+export { importTides } from "./importTides";

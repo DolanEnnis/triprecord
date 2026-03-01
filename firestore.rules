@@ -146,6 +146,7 @@ service cloud.firestore {
                           'pilotNotes', 'ownNote', 
                           'car', 'good', 'timeOff', 'pilotNo', 'monthNo',
                           'lastModifiedAt', 'lastModifiedBy',
+                          'docketUrl', 'docketPath', 'docketType',
                           // Audit stamp fields: written by client on every save so the
                           // Cloud Function trigger can identify who/where the change came from.
                           // The function reads these and strips them before writing the audit log.

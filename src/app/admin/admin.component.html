@@ -289,4 +289,65 @@
     </mat-card-content>
   </mat-card>
 
+  <!-- Environmental Data Import Section -->
+  <h2 style="margin-top: 48px;">Environmental Data Import</h2>
+  
+  <mat-card style="margin-bottom: 48px;">
+    <mat-card-header>
+      <mat-card-title style="display: flex; align-items: center; gap: 8px;">
+        <mat-icon>cloud_upload</mat-icon>
+        Upload Yearly Tide CSV
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div style="background-color: #fff3e0; border-left: 4px solid #ff9800; padding: 12px; margin-bottom: 16px; border-radius: 4px;">
+        <strong>Instructions for Admin:</strong><br>
+        1. Open the latest <strong>"Office Tide"</strong> spreadsheet.<br>
+        2. Go to File -> Download -> <strong>Comma Separated Values (.csv)</strong>.<br>
+        3. Do not modify the file. Upload it exactly as downloaded below.<br>
+        <em>Note: This process overwrites existing data for the uploaded dates.</em>
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
+        <input 
+          type="file" 
+          #fileInput 
+          hidden 
+          accept=".csv" 
+          (change)="onTideFileSelected($event)">
+        
+        <button 
+          mat-stroked-button 
+          color="primary"
+          (click)="fileInput.click()"
+          [disabled]="isUploadingTides()">
+          <mat-icon>attach_file</mat-icon>
+          Select CSV File
+        </button>
+        
+        @if (selectedTideFile) {
+          <span style="font-family: monospace; font-size: 14px; background: #e0e0e0; padding: 4px 8px; border-radius: 4px;">
+            {{ selectedTideFile.name }}
+          </span>
+        }
+      </div>
+
+      <button 
+        mat-raised-button 
+        color="primary" 
+        (click)="uploadTideData()" 
+        [disabled]="!selectedTideFile || isUploadingTides()">
+        @if (isUploadingTides()) {
+          <mat-spinner diameter="20" style="display: inline-block; margin-right: 8px;"></mat-spinner>
+          Uploading & Processing...
+        } @else {
+          <ng-container>
+            <mat-icon>upload</mat-icon>
+            Upload Data
+          </ng-container>
+        }
+      </button>
+    </mat-card-content>
+  </mat-card>
+
 </div>

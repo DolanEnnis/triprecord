@@ -105,6 +105,19 @@
           </td>
         </ng-container>
 
+        <!-- Docket Column -->
+        <ng-container matColumnDef="docket">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let element" class="docket-cell">
+            @if (element.docketUrl) {
+              <mat-icon 
+                class="docket-indicator" 
+                [matTooltip]="'Attached ' + (element.docketType === 'image' ? 'photo' : 'PDF')"
+              >attach_file</mat-icon>
+            }
+          </td>
+        </ng-container>
+
         <!-- Update Time Column -->
         <ng-container matColumnDef="metadata">
           <th mat-header-cell *matHeaderCellDef mat-sort-header="updateTime" class="metadata-cell">Last Update</th>

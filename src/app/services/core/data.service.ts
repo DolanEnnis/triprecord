@@ -130,6 +130,12 @@ export class DataService {
       ...(chargeData.docketUrl !== undefined && { docketUrl: chargeData.docketUrl }),
       ...(chargeData.docketPath !== undefined && { docketPath: chargeData.docketPath }),
       ...(chargeData.docketType !== undefined && { docketType: chargeData.docketType }),
+      
+      // Map Pilot's Own Info
+      ...(chargeData.pilotNo !== undefined && { pilotNo: chargeData.pilotNo }),
+      ...(chargeData.monthNo !== undefined && { monthNo: chargeData.monthNo }),
+      ...(chargeData.good !== undefined && { good: chargeData.good }),
+      ...(chargeData.car !== undefined && { car: chargeData.car }),
     };
     return this.tripRepository.updateTrip(chargeId, tripUpdatePayload);
   }

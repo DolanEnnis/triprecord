@@ -158,10 +158,19 @@ export class StatusListComponent {
   }
 
   openEtaDialog(row: StatusListRow) {
+    // We create a default date representing 'now' but set minutes to 0
+    // for a cleaner default time in the datepicker.
+    const defaultDate = new Date();
+    defaultDate.setMinutes(0, 0, 0);
+
     const dialogRef = this.dialog.open(UpdateEtaDialogComponent, {
       data: {
         shipName: row.shipName,
-        currentEta: row.date,
+        // LEARNING: EXPLICIT STATE VS FALLBACK DATA
+        // If the database has no ETB/ETS (isTimeSet = false), row.date contains 
+        // the initial ETA as a fallback. We don't want to present that to the user 
+        // as a default, so we explicitly check isTimeSet and provide today's date instead.
+        currentEta: row.isTimeSet ? row.date : defaultDate,
         status: row.status, // Pass status to determine correct label
       },
     });

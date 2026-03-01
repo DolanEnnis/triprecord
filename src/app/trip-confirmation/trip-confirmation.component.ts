@@ -55,7 +55,7 @@ export class TripConfirmationComponent implements OnInit, AfterViewInit {
   private readonly csvExportService = inject(CsvExportService);
   private readonly snackBar = inject(MatSnackBar);
 
-  displayedColumns: string[] = ['ship', 'gt', 'boarding', 'typeTrip', 'port', 'extra', 'pilotNo', 'monthNo', 'pilot', 'sailingNote', 'metadata'];
+  displayedColumns: string[] = ['ship', 'gt', 'boarding', 'typeTrip', 'port', 'extra', 'pilotNo', 'monthNo', 'pilot', 'sailingNote', 'docket', 'metadata'];
   dataSource = new MatTableDataSource<TripWithWarnings>();
 
   // Source signal for all trips from the service

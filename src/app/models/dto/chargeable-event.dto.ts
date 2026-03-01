@@ -78,4 +78,29 @@ export interface ChargeableEvent {
   
   /** Whether this trip has been confirmed and converted to a Charge */
   isConfirmed: boolean;
+
+  /** Firebase Storage download URL for the attached docket */
+  docketUrl?: string;
+
+  /** Internal Firebase Storage path used for cleanup when replacing a docket */
+  docketPath?: string;
+
+  /** MIME-derived type of the attached docket */
+  docketType?: 'image' | 'pdf';
+
+  // ============================================
+  // PILOT'S OWN INFO
+  // ============================================
+
+  /** Pilot's own internal reference number for this trip */
+  pilotNo?: number | null;
+
+  /** Month number for pilot's accounting */
+  monthNo?: number | null;
+
+  /** Pilot's rating of the job (internal metric) */
+  good?: number | null;
+
+  /** Vehicle/transport used by pilot */
+  car?: string | null;
 }

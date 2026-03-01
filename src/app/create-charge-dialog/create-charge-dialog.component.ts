@@ -203,6 +203,11 @@ export class CreateChargeDialogComponent implements OnInit {
     typeTrip: ['', Validators.required],
     sailingNote: [''],
     extra: [''],
+    // Pilot's Own Info
+    pilotNo: [null as number | null],
+    monthNo: [null as number | null],
+    good: [null as number | null],
+    car: [''],
   });
 
   constructor(
@@ -241,13 +246,39 @@ export class CreateChargeDialogComponent implements OnInit {
     const currentUser = this.authService.currentUserSig();
 
     // Pre-fill the form from either the charge being edited or the visit event.
-    // The spread operator copies all matching field names automatically.
     const initialData = this.chargeToEdit || this.eventToProcess;
-    this.form.patchValue({
-      ...initialData,
-      // Default the pilot to the logged-in user if no pilot is already set.
-      pilot: initialData?.pilot || currentUser?.displayName || '',
-    });
+    if (initialData) {
+      this.form.patchValue({
+        ship: initialData.ship,
+        gt: initialData.gt,
+        boarding: initialData.boarding,
+        port: initialData.port,
+        pilot: initialData.pilot || currentUser?.displayName || '',
+        typeTrip: initialData.typeTrip,
+        sailingNote: initialData.sailingNote,
+        extra: initialData.extra,
+        pilotNo: initialData.pilotNo,
+        monthNo: initialData.monthNo,
+        good: initialData.good,
+        car: initialData.car,
+      });
+    } else {
+      // Default the pilot for new charges
+      this.form.patchValue({
+        pilot: currentUser?.displayName || '',
+      });
+    }
+
+    // If we have an existing docket in the data, capture it
+    if (this.mode === 'fromVisit' && this.eventToProcess) {
+      this.pendingDocketUrl = this.eventToProcess.docketUrl;
+      this.pendingDocketPath = this.eventToProcess.docketPath;
+      this.pendingDocketType = this.eventToProcess.docketType;
+    } else if (this.mode === 'editCharge' && this.chargeToEdit) {
+      this.pendingDocketUrl = this.chargeToEdit.docketUrl;
+      this.pendingDocketPath = this.chargeToEdit.docketPath;
+      this.pendingDocketType = this.chargeToEdit.docketType;
+    }
 
     /**
      * LEARNING: REACTIVE SHIP AUTOCOMPLETE WITH switchMap

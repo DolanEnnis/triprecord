@@ -206,6 +206,11 @@ export class EditTripComponent implements OnInit, IFormComponent {
   outwardTripConfirmed = signal(false);
 
   /**
+   * Stores the raw Trip document for the inward trip.
+   */
+  inwardTripData = signal<Trip | null>(null);
+
+  /**
    * Stores the raw Trip document for the outward trip.
    * Unlike the form (which only tracks editable fields), this holds ALL fields
    * including docketUrl, docketPath, and docketType — which are read-only in
@@ -214,10 +219,15 @@ export class EditTripComponent implements OnInit, IFormComponent {
   outwardTripData = signal<Trip | null>(null);
 
   /**
-   * Controls the fullscreen image lightbox for docket images.
-   * Simple boolean signal: true = lightbox open, false = closed.
+   * Stores the raw Trip documents for additional trips.
    */
-  lightboxOpen = signal(false);
+  additionalTripsData = signal<Trip[]>([]);
+
+  /**
+   * Controls the fullscreen image lightbox for docket images.
+   * Stores the URL of the image currently being viewed, or null if closed.
+   */
+  lightboxImageUrl = signal<string | null>(null);
 
   // Autocomplete filtering
   // These Signals hold the current input value to filter the pilot list
@@ -520,6 +530,8 @@ export class EditTripComponent implements OnInit, IFormComponent {
           inwardPilotControl?.clearValidators();
           inwardPilotControl?.setValidators(pilotValidator(this.pilotService, inTrip.pilot));
           inwardPilotControl?.updateValueAndValidity();
+          
+          this.inwardTripData.set(inTrip);
 
           // LOCK IF CONFIRMED (Step 8: Granular Locking)
           // Only lock billing-critical fields. Allow Notes editing.
@@ -539,6 +551,7 @@ export class EditTripComponent implements OnInit, IFormComponent {
               port: visit.berthPort
             }
           });
+          this.inwardTripData.set(null);
         }
 
         if (outTrip) {
@@ -619,6 +632,8 @@ export class EditTripComponent implements OnInit, IFormComponent {
           this.additionalTripsArray.push(tripGroup);
           this.additionalTripIds.push(trip.id || null);
         });
+
+        this.additionalTripsData.set(additionalTrips);
 
         // LEARNING: LOAD SHIP VISIT HISTORY FOR CONTEXT
         // After loading the current visit, fetch all previous visits for this ship
@@ -1251,6 +1266,20 @@ export class EditTripComponent implements OnInit, IFormComponent {
     if (!pilotName || !currentUser) return false;
     
     return pilotName.toLowerCase() === currentUser.displayName?.toLowerCase();
+  }
+
+  /**
+   * Checks if the current user is authorized to view a specific trip's docket.
+   * Admins can see everything; pilots can see dockets for their own trips.
+   */
+  isUserAuthorizedForTrip(trip: Trip | null | undefined): boolean {
+    if (!trip) return false;
+    if (this.isAdmin()) return true;
+    
+    const currentUser = this.authService.currentUserSig();
+    if (!currentUser || !trip.pilot) return false;
+    
+    return trip.pilot.toLowerCase() === currentUser.displayName?.toLowerCase();
   }
 
   // Helper needed for the template to check if there's a valid pilot service

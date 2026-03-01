@@ -27,7 +27,7 @@ export const appConfig: ApplicationConfig = {
     provideAuth(() => getAuth()),
     provideFirestore(() => getFirestore()),
     provideFunctions(() => getFunctions(undefined, 'europe-west1')),
-    provideStorage(() => getStorage(undefined, 'shannonpilots-6fedd.appspot.com')),
+    provideStorage(() => getStorage()),
     provideHttpClient(),
     provideNativeDateAdapter(),
     DatePipe,

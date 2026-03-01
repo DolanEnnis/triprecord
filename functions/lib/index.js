@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onShipUpdated = exports.gapFillCharges = exports.bridgeChargesToTrips = exports.checkShannonNight = exports.checkShannonDay = exports.onNewUserRegistration = exports.fetchDailyDiaryPdf = exports.fetchShipDetails = exports.onShipWritten = exports.onVisitWritten = exports.onTripWritten = void 0;
+exports.importTides = exports.onShipUpdated = exports.gapFillCharges = exports.bridgeChargesToTrips = exports.checkShannonNight = exports.checkShannonDay = exports.onNewUserRegistration = exports.fetchDailyDiaryPdf = exports.fetchShipDetails = exports.onShipWritten = exports.onVisitWritten = exports.onTripWritten = void 0;
 const admin = require("firebase-admin");
 const params_1 = require("firebase-functions/params");
 const https_1 = require("firebase-functions/v2/https");
@@ -659,4 +659,6 @@ var gapFillCharges_1 = require("./gapFillCharges");
 Object.defineProperty(exports, "gapFillCharges", { enumerable: true, get: function () { return gapFillCharges_1.gapFillCharges; } });
 var syncShipDetails_1 = require("./syncShipDetails");
 Object.defineProperty(exports, "onShipUpdated", { enumerable: true, get: function () { return syncShipDetails_1.onShipUpdated; } });
+var importTides_1 = require("./importTides");
+Object.defineProperty(exports, "importTides", { enumerable: true, get: function () { return importTides_1.importTides; } });
 //# sourceMappingURL=index.js.map

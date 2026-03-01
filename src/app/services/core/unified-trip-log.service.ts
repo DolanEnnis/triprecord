@@ -24,9 +24,6 @@ import { VisitRepository } from '../repositories/visit.repository';
 @Injectable({
   providedIn: 'root',
 })
-@Injectable({
-  providedIn: 'root',
-})
 export class UnifiedTripLogService {
   // MIGRATION UPDATE: Removed ChargeRepository dependency.
   private readonly tripRepository: TripRepository = inject(TripRepository);
@@ -128,6 +125,11 @@ export class UnifiedTripLogService {
                 isActionable: false,
                 pilotNo: trip.pilotNo,
                 monthNo: trip.monthNo,
+                good: trip.good,
+                car: trip.car,
+                docketUrl: trip.docketUrl,
+                docketPath: trip.docketPath,
+                docketType: trip.docketType,
               });
 
             } else {
@@ -165,6 +167,11 @@ export class UnifiedTripLogService {
                   chargeableEvent: event,
                   pilotNo: trip.pilotNo,
                   monthNo: trip.monthNo,
+                  good: trip.good,
+                  car: trip.car,
+                  docketUrl: trip.docketUrl,
+                  docketPath: trip.docketPath,
+                  docketType: trip.docketType,
                 });
               }
             }
@@ -230,6 +237,13 @@ export class UnifiedTripLogService {
       extra: trip.extraChargesNotes || '',
       tripDirection: tripDirection,
       isConfirmed: false,
+      docketUrl: trip.docketUrl,
+      docketPath: trip.docketPath,
+      docketType: trip.docketType,
+      pilotNo: trip.pilotNo,
+      monthNo: trip.monthNo,
+      good: trip.good,
+      car: trip.car,
     };
   }
 

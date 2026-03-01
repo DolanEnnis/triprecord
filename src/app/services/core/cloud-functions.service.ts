@@ -8,12 +8,22 @@ import { from, Observable } from 'rxjs';
 export class CloudFunctionsService {
   private functions = inject(Functions);
 
+  private gapFillCallable = httpsCallable(this.functions, 'gapFillCharges');
+  private importTidesCallable = httpsCallable(this.functions, 'importTides');
+
   /**
    * Triggers the 'gapFillCharges' cloud function.
    * This function manually syncs legacy charges to trips to fix data gaps.
    */
   runGapFill(): Observable<any> {
-    const gapFill = httpsCallable(this.functions, 'gapFillCharges');
-    return from(gapFill());
+    return from(this.gapFillCallable());
+  }
+
+  /**
+   * Triggers the 'importTides' cloud function.
+   * Uploads a raw CSV string of tide data to be parsed and saved to Firestore.
+   */
+  importTides(csvString: string): Observable<any> {
+    return from(this.importTidesCallable({ csvString }));
   }
 }

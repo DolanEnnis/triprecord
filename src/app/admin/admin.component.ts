@@ -325,6 +325,56 @@ export class AdminComponent implements OnInit, AfterViewInit {
       }
     });
   }
+
+  // ========== Environmental Data Import Methods ==========
+
+  selectedTideFile: File | null = null;
+  isUploadingTides = signal(false);
+
+  /**
+   * Handles file selection from the hidden input.
+   */
+  onTideFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      this.selectedTideFile = input.files[0];
+    }
+  }
+
+  /**
+   * Reads the CSV file and sends it to the Cloud Function.
+   */
+  uploadTideData(): void {
+    if (!this.selectedTideFile) return;
+
+    this.isUploadingTides.set(true);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const csvString = e.target?.result as string;
+      
+      this.cloudFunctions.importTides(csvString).subscribe({
+        next: (result: any) => {
+          const data = result.data || result;
+          this.snackBar.open(`Success: ${data.message || 'Tide data imported'}`, 'Close', { duration: 5000 });
+          this.selectedTideFile = null; // Reset
+          this.isUploadingTides.set(false);
+        },
+        error: (err) => {
+          console.error('Error importing tides:', err);
+          this.snackBar.open(`Error: ${err.message}`, 'Close', { duration: 7000 });
+          this.isUploadingTides.set(false);
+        }
+      });
+    };
+
+    reader.onerror = () => {
+      this.snackBar.open('Error reading file. Please try again.', 'Close');
+      this.isUploadingTides.set(false);
+    };
+
+    reader.readAsText(this.selectedTideFile);
+  }
 }
 
 

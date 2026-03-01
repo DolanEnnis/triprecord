@@ -81,6 +81,22 @@ export interface Charge {
   createdById?: string;
 
   // ============================================
+  // PILOT'S OWN INFO (Account/Personal)
+  // ============================================
+
+  /** Pilot's own internal reference number for this trip */
+  pilotNo?: number | null;
+
+  /** Month number for pilot's accounting */
+  monthNo?: number | null;
+
+  /** Pilot's rating of the job (internal metric) */
+  good?: number | null;
+
+  /** Vehicle/transport used by pilot */
+  car?: string | null;
+
+  // ============================================
   // DOCKET (ATTACHED DOCUMENT)
   // ============================================
 

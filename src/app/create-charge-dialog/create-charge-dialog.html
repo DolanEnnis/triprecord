@@ -74,6 +74,37 @@
     </mat-form-field>
   </div>
 
+  <!-- PILOT'S OWN INFO SECTION -->
+  <div class="pilot-own-section">
+    <h3 class="pilot-section-title">Pilot's Own Info</h3>
+    <div class="pilot-four-col-grid">
+      <!-- Pilot No -->
+      <mat-form-field appearance="outline">
+        <mat-label>Pilot No</mat-label>
+        <input matInput type="number" formControlName="pilotNo" placeholder="No.">
+      </mat-form-field>
+
+      <!-- Month No -->
+      <mat-form-field appearance="outline">
+        <mat-label>Month No</mat-label>
+        <input matInput type="number" formControlName="monthNo" placeholder="Month">
+      </mat-form-field>
+
+      <!-- Good (Rating) -->
+      <mat-form-field appearance="outline">
+        <mat-label>Good</mat-label>
+        <input matInput type="number" formControlName="good" placeholder="1-5">
+      </mat-form-field>
+
+      <!-- Car -->
+      <mat-form-field appearance="outline">
+        <mat-label>Car</mat-label>
+        <input matInput formControlName="car" placeholder="Vehicle">
+      </mat-form-field>
+    </div>
+  </div>
+
+
   <!-- Docket Upload: shown in fromVisit and editCharge modes only.
        In 'new' mode there is no tripId yet (it's created on save), so
        the pilot can attach a docket after confirmation from the edit-trip page. -->

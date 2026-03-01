@@ -146,4 +146,19 @@ export interface UnifiedTrip {
 
   /** Month number for pilot's accounting */
   monthNo?: number | null;
+
+  /** Pilot's rating of the job (internal metric) */
+  good?: number | null;
+
+  /** Vehicle/transport used by pilot */
+  car?: string | null;
+
+  /** Firebase Storage download URL for the attached docket */
+  docketUrl?: string;
+
+  /** Internal Firebase Storage path used for cleanup when replacing a docket */
+  docketPath?: string;
+
+  /** MIME-derived type of the attached docket */
+  docketType?: 'image' | 'pdf';
 }

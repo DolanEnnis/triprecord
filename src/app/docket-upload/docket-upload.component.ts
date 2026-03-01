@@ -7,13 +7,15 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import {
   Storage,
+} from '@angular/fire/storage';
+import {
   ref,
   uploadBytes,
   getDownloadURL,
   deleteObject,
-} from '@angular/fire/storage';
+} from 'firebase/storage';
 import { getAuth } from 'firebase/auth';
-import { EnvironmentInjector } from '@angular/core';
+import { EnvironmentInjector, runInInjectionContext } from '@angular/core';
 
 /**
  * DocketUploadComponent — Standalone component for attaching a docket (PDF or photo)
@@ -171,20 +173,20 @@ export class DocketUploadComponent implements OnInit {
         throw new Error('File is empty or could not be read. If this is a Google Drive file, please make sure it is downloaded to your device.');
       }
 
-      // DEBUG LOGGING: Verify identity and bucket
-      const auth = getAuth();
-      console.log('--- STORAGE DEBUG ---');
-      console.log('Current User:', auth.currentUser?.uid || 'NOT LOGGED IN');
-      console.log('Target Bucket:', (this.storage as any)._bucket || (this.storage as any).storage?.app?.options?.storageBucket || 'Unknown');
-      console.log('Target Path:', storagePath);
-
-      // 2. Upload the new file — Simple POST upload (more robust for CORS)
+      // 2. Upload the new file — Wrapped in Injection Context to ensure project ID is found
       const storageRef = ref(this.storage, storagePath);
       
-      // Explicitly pass contentType metadata — this often fixes 412 errors
-      const metadata = { contentType: isImage ? 'image/jpeg' : 'application/pdf' };
-      
-      await uploadBytes(storageRef, uploadBlob, metadata);
+      try {
+        // We use runInInjectionContext so Firebase can find its config inside this async block
+        await runInInjectionContext(this.injector, async () => {
+          return uploadBytes(storageRef, uploadBlob, {
+            contentType: isImage ? 'image/jpeg' : 'application/pdf'
+          });
+        });
+      } catch (err: any) {
+        console.error('Upload operation failed:', err);
+        throw err;
+      }
 
       const downloadUrl = await getDownloadURL(storageRef);
 

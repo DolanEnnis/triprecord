@@ -500,7 +500,7 @@
 }
 
 /* ============================================================
-   DOCKET VIEWER SECTION (Admin View)
+   DOCKET VIEWER SECTION (Admin/Pilot View)
    ============================================================ */
 
 .docket-viewer-section {
@@ -520,6 +520,24 @@
   margin-bottom: 16px;
   font-size: 1.1rem;
   color: #555;
+  font-weight: 500;
+}
+
+/* Card-integrated Docket View */
+.card-docket-section {
+  grid-column: 1 / -1;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 16px;
+  margin-top: 12px;
+}
+
+.card-docket-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+  color: #6b7280;
+  margin-bottom: 12px;
   font-weight: 500;
 }
 

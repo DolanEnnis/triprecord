@@ -445,6 +445,38 @@
                 </div>
               </div>
             }
+            <!-- INWARD DOCKET VIEWER -->
+            @if (inwardTripData()?.docketUrl && isUserAuthorizedForTrip(inwardTripData())) {
+              <div class="card-docket-section">
+                <h4 class="card-docket-title">
+                  <mat-icon>attach_file</mat-icon>
+                  Attached Docket
+                </h4>
+
+                @if (inwardTripData()?.docketType === 'image') {
+                  <div class="docket-image-container">
+                    <img
+                      [src]="inwardTripData()!.docketUrl"
+                      alt="Trip docket"
+                      class="docket-preview-img"
+                      (click)="lightboxImageUrl.set(inwardTripData()!.docketUrl!)"
+                      matTooltip="Click to view full size"
+                    />
+                  </div>
+                } @else if (inwardTripData()?.docketType === 'pdf') {
+                  <a
+                    [href]="inwardTripData()!.docketUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    mat-stroked-button
+                    class="view-pdf-button"
+                  >
+                    <mat-icon>picture_as_pdf</mat-icon>
+                    View PDF Docket
+                  </a>
+                }
+              </div>
+            }
           </mat-card-content>
         }
       </mat-card>
@@ -623,6 +655,39 @@
                 </div>
               </div>
             }
+
+            <!-- OUTWARD DOCKET VIEWER -->
+            @if (outwardTripData()?.docketUrl && isUserAuthorizedForTrip(outwardTripData())) {
+              <div class="card-docket-section">
+                <h4 class="card-docket-title">
+                  <mat-icon>attach_file</mat-icon>
+                  Attached Docket
+                </h4>
+
+                @if (outwardTripData()?.docketType === 'image') {
+                  <div class="docket-image-container">
+                    <img
+                      [src]="outwardTripData()!.docketUrl"
+                      alt="Trip docket"
+                      class="docket-preview-img"
+                      (click)="lightboxImageUrl.set(outwardTripData()!.docketUrl!)"
+                      matTooltip="Click to view full size"
+                    />
+                  </div>
+                } @else if (outwardTripData()?.docketType === 'pdf') {
+                  <a
+                    [href]="outwardTripData()!.docketUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    mat-stroked-button
+                    class="view-pdf-button"
+                  >
+                    <mat-icon>picture_as_pdf</mat-icon>
+                    View PDF Docket
+                  </a>
+                }
+              </div>
+            }
           </mat-card-content>
         }
       </mat-card>
@@ -753,6 +818,38 @@
                         rows="2"
                       ></textarea>
                     </mat-form-field>
+                    <!-- ADDITIONAL TRIP DOCKET VIEWER -->
+                    @if (additionalTripsData()[i]?.docketUrl && isUserAuthorizedForTrip(additionalTripsData()[i])) {
+                      <div class="card-docket-section">
+                        <h4 class="card-docket-title">
+                          <mat-icon>attach_file</mat-icon>
+                          Attached Docket
+                        </h4>
+
+                        @if (additionalTripsData()[i].docketType === 'image') {
+                          <div class="docket-image-container">
+                            <img
+                              [src]="additionalTripsData()[i].docketUrl"
+                              alt="Trip docket"
+                              class="docket-preview-img"
+                              (click)="lightboxImageUrl.set(additionalTripsData()[i].docketUrl!)"
+                              matTooltip="Click to view full size"
+                            />
+                          </div>
+                        } @else if (additionalTripsData()[i].docketType === 'pdf') {
+                          <a
+                            [href]="additionalTripsData()[i].docketUrl"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            mat-stroked-button
+                            class="view-pdf-button"
+                          >
+                            <mat-icon>picture_as_pdf</mat-icon>
+                            View PDF Docket
+                          </a>
+                        }
+                      </div>
+                    }
                   </div>
                 </div>
               }
@@ -784,51 +881,13 @@
       </mat-card>
     </form>
 
-    <!-- DOCKET VIEWER SECTION
-         Shown when a pilot has attached a docket during trip confirmation.
-         This is read-only in admin view — the pilot attaches dockets from the CreateChargeDialog.
-    -->
-    @if (outwardTripData()?.docketUrl) {
-      <div class="docket-viewer-section">
-        <h3 class="docket-viewer-title">
-          <mat-icon>attach_file</mat-icon>
-          Attached Docket
-        </h3>
-
-        @if (outwardTripData()?.docketType === 'image') {
-          <!-- IMAGE DOCKET: Thumbnail with click-to-fullscreen lightbox -->
-          <div class="docket-image-container">
-            <img
-              [src]="outwardTripData()!.docketUrl"
-              alt="Trip docket"
-              class="docket-preview-img"
-              (click)="lightboxOpen.set(true)"
-              matTooltip="Click to view full size"
-            />
-          </div>
-
-          <!-- Fullscreen Lightbox Overlay -->
-          @if (lightboxOpen()) {
-            <div class="lightbox-overlay" (click)="lightboxOpen.set(false)" role="dialog" aria-label="Docket image fullscreen">
-              <button mat-icon-button class="lightbox-close" (click)="lightboxOpen.set(false)" aria-label="Close">
-                <mat-icon>close</mat-icon>
-              </button>
-              <img [src]="outwardTripData()!.docketUrl" alt="Trip docket fullscreen" class="lightbox-img" />
-            </div>
-          }
-        } @else if (outwardTripData()?.docketType === 'pdf') {
-          <!-- PDF DOCKET: View button -->
-          <a
-            [href]="outwardTripData()!.docketUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            mat-stroked-button
-            class="view-pdf-button"
-          >
-            <mat-icon>picture_as_pdf</mat-icon>
-            View PDF Docket
-          </a>
-        }
+    <!-- Shared Fullscreen Lightbox Overlay -->
+    @if (lightboxImageUrl()) {
+      <div class="lightbox-overlay" (click)="lightboxImageUrl.set(null)" role="dialog" aria-label="Docket image fullscreen">
+        <button mat-icon-button class="lightbox-close" (click)="lightboxImageUrl.set(null)" aria-label="Close">
+          <mat-icon>close</mat-icon>
+        </button>
+        <img [src]="lightboxImageUrl()" alt="Trip docket fullscreen" class="lightbox-img" />
       </div>
     }
 

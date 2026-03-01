@@ -1,0 +1,17 @@
+{
+  "agent": {
+    "rules": [
+      "MANDATORY: If any instruction in this configuration is ambiguous, contradicts another rule, or violates standard Angular/Firebase best practices, you MUST stop and ask the user for clarification before proceeding with any code changes.",      
+      "MANDATORY: The backend is a LIVE PRODUCTION SITE. You MUST clearly flag and warn the user before suggesting any changes that affect the deployed version, existing data schema, or Security Rules.",
+      "MANDATORY: Never use runInInjectionContext for Firestore async methods.",
+      "MANDATORY: Use 'firebase/firestore' imports for getDocs, addDoc, updateDoc, doc, and collection.",
+      "MANDATORY: Always pass 'this.firestore' as the first argument to Firestore functions.",
+      "MANDATORY: Image uploads must be resized to < 1.5MB via Canvas before storage.",
+      "MANDATORY: Use Standalone Components and Signals for all new UI.",      
+      "MANDATORY: NO 'any' types. Every variable, parameter, and return type MUST be explicitly typed using the project's Entity or DTO models in src/app/models.",
+      "MANDATORY: Use the 'RiverStateService' as the single source of truth for UI state. Do not create local state for data that should be globally shared (e.g., active ship lists).",
+      "MANDATORY: All database writes to 'trips' MUST be accompanied by an Audit Log entry in the sub-collection 'audit_logs', recording the change and the performing user's ID.",
+      "MANDATORY: Use Firestore Timestamps for all date storage. Convert to JS Dates ONLY at the view level using a dedicated utility or pipe."
+    ]
+  }
+}

@@ -18,6 +18,7 @@
     "@types/nodemailer": "^7.0.4",
     "axios": "^1.13.2",
     "cors": "^2.8.5",
+    "csv-parse": "^6.1.0",
     "firebase-admin": "^11.8.0",
     "firebase-functions": "^7.0.1",
     "nodemailer": "^7.0.11",
