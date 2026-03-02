@@ -17,6 +17,7 @@
 
         @if (authService.isAuthenticated()) {
           @if(authService.canCreateVisit()) {
+          <li><a routerLink="/calendar" routerLinkActive="active-link">Calendar</a></li>
             <li><a routerLink="/new-visit" routerLinkActive="active-link">New Visit</a></li>
             <li><a routerLink="/previous" routerLinkActive="active-link">Previous</a></li>
              <li><a routerLink="/ships" routerLinkActive="active-link">Ships</a></li>

@@ -1,0 +1,181 @@
+<div class="calendar-wrapper">
+  
+  <header class="calendar-header">
+    <div class="header-title">
+      <h1>Tidal Calendar</h1>
+      <span class="disclaimer-inline">⚠️ Indication only — verify against official Tide Tables and the Pilot.</span>
+    </div>
+    <div class="date-selector">
+      <button class="day-nav-btn" (click)="changeDay(-1)" title="Previous day">&#8249;</button>
+      <input type="date" id="datePicker" [value]="selectedDate()" (change)="onDateChange($event)">
+      <button class="day-nav-btn" (click)="changeDay(1)" title="Next day">&#8250;</button>
+    </div>
+  </header>
+
+  <div class="timeline-container">
+
+    <!-- ── ROW 1: Column header labels ──────────────────────── -->
+    <div class="header-row">
+      <div class="header-cell time-header"></div>
+      <div class="header-cell solar-header">☀️</div>
+      <div class="header-cell port-header-cell">Limerick</div>
+      <div class="header-cell port-header-cell">Foynes</div>
+      <div class="header-cell port-header-cell">Aughinish</div>
+    </div>
+
+    <!-- ── ROW 2: The 1440px scrollable body ────────────────── -->
+    <div class="body-row">
+
+      <!-- Red "now" line spanning the full width, visible only on today -->
+      @if (showNowLine()) {
+        <div class="now-line" [style.top.px]="currentMinute()"></div>
+      }
+
+      <!-- Time Axis -->
+      <div class="time-axis">
+        <div 
+          class="time-tick" 
+          *ngFor="let hour of hours"
+          [style.top.px]="hour * 60"
+        >
+          <span>{{ hour.toString().padStart(2, '0') }}:00</span>
+        </div>
+      </div>
+
+      <!-- Solar Column -->
+      <div class="solar-column">
+
+        <!-- Tarbert tide curve SVG — fills the solar column, sits behind night-bands and labels -->
+        @if (tarbertPath()) {
+          <svg
+            class="tide-svg"
+            viewBox="0 0 100 1440"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <path [attr.d]="tarbertPath()!.fill" class="tide-fill" />
+            <path [attr.d]="tarbertPath()!.stroke" class="tide-stroke" fill="none" vector-effect="non-scaling-stroke" />
+          </svg>
+        }
+
+        <div class="night-band top-band" [style.height.px]="solarBounds().dawnMin"></div>
+
+        @if (solarBounds().hasSolarData) {
+          <div class="solar-milestone" [style.top.px]="solarBounds().dawnMin">
+            <span class="solar-label">☀️ {{ formatTime(solarEvents()[0].timestamp) }}</span>
+          </div>
+        }
+
+        @if (solarBounds().hasSolarData) {
+          <div class="solar-milestone" [style.top.px]="solarBounds().duskMin">
+            <span class="solar-label">🌙 {{ formatTime(solarEvents()[solarEvents().length - 1].timestamp) }}</span>
+          </div>
+        }
+
+        <!-- Tarbert tide times overlaid on the solar column -->
+        @for (event of tarbertTideEvents(); track event.id) {
+          <div
+            class="tide-event"
+            [class.tide-hw]="event.type === 'high'"
+            [class.tide-lw]="event.type === 'low'"
+            [style.top.px]="calculateMinuteOfDay(event.timestamp)"
+          >
+            <span class="tide-time">{{ formatTime(event.timestamp) }}</span>
+            <span class="tide-label">{{ tarbertEventLabel(event) }}</span>
+          </div>
+        }
+
+        <div class="night-band bottom-band"
+          [style.top.px]="solarBounds().duskMin"
+          [style.height.px]="1440 - solarBounds().duskMin">
+        </div>
+      </div>
+
+      <!-- ═══ LIMERICK COLUMN ═══ -->
+      <div class="port-column">
+        <div class="tide-half">
+          @for (event of limerickTideEvents(); track event.id) {
+            <div 
+              class="tide-event"
+              [class.tide-hw]="event.type === 'high'"
+              [class.tide-pilotage]="event.type === 'boarding_limerick' || event.type === 'airport_boarding' || event.type === 'standby_airport'"
+              [style.top.px]="calculateMinuteOfDay(event.timestamp)"
+            >
+              <!-- For HW events, override the font colour with the neap→spring scale -->
+              <span
+                class="tide-time"
+                [style.color]="event.type === 'high' ? limerickHwFontColor(event.height) : null"
+              >{{ formatTime(event.timestamp) }}</span>
+              <span
+                class="tide-label"
+                [style.color]="event.type === 'high' ? limerickHwFontColor(event.height) : null"
+              >{{ limerickEventLabel(event) }}</span>
+            </div>
+          }
+        </div>
+        <div class="ship-half"></div>
+      </div>
+
+      <!-- ═══ FOYNES COLUMN ═══ -->
+      <div class="port-column">
+        <div class="tide-half">
+          @for (event of foynesTideEvents(); track event.id) {
+            <div
+              class="tide-event"
+              [class.tide-hw]="event.type === 'high'"
+              [class.tide-lw]="event.type === 'low'"
+              [style.top.px]="calculateMinuteOfDay(event.timestamp)"
+            >
+              <span class="tide-time">{{ formatTime(event.timestamp) }}</span>
+              <span class="tide-label">{{ foynesEventLabel(event) }}</span>
+            </div>
+          }
+        </div>
+        <div class="ship-half"></div>
+      </div>
+
+      <!-- ═══ AUGHINISH COLUMN (placeholder) ═══ -->
+      <div class="port-column">
+        <div class="tide-half">
+
+          <!-- Render one flood window band + labels per tidal cycle -->
+          @for (win of aughinishWindows(); track win.bandTop) {
+
+            <!-- Green flood-accessible window band -->
+            <div
+              class="flood-window-band"
+              [style.top.px]="win.bandTop"
+              [style.height.px]="win.bandHeight"
+            ></div>
+
+            <!-- Flood Start label -->
+            @if (win.floodEvent) {
+              <div class="tide-event tide-pilotage augh-event"
+                   [style.top.px]="calculateMinuteOfDay(win.floodEvent!.timestamp)">
+                <span class="tide-time">{{ formatTime(win.floodEvent!.timestamp) }}</span>
+                <span class="tide-label">Start Flood</span>
+              </div>
+            }
+
+            <!-- Last Xover label -->
+            @if (win.xoverEvent) {
+              <div class="tide-event tide-pilotage augh-event"
+                   [style.top.px]="calculateMinuteOfDay(win.xoverEvent!.timestamp)">
+                <span class="tide-time">{{ formatTime(win.xoverEvent!.timestamp) }}</span>
+                <span class="tide-label">Last Xover</span>
+              </div>
+            }
+          }
+
+          <!-- Shift-change bands: always on top of everything -->
+          <div class="shift-change-band" style="top: 420px"></div>
+          <div class="shift-change-band" style="top: 1140px"></div>
+
+        </div>
+        <div class="ship-half"></div>
+      </div>
+
+    </div><!-- /.body-row -->
+
+  </div><!-- /.timeline-container -->
+</div>

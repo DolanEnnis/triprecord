@@ -1,82 +1,139 @@
-<div class="mat-elevation-z8">
-  <table mat-table [dataSource]="dataSource" matSort>
+<div class="desktop-view">
+  <div class="mat-elevation-z8">
+    <table mat-table [dataSource]="dataSource" matSort>
 
-    <!-- Date (ETA) Column -->
-    <ng-container matColumnDef="initialEta">
-      <th mat-header-cell *matHeaderCellDef mat-sort-header> Date </th>
-      <td mat-cell *matCellDef="let row"> 
-        {{row.initialEta ? (row.initialEta | date:'EEE dd/MM/yy HH:mm') : '-'}} 
-      </td>
-    </ng-container>
+      <!-- Date (ETA) Column -->
+      <ng-container matColumnDef="initialEta">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header> Date </th>
+        <td mat-cell *matCellDef="let row"> 
+          {{row.initialEta ? (row.initialEta | date:'EEE dd/MM/yy HH:mm') : '-'}} 
+        </td>
+      </ng-container>
 
-    <!-- Vessel Name Column -->
-    <ng-container matColumnDef="shipName">
-      <th mat-header-cell *matHeaderCellDef mat-sort-header> Vessel Name </th>
-      <td mat-cell *matCellDef="let row"> <b>{{row.shipName}}</b> </td>
-    </ng-container>
+      <!-- Vessel Name Column -->
+      <ng-container matColumnDef="shipName">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header> Vessel Name </th>
+        <td mat-cell *matCellDef="let row"> <b>{{row.shipName}}</b> </td>
+      </ng-container>
 
-    <!-- Berth (In Port) Column -->
-    <ng-container matColumnDef="inwardPort">
-      <th mat-header-cell *matHeaderCellDef mat-sort-header> Berth </th>
-      <td mat-cell *matCellDef="let row"> {{row.inwardPort}} </td>
-    </ng-container>
+      <!-- Berth (In Port) Column -->
+      <ng-container matColumnDef="inwardPort">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header> Berth </th>
+        <td mat-cell *matCellDef="let row"> {{row.inwardPort}} </td>
+      </ng-container>
 
-    <!-- Status Column -->
-    <ng-container matColumnDef="status">
-      <th mat-header-cell *matHeaderCellDef mat-sort-header> Status </th>
-      <td mat-cell *matCellDef="let row"> {{row.status}} </td>
-    </ng-container>
+      <!-- Status Column -->
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header> Status </th>
+        <td mat-cell *matCellDef="let row"> {{row.status}} </td>
+      </ng-container>
 
-    <!-- Berthed (ETB) Column -->
-    <ng-container matColumnDef="arrivedDate">
-      <th mat-header-cell *matHeaderCellDef mat-sort-header> Berthed </th>
-      <td mat-cell *matCellDef="let row"> 
-        {{row.arrivedDate ? (row.arrivedDate | date:'EEE dd/MM/yy HH:mm') : '-'}} 
-      </td>
-    </ng-container>
+      <!-- Berthed (ETB) Column -->
+      <ng-container matColumnDef="arrivedDate">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header> Berthed </th>
+        <td mat-cell *matCellDef="let row"> 
+          {{row.arrivedDate ? (row.arrivedDate | date:'EEE dd/MM/yy HH:mm') : '-'}} 
+        </td>
+      </ng-container>
 
-    <!-- Inwards Pilot Column (blank if Unassigned) -->
-    <ng-container matColumnDef="inwardPilot">
-      <th mat-header-cell *matHeaderCellDef mat-sort-header> Inwards Pilot </th>
-      <td mat-cell *matCellDef="let row"> 
-        {{row.inwardPilot === 'Unassigned' ? '' : row.inwardPilot}} 
-      </td>
-    </ng-container>
+      <!-- Inwards Pilot Column (blank if Unassigned) -->
+      <ng-container matColumnDef="inwardPilot">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header> Inwards Pilot </th>
+        <td mat-cell *matCellDef="let row"> 
+          {{row.inwardPilot === 'Unassigned' ? '' : row.inwardPilot}} 
+        </td>
+      </ng-container>
 
-    <!-- Spacer Column -->
-    <ng-container matColumnDef="spacer">
-      <th mat-header-cell *matHeaderCellDef> </th>
-      <td mat-cell *matCellDef="let row"> </td>
-    </ng-container>
+      <!-- Spacer Column -->
+      <ng-container matColumnDef="spacer">
+        <th mat-header-cell *matHeaderCellDef> </th>
+        <td mat-cell *matCellDef="let row"> </td>
+      </ng-container>
 
-    <!-- Sailed (ETS) Column -->
-    <ng-container matColumnDef="sailedDate">
-      <th mat-header-cell *matHeaderCellDef mat-sort-header> Sailed </th>
-      <td mat-cell *matCellDef="let row"> 
-        {{row.sailedDate ? (row.sailedDate | date:'EEE dd/MM/yy HH:mm') : '-'}} 
-      </td>
-    </ng-container>
+      <!-- Sailed (ETS) Column -->
+      <ng-container matColumnDef="sailedDate">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header> Sailed </th>
+        <td mat-cell *matCellDef="let row"> 
+          {{row.sailedDate ? (row.sailedDate | date:'EEE dd/MM/yy HH:mm') : '-'}} 
+        </td>
+      </ng-container>
 
-    <!-- Outward Pilot Column (blank if Unassigned) -->
-    <ng-container matColumnDef="outwardPilot">
-      <th mat-header-cell *matHeaderCellDef mat-sort-header> Outward Pilot </th>
-      <td mat-cell *matCellDef="let row"> 
-        {{row.outwardPilot === 'Unassigned' ? '' : row.outwardPilot}} 
-      </td>
-    </ng-container>
+      <!-- Outward Pilot Column (blank if Unassigned) -->
+      <ng-container matColumnDef="outwardPilot">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header> Outward Pilot </th>
+        <td mat-cell *matCellDef="let row"> 
+          {{row.outwardPilot === 'Unassigned' ? '' : row.outwardPilot}} 
+        </td>
+      </ng-container>
 
-    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-    <tr mat-row *matRowDef="let row; columns: displayedColumns; let i = index" 
-        (click)="editVisit(row)" 
-        class="clickable-row"
-        [ngClass]="[getRowClass(i), isCurrentTimeBoundary(row, i) ? 'current-time-boundary' : '']">
-    </tr>
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns; let i = index" 
+          (click)="editVisit(row)" 
+          class="clickable-row"
+          [ngClass]="[getRowClass(i), isCurrentTimeBoundary(row, i) ? 'current-time-boundary' : '']">
+      </tr>
 
-    <!-- Row shown when there is no matching data. -->
-    <tr class="mat-row" *matNoDataRow>
-      <td class="mat-cell" [attr.colspan]="displayedColumns.length">No matching data</td>
-    </tr>
-  </table>
-
-  <mat-paginator [pageSizeOptions]="[25, 50, 100]" aria-label="Select page of visits"></mat-paginator>
+      <!-- Row shown when there is no matching data. -->
+      <tr class="mat-row" *matNoDataRow>
+        <td class="mat-cell" [attr.colspan]="displayedColumns.length">No matching data</td>
+      </tr>
+    </table>
+  </div>
 </div>
+
+<div class="mobile-view">
+  <!-- LEARNING: To match the MatTable's sorting, filtering, and pagination, we must iterate over the connected observable stream using async, rather than the raw dataSource.data array! -->
+  <mat-card *ngFor="let row of dataSource.connect() | async; let i = index" 
+            class="clickable-row mobile-card"
+            [ngClass]="[getRowClass(i), isCurrentTimeBoundary(row, i) ? 'current-time-boundary' : '']"
+            (click)="editVisit(row)">
+    <mat-card-header>
+      <mat-card-title><b>{{row.shipName}}</b></mat-card-title>
+      <mat-card-subtitle>{{row.status}}</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content class="mobile-grid">
+      <!-- Inward View -->
+      <ng-container *ngIf="currentSortOrder === 'inward'">
+        <div class="grid-item">
+          <span class="label">ETA:</span> 
+          <span class="value">{{row.initialEta ? (row.initialEta | date:'EEE dd/MM/yy HH:mm') : '-'}}</span>
+        </div>
+        <div class="grid-item">
+          <span class="label">Berth:</span> 
+          <span class="value">{{row.inwardPort}}</span>
+        </div>
+        <div class="grid-item" *ngIf="row.arrivedDate">
+          <span class="label">Berthed:</span> 
+          <span class="value">{{row.arrivedDate | date:'EEE dd/MM/yy HH:mm'}}</span>
+        </div>
+        <div class="grid-item" *ngIf="row.inwardPilot && row.inwardPilot !== 'Unassigned'">
+          <span class="label">Inward Pilot:</span> 
+          <span class="value">{{row.inwardPilot}}</span>
+        </div>
+      </ng-container>
+
+      <!-- Outward View -->
+      <ng-container *ngIf="currentSortOrder === 'sailing'">
+        <div class="grid-item">
+          <span class="label">Berth:</span> 
+          <span class="value">{{row.inwardPort}}</span>
+        </div>
+        <div class="grid-item" *ngIf="row.sailedDate">
+          <span class="label">Sailed (ETS):</span> 
+          <span class="value">{{row.sailedDate | date:'EEE dd/MM/yy HH:mm'}}</span>
+        </div>
+        <div class="grid-item" *ngIf="row.outwardPilot && row.outwardPilot !== 'Unassigned'">
+          <span class="label">Outward Pilot:</span> 
+          <span class="value">{{row.outwardPilot}}</span>
+        </div>
+      </ng-container>
+    </mat-card-content>
+  </mat-card>
+  
+  <mat-card *ngIf="dataSource.filteredData.length === 0" class="no-data-card">
+    <mat-card-content>No matching data</mat-card-content>
+  </mat-card>
+</div>
+
+<!-- Move mat-paginator outside so it applies to both views -->
+<mat-paginator [pageSizeOptions]="[25, 50, 100]" aria-label="Select page of visits"></mat-paginator>

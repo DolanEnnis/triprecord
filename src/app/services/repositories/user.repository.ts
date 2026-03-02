@@ -29,6 +29,12 @@ export class UserRepository {
     return from(updateDoc(userDocRef, { userType }));
   }
 
+  updateUserDivision(uid: string, division: UserInterface['division']): Observable<void> {
+    const userDocRef = doc(this.firestore, this.USERS_COLLECTION, uid);
+    // updateDoc does a partial write — only the division field is touched in Firestore
+    return from(updateDoc(userDocRef, { division }));
+  }
+
   deleteUser(uid: string): Observable<void> {
     console.log(`Request to delete user ${uid}. Deleting from Firestore...`);
     const userDocRef = doc(this.firestore, this.USERS_COLLECTION, uid);

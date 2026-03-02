@@ -84,7 +84,7 @@ export class AdminComponent implements OnInit, AfterViewInit {
   // Sync state
   isSyncingCharges = signal(false);
 
-  displayedColumns: string[] = ['displayName', 'email', 'lastLoginTrip', 'lastSheetView', 'userType', 'actions'];
+  displayedColumns: string[] = ['displayName', 'email', 'lastLoginTrip', 'lastSheetView', 'userType', 'division', 'actions'];
   dataSource = new MatTableDataSource<UserInterface>();
 
   @ViewChild(MatSort) sort!: MatSort;
@@ -132,7 +132,19 @@ export class AdminComponent implements OnInit, AfterViewInit {
         },
         error: (err) => {
           this.snackBar.open(`Error updating user: ${err.message}`, 'Close');
-          // Optionally, you could revert the change in the UI here
+        }
+      });
+  }
+
+  updateUserDivision(user: UserInterface): void {
+    // Division is only meaningful for pilots, but we save whatever the admin picked
+    this.userRepository.updateUserDivision(user.uid, user.division)
+      .subscribe({
+        next: () => {
+          this.snackBar.open(`Division for ${user.displayName} updated to ${user.division}.`, 'Close', { duration: 3000 });
+        },
+        error: (err) => {
+          this.snackBar.open(`Error updating division: ${err.message}`, 'Close');
         }
       });
   }

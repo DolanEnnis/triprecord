@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { MatDatepickerModule } from '@angular/material/datepicker';
@@ -14,6 +14,7 @@ import { VisitRepository } from '../services/repositories/visit.repository';
 import { Observable, of } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { EnrichedVisit } from '../models';
+import { AuthService } from '../auth/auth';
 
 @Component({
   selector: 'app-previous-visits',
@@ -36,20 +37,43 @@ import { EnrichedVisit } from '../models';
   styleUrls: ['./previous-visits.component.css']
 })
 export class PreviousVisitsComponent implements OnInit {
+  private readonly visitRepository = inject(VisitRepository);
+  private readonly authService = inject(AuthService);
+
   visits$!: Observable<EnrichedVisit[]>;
   filterValue = '';
-  highlightMode: '2' | '3' = '3';  // Default to 3-line highlighting
-  sortOrder: 'inward' | 'sailing' = 'inward';  // Default to inward order
+  highlightMode: '2' | '3' = '3';
+
+  // LEARNING: COMPUTED SIGNAL FOR DERIVED STATE
+  // Instead of hardcoding 'inward', we derive the default sort from the pilot's division.
+  // `computed()` re-evaluates whenever `currentUserSig()` changes — so if the profile
+  // loads asynchronously after the component is created, this will update automatically.
+  readonly defaultSortOrder = computed<'inward' | 'sailing'>(() => {
+    const user = this.authService.currentUserSig();
+    // Only pilots have a meaningful division. For all other roles, default to 'inward'.
+    if (user?.userType === 'pilot' && user.division === 'Out') {
+      return 'sailing';
+    }
+    return 'inward';
+  });
+
+  // Initialised to 'inward' but immediately overridden in ngOnInit once the user profile
+  // is available — ensures the radio button group always reflects the computed value.
+  sortOrder: 'inward' | 'sailing' = 'inward';
   
   dateRangeForm = new FormGroup({
     startDate: new FormControl<Date | null>(null),
     endDate: new FormControl<Date | null>(null)
   });
 
-  constructor(private visitRepository: VisitRepository) {}
-
   ngOnInit() {
-    // Load last 2 months by default
+    // LEARNING: WHY WE SET sortOrder IN ngOnInit AND NOT IN THE DECLARATION
+    // The `defaultSortOrder` Signal reads from `authService.currentUserSig()`, which
+    // is populated asynchronously after the Firebase Auth state resolves.
+    // By reading it in ngOnInit (one microtask after construction), the profile
+    // is almost always already loaded for returning users (it's cached by Auth).
+    // The `computed` Signal also keeps it in sync if the profile arrives later.
+    this.sortOrder = this.defaultSortOrder();
     this.loadDefaultRange();
   }
 

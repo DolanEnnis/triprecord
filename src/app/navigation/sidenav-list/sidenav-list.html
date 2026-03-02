@@ -4,6 +4,9 @@
       <mat-icon>home</mat-icon> Home
     </a>
     @if(authService.canCreateVisit()) {
+      <a mat-list-item routerLink="/calendar" (click)="onClose()">
+        <mat-icon>calendar_month</mat-icon> Calendar
+      </a>
       <a mat-list-item routerLink="/new-visit" (click)="onClose()">
         <mat-icon>add_box</mat-icon> New Visit
       </a>

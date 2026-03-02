@@ -117,8 +117,21 @@ export class EditTripComponent implements OnInit, IFormComponent {
   private dialog = inject(MatDialog);
   private authService = inject(AuthService);
   private location = inject(Location);
-  private destroyRef = inject(DestroyRef); // For automatic subscription cleanup
-  pilotService = inject(PilotService); // Public so template can access pilotService.pilotNames()
+  private destroyRef = inject(DestroyRef);
+  pilotService = inject(PilotService);
+
+  // LEARNING: COMPUTED SIGNAL FOR DIVISION-BASED SORT
+  // Maps the current pilot's division to the default sort order for the
+  // ship visit history panel at the bottom of this page.
+  // This is a computed Signal, so it automatically re-evaluates if the
+  // auth profile changes (e.g. admin switching accounts).
+  readonly defaultSortOrder = computed<'inward' | 'sailing'>(() => {
+    const user = this.authService.currentUserSig();
+    if (user?.userType === 'pilot' && user.division === 'Out') {
+      return 'sailing';
+    }
+    return 'inward';
+  });
 
   visitId: string | null = null;
   form!: FormGroup;

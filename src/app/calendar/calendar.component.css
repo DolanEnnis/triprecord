@@ -1,0 +1,374 @@
+/* CSS variables */
+:host {
+  --night-bg: rgba(0, 0, 40, 0.12);
+  --solar-accent: #f57f17;
+  --tick-color: #9e9e9e;
+  display: block;
+  height: 100%;
+}
+
+/* ── Wrapper ──────────────────────────────────────────────── */
+.calendar-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.calendar-header {
+  padding: 16px;
+  background-color: white;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.calendar-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #333;
+}
+
+.date-selector label { font-weight: 500; margin-right: 8px; }
+.date-selector input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+
+.date-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.day-nav-btn {
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1.4rem;
+  line-height: 1;
+  padding: 4px 10px;
+  cursor: pointer;
+  color: #555;
+  transition: background 0.15s, color 0.15s;
+}
+
+.day-nav-btn:hover {
+  background-color: #f0f0f0;
+  color: #111;
+}
+
+.header-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.disclaimer-inline {
+  font-size: 0.75rem;
+  color: #b45309;
+  font-weight: 500;
+}
+
+/* ── Timeline Container ──────────────────────────────────── */
+/* Two rows:  auto (header labels) + 1440px (content).
+   Five columns: time | solar | Limerick | Foynes | Aughinish */
+.timeline-container {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header Row ────────────────────────────────────────────── */
+/* Sticky so column labels stay visible while scrolling */
+.header-row {
+  display: grid;
+  grid-template-columns: 60px 10% repeat(3, 1fr);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: white;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.header-cell {
+  padding: 6px 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #888;
+  border-right: 1px solid #e0e0e0;
+}
+
+.header-cell:last-child { border-right: none; }
+
+/* ── Body Row ──────────────────────────────────────────────── */
+/* All columns here start at exactly the same top = 0.
+   Because there's no header inside these cells, the 1440px
+   coordinate system is perfectly aligned across every column. */
+.body-row {
+  display: grid;
+  grid-template-columns: 60px 10% repeat(3, 1fr);
+  height: 1440px;
+  padding-bottom: 40px;
+  box-sizing: content-box;
+  position: relative; /* needed so .now-line is positioned within the row */
+}
+
+/* Red "now" line — spans the full width of the body-row */
+.now-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: #e53935;
+  z-index: 50; /* above everything */
+  pointer-events: none;
+  transform: translateY(-1px); /* centre on the minute mark */
+}
+
+/* Small circle at the left edge of the now-line */
+.now-line::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #e53935;
+}
+
+/* ── Time Axis ─────────────────────────────────────────────── */
+.time-axis {
+  height: 1440px;
+  position: relative;
+  background-color: #fafafa;
+  border-right: 1px solid #e0e0e0;
+  position: sticky;
+  left: 0;
+  z-index: 10;
+}
+
+/* Tide SVG: fills the entire time-axis, sits behind text labels */
+.tide-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;  /* behind time-tick (z-index: 1) */
+}
+
+.tide-fill {
+  fill: rgba(0, 123, 255, 0.07);
+}
+
+.tide-stroke {
+  stroke: rgba(0, 123, 255, 0.35);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.time-tick {
+  position: absolute;
+  width: 100%;
+  text-align: right;
+  padding-right: 8px;
+  font-size: 0.75rem;
+  color: var(--tick-color);
+  transform: translateY(-50%);
+  z-index: 1; /* above tide SVG */
+}
+
+.time-tick::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 6px;
+  height: 1px;
+  background-color: var(--tick-color);
+}
+
+/* ── Solar Column ──────────────────────────────────────────── */
+.solar-column {
+  height: 1440px;
+  position: relative;
+  background-color: #fff;
+  border-right: 1px solid #e0e0e0;
+}
+
+.night-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background-color: var(--night-bg);
+}
+
+.top-band { top: 0; }
+
+.solar-milestone {
+  position: absolute;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.solar-label {
+  display: inline-block;
+  background-color: white;
+  border: 1px solid var(--solar-accent);
+  color: var(--solar-accent);
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 0.68rem;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+/* ── Port Columns ──────────────────────────────────────────── */
+.port-column {
+  height: 1440px;
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  border-right: 1px solid #e0e0e0;
+}
+
+.port-column:last-child { border-right: none; }
+
+/* Left half: Tides */
+.tide-half {
+  width: 50%;
+  border-right: 1px dashed rgba(0, 0, 0, 0.08);
+  position: relative;
+  height: 100%;
+}
+
+/* Right half: Ships */
+.ship-half {
+  width: 50%;
+  position: relative;
+  height: 100%;
+}
+
+/* Aughinish flood-accessible window: light green band from Start Flood to Last Xover */
+.flood-window-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background-color: rgba(72, 199, 142, 0.18); /* light green */
+  border-top: 1px solid rgba(72, 199, 142, 0.5);
+  border-bottom: 1px solid rgba(72, 199, 142, 0.5);
+  z-index: 0; /* sits behind labels and shift-change bands */
+}
+
+/* Aughinish event labels (Start Flood / Last Xover) sit above the green band */
+.augh-event {
+  z-index: 3;
+}
+
+/* Shift-change bands overlay everything else */
+.shift-change-band {
+  position: absolute;
+  height: 75px; /* 75 minutes */
+  left: 0;
+  right: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(0, 0, 0, 0.06) 0px,
+    rgba(0, 0, 0, 0.06) 4px,
+    rgba(0, 0, 0, 0.14) 4px,
+    rgba(0, 0, 0, 0.14) 8px
+  );
+  border-top: 1px solid rgba(0,0,0,0.2);
+  border-bottom: 1px solid rgba(0,0,0,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shift-change-band::after {
+  content: 'Shift Change';
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(0,0,0,0.4);
+  white-space: nowrap;
+}
+
+
+/* ── Tide Event Markers ────────────────────────────────────── */
+.tide-event {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  pointer-events: none;
+}
+
+.tide-time {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #555;
+  line-height: 1.2;
+}
+
+.tide-label {
+  font-size: 0.8rem;
+  line-height: 1.2;
+  color: #777;
+}
+
+/* HW events — amber */
+.tide-hw .tide-time,
+.tide-hw .tide-label { color: var(--solar-accent); font-weight: 800; }
+
+.tide-hw::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: 50%;
+  height: 1px;
+  background-color: var(--solar-accent);
+  opacity: 0.35;
+}
+
+/* Pilotage events — blue-grey */
+.tide-pilotage .tide-time { color: #3a7bd5; font-weight: 700; }
+.tide-pilotage .tide-label { color: #5a8fd5; }
+
+/* LW events — teal (distinct from HW amber and pilotage blue) */
+.tide-lw .tide-time { color: #00897b; font-weight: 700; }
+.tide-lw .tide-label { color: #26a69a; }
+
+/* ── Mobile ────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .header-row,
+  .body-row {
+    grid-template-columns: 50px 8% 1fr;
+  }
+
+  /* Hide Foynes and Aughinish header cells and columns on mobile */
+  .header-cell:nth-child(4),
+  .header-cell:nth-child(5) { display: none; }
+
+  .body-row .port-column:nth-child(4),
+  .body-row .port-column:nth-child(5) { display: none; }
+
+  .solar-label { font-size: 0.6rem; padding: 1px 4px; }
+  .tide-time { font-size: 0.65rem; }
+  .tide-label { font-size: 0.6rem; }
+}

@@ -898,7 +898,7 @@
         <app-previous-visits-list
           [data]="shipVisits()"
           [filterValue]="''"
-          [sortOrder]="'inward'"
+          [sortOrder]="defaultSortOrder()"
           [highlightMode]="'2'"
           (visitClicked)="openVisitDialog($event)"
         >

@@ -222,6 +222,18 @@ service cloud.firestore {
     }
 
     // ========================================
+    // ENVIRONMENTAL EVENTS
+    // ========================================
+    
+    match /environmental_events/{eventId} {
+      // All authenticated users can read environmental events
+      allow read: if isSignedIn();
+      
+      // Cloud Functions manage imports and creation. Admin can force manual changes.
+      allow write: if isAdmin();
+    }
+
+    // ========================================
     // SYSTEM SETTINGS
     // ========================================
     

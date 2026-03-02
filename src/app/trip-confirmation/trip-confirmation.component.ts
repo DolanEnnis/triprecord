@@ -67,6 +67,11 @@ export class TripConfirmationComponent implements OnInit, AfterViewInit {
   });
 
   // Signals for filtering criteria
+  // LEARNING: WHY WE START WITH 'All' AND OVERRIDE IN ngOnInit
+  // We can't read `authService.currentUserSig()` inside signal() at declaration time
+  // because Signals read in a non-reactive context don't create dependencies.
+  // ngOnInit runs after the constructor and DI are fully set up, so the auth
+  // profile is reliably available there for returning users.
   directionFilter = signal<'All' | 'In' | 'Out'>('All');
   pilotFilter = signal<'All' | 'My'>('My');
   textFilter = signal<string>('');
@@ -128,6 +133,18 @@ export class TripConfirmationComponent implements OnInit, AfterViewInit {
   }
 
   ngOnInit(): void {
+    // Set the direction filter default based on the pilot's division.
+    // - 'In' pilot  → show only Inward trips by default
+    // - 'Out' pilot → show only Outward trips by default
+    // - Everyone else (admin, sfpc, viewer, pilot without division) → show All
+    const user = this.authService.currentUserSig();
+    if (user?.userType === 'pilot' && user.division === 'In') {
+      this.directionFilter.set('In');
+    } else if (user?.userType === 'pilot' && user.division === 'Out') {
+      this.directionFilter.set('Out');
+    }
+    // All other roles: leave as 'All' (the signal default)
+
     this.loadTrips();
     if (typeof localStorage !== 'undefined' && !localStorage.getItem('hasSeenHelpPopup')) {
       this.showHelp();

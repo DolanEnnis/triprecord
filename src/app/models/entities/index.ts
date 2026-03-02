@@ -5,3 +5,4 @@ export type { Charge } from './charge.entity';
 export type { Distance } from './distance.entity';
 // Audit logging types — imported by repositories and dialog component
 export type { AuditLog, AuditablePayload } from './audit-log.entity';
+export type { EnvironmentalEvent, EnvironmentalEventType } from './environmental-event.entity';

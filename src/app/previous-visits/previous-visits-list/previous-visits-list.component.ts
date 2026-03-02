@@ -5,6 +5,7 @@ import { MatPaginator, MatPaginatorModule } from '@angular/material/paginator';
 import { MatSort, MatSortModule } from '@angular/material/sort';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatCardModule } from '@angular/material/card';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { EnrichedVisit } from '../../models';
@@ -19,7 +20,8 @@ import { EnrichedVisit } from '../../models';
     MatSortModule,
     MatInputModule,
     MatFormFieldModule,
-    FormsModule
+    FormsModule,
+    MatCardModule
   ],
   templateUrl: './previous-visits-list.component.html',
   styleUrls: ['./previous-visits-list.component.css']
@@ -38,6 +40,7 @@ export class PreviousVisitsListComponent implements OnInit, AfterViewInit {
       }
       this.dataSource.sort = this.sort;
     }
+    this.scrollToBoundary();
   }
 
   @Input() set filterValue(value: string) {
@@ -52,6 +55,11 @@ export class PreviousVisitsListComponent implements OnInit, AfterViewInit {
   @Input() set sortOrder(value: 'inward' | 'sailing') {
     this._sortOrder = value;
     this.applySortIfReady();
+    this.scrollToBoundary();
+  }
+  
+  public get currentSortOrder() {
+    return this._sortOrder;
   }
   
   private _sortOrder: 'inward' | 'sailing' = 'inward';
@@ -72,37 +80,24 @@ export class PreviousVisitsListComponent implements OnInit, AfterViewInit {
     this.dataSource.paginator = this.paginator;
     this.dataSource.sort = this.sort;
     
-    // Custom sorting to handle null sailing dates
-    // LEARNING: CUSTOM SORT FOR INCOMPLETE RECORDS
-    // Ships marked "Sailed" but missing sailedDate are incomplete - push to end
+    // LEARNING: THE ROLE OF sortingDataAccessor
+    // This function's only job is to return a COMPARABLE VALUE for a given property.
+    // MatSort then handles the direction (asc/desc) entirely on its own.
+    // NEVER check `this.sort.direction` inside here — that creates a circular dependency
+    // where the value you return changes based on the sort state, confusing the sort pipeline.
     this.dataSource.sortingDataAccessor = (item: EnrichedVisit, property: string) => {
       if (property === 'sailedDate') {
-        // CRITICAL: If status is "Sailed" but no sailedDate, it's an incomplete record
-        // Push these to the BOTTOM regardless of sort direction (out of sight but not forgotten)
-        if (!item.sailedDate) {
-          // Return far future date to always sort to bottom
-          return new Date(9999, 11, 31);
-        }
-        return item.sailedDate;
+        // Return 0 for null dates so they sort consistently to one end.
+        // MatSort's direction setting decides whether 0 ends up at the top or bottom.
+        return item.sailedDate ? item.sailedDate.getTime() : 0;
       }
-      
-      // For arrivedDate, also handle nulls similarly
       if (property === 'arrivedDate') {
-        if (!item.arrivedDate) {
-          return this.sort?.direction === 'asc' ? new Date(0) : new Date(9999, 11, 31);
-        }
-        return item.arrivedDate;
+        return item.arrivedDate ? item.arrivedDate.getTime() : 0;
       }
-      
-      // For initialEta
       if (property === 'initialEta') {
-        if (!item.initialEta) {
-          return this.sort?.direction === 'asc' ? new Date(0) : new Date(9999, 11, 31);
-        }
-        return item.initialEta;
+        return item.initialEta ? item.initialEta.getTime() : 0;
       }
-      
-      // Default accessor for other properties
+      // Default: return the raw property value for string/number columns
       return (item as any)[property];
     };
     
@@ -119,7 +114,47 @@ export class PreviousVisitsListComponent implements OnInit, AfterViewInit {
       if (this.paginator) {
         this.paginator.pageSize = 25;
       }
+      this.scrollToBoundary();
     });
+  }
+
+  private scrollToBoundary() {
+    setTimeout(() => {
+      // 1. Find the boundary visit ID
+      const boundaryId = this.findBoundaryVisitId();
+      if (boundaryId && this.paginator && this.dataSource.sort) {
+        // 2. Get sorted data to find its exact index across all pages
+        const sortedData = this.dataSource.sortData(this.dataSource.filteredData, this.dataSource.sort);
+        const index = sortedData.findIndex(v => v.visitId === boundaryId);
+        
+        if (index >= 0) {
+          // 3. Calculate target page
+          const targetPage = Math.floor(index / this.paginator.pageSize);
+          if (this.paginator.pageIndex !== targetPage) {
+            this.paginator.pageIndex = targetPage;
+            // Re-assign paginator to trigger a re-slice of the data for the new page
+            this.dataSource.paginator = this.paginator;
+          }
+        }
+      }
+
+      // 4. Wait for the DOM to render the boundary row/card on the active page, then scroll.
+      // LEARNING: We use offsetParent !== null to distinguish "visible" from "hidden" elements.
+      // When on mobile, the desktop table is display:none so its rows have offsetParent === null
+      // and are skipped. The visible mobile card is found instead — and vice versa on desktop.
+      // We use 200ms here (not 100ms) because on mobile the *ngFor async pipe needs a full
+      // change-detection cycle to render the new page's cards after a paginator jump.
+      setTimeout(() => {
+        const elements = document.querySelectorAll('.current-time-boundary');
+        for (let i = 0; i < elements.length; i++) {
+          const el = elements[i] as HTMLElement;
+          if (el.offsetParent !== null) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            break;
+          }
+        }
+      }, 200);
+    }, 400); // Delay to allow initial sort/filter to settle
   }
 
   // Helper method to apply sort configuration
@@ -135,6 +170,9 @@ export class PreviousVisitsListComponent implements OnInit, AfterViewInit {
           this.sort.direction = 'desc';
         }
         this.dataSource.sort = this.sort;
+        // LEARNING: Mutating MatSort properties programmatically does NOT fire its sortChange event. 
+        // We MUST manually emit it so that MatTableDataSource knows to re-run the sort pipeline and push new data to the async pipe!
+        this.sort.sortChange.emit({ active: this.sort.active, direction: this.sort.direction });
       }
     }, 0);
   }
@@ -150,37 +188,26 @@ export class PreviousVisitsListComponent implements OnInit, AfterViewInit {
     }
   }
 
-  isCurrentTimeBoundary(row: EnrichedVisit, index: number): boolean {
+  private findBoundaryVisitId(): string | null {
     const nowTime = Date.now();
-    
-    // Determine which date field to use based on sort order
     const dateField = this._sortOrder === 'inward' ? 'initialEta' : 'sailedDate';
-    const currentEta = row[dateField]?.getTime();
-    
-    if (!currentEta) return false;
-    
-    // Check if this row is in the FUTURE
-    const currentIsInFuture = currentEta > nowTime;
-    if (!currentIsInFuture) return false; // Only FUTURE rows can have the boundary
-    
-    // CRITICAL FIX: Find the EARLIEST (chronologically closest to now) FUTURE ship
-    // With descending sort (newest first), this ship appears at the BOTTOM of future ships
-    // The boundary line should appear BELOW it, separating future from past
     const allData = this.dataSource.filteredData;
-    let earliestFutureEta = Number.MAX_SAFE_INTEGER; // Start with max, find minimum
+    let earliestFutureEta = Number.MAX_SAFE_INTEGER;
     let earliestFutureVisitId: string | null = null;
     
     for (const visit of allData) {
       const eta = visit[dateField]?.getTime();
-      // Find the SMALLEST future ETA (closest to now)
       if (eta && eta > nowTime && eta < earliestFutureEta) {
         earliestFutureEta = eta;
         earliestFutureVisitId = visit.visitId;
       }
     }
     
-    // The line appears on the ship closest to "now" (earliest future ship)
-    return earliestFutureVisitId === row.visitId;
+    return earliestFutureVisitId;
+  }
+
+  isCurrentTimeBoundary(row: EnrichedVisit, index: number): boolean {
+    return this.findBoundaryVisitId() === row.visitId;
   }
 
   editVisit(row: EnrichedVisit) {

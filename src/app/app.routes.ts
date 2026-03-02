@@ -89,5 +89,19 @@ export const routes: Routes = [
     data: { roles: ['pilot', 'admin', 'sfpc', 'viewer'] }
   },
 
+  {
+    path: 'calendar',
+    loadComponent: () => import('./calendar/calendar.component').then(c => c.CalendarComponent),
+    canActivate: [roleGuard],
+    data: { roles: ['pilot', 'admin', 'sfpc', 'viewer'] }
+  },
+  
+  {
+    path: 'calendar/:date',
+    loadComponent: () => import('./calendar/calendar.component').then(c => c.CalendarComponent),
+    canActivate: [roleGuard],
+    data: { roles: ['pilot', 'admin', 'sfpc', 'viewer'] }
+  },
+
   { path: '**', redirectTo: 'auth/login' }
 ];

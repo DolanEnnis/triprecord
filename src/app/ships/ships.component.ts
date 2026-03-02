@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatInputModule } from '@angular/material/input';
@@ -19,6 +19,7 @@ import { ShipDetailsCard } from '../ship-details-card/ship-details-card';
 import { PreviousVisitsListComponent } from '../previous-visits/previous-visits-list/previous-visits-list.component';
 import { AuditHistoryDialogComponent } from '../dialogs/audit-history-dialog.component';
 import { EnrichedVisit } from '../models';
+import { AuthService } from '../auth/auth';
 
 /**
  * LEARNING: COMPONENT COMPOSITION PATTERN
@@ -59,6 +60,20 @@ export class ShipsComponent implements OnInit {
   private readonly visitRepository = inject(VisitRepository);
   private readonly router = inject(Router);
   private readonly dialog = inject(MatDialog);
+  private readonly authService = inject(AuthService);
+
+  // LEARNING: COMPUTED SIGNAL FOR DIVISION-AWARE SORT DEFAULT
+  // This computed Signal reads the pilot's division from the auth profile and
+  // maps it to the appropriate sort order for the previous visits list.
+  // Because it's a Signal, the template binding [sortOrder]="defaultSortOrder()"
+  // will automatically update if the auth profile resolves after page load.
+  readonly defaultSortOrder = computed<'inward' | 'sailing'>(() => {
+    const user = this.authService.currentUserSig();
+    if (user?.userType === 'pilot' && user.division === 'Out') {
+      return 'sailing';
+    }
+    return 'inward';
+  });
 
   // Search form control
   searchControl = new FormControl('');
