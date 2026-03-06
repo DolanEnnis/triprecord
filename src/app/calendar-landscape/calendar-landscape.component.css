@@ -1,0 +1,542 @@
+/* ══════════════════════════════════════════════════════════
+   LANDSCAPE CALENDAR — CSS
+   Layout philosophy:
+     • .lc-wrapper fills 100dvh (device-viewport height)
+     • .lc-inner is 1440px wide (1px = 1 min) and scrolls horizontally
+     • Each row body has two stacked children:
+         .lc-tide-zone  — fixed height, pins/events only
+         .lc-ship-zone  — flex-grow, ship cards only (NEVER overlap tides)
+     • Flood/shift bands are position:absolute on .lc-row-body, so they
+       span both zones vertically
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Host & Variables ──────────────────────────────────── */
+:host {
+  --label-w:    90px;
+  --tide-zone-h: 64px;   /* height reserved exclusively for tide pins */
+  --ship-zone-h: 110px;  /* height reserved exclusively for ship cards */
+  --tarbert-h:   130px;  /* taller row for the tide graph */
+  --night-bg: rgba(0, 0, 40, 0.12);
+  display: block;
+  height: 100%;
+}
+
+/* ── Page wrapper: fill the full screen ─────────────────── */
+.lc-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;           /* device viewport height — works in tabs too */
+  box-sizing: border-box;
+  background: #f5f7fa;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+.lc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background: white;
+  border-bottom: 2px solid #e0e0e0;
+  flex-shrink: 0;
+  z-index: 20;
+}
+
+.lc-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.lc-title h1 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #333;
+}
+
+.lc-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: white;
+  background: #7c4dff;
+  border-radius: 10px;
+  padding: 2px 7px;
+  vertical-align: middle;
+}
+
+.lc-switch-link {
+  font-size: 0.8rem;
+  color: #1e88e5;
+  text-decoration: none;
+}
+.lc-switch-link:hover { text-decoration: underline; }
+
+/* Day-of-week centred between title and date picker */
+.lc-day-of-week {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #555;
+  flex: 1;              /* takes space between title and date picker */
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+.lc-date-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lc-nav-btn {
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1.4rem;
+  line-height: 1;
+  padding: 4px 10px;
+  cursor: pointer;
+  color: #555;
+  transition: background 0.15s;
+}
+.lc-nav-btn:hover { background: #f0f0f0; }
+
+.lc-date-selector input {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+/* ── Scroll container: takes all remaining height ─────────────── */
+.lc-scroll-container {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;     /* vertical scroll is not wanted */
+  min-height: 0;        /* critical: lets flex child shrink below content size */
+}
+
+/* ── Inner canvas: 100% wide, fills scroll container ─────── */
+.lc-inner {
+  position: relative;
+  width: 100%;           /* fills whatever viewport width is available */
+  min-width: 600px;      /* floor so it never collapses on tiny screens */
+  height: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Night shading — lives inside each .lc-row-body ─────────
+   .lc-row-body is position:relative and flex:1 so percentages
+   here use the same coordinate space as tide pins & ship cards. */
+.lc-night {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(180, 185, 215, 0.18);   /* soft blue-grey */
+  pointer-events: none;
+  z-index: 1;    /* above row background (z-auto), below tide pins (z:3) */
+}
+/* Left (pre-dawn) band: fills from 0 to dawnMin% */
+.lc-night-left  { left: 0; }
+/* Right (post-dusk) band: starts at duskMin%, stretches to full width */
+.lc-night-right { right: 0; }
+
+/* ── Now line: wrapper mirrors time-axis flex structure ─────────── */
+.lc-now-line-wrap {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;           /* same pattern: label-stub + ticks-area */
+  pointer-events: none;
+  z-index: 50;
+}
+
+/* Fills the remainder after the label stub — same width as .lc-time-ticks */
+.lc-now-ticks {
+  position: relative;
+  flex: 1;
+}
+
+.lc-now-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #e53935;
+  pointer-events: none;
+  transform: translateX(-1px);
+}
+.lc-now-line::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e53935;
+}
+
+/* ── Hour tick axis ─────────────────────────────────────── */
+.lc-time-axis {
+  display: flex;            /* label stub + ticks side-by-side, mirrors rows */
+  height: 26px;
+  border-bottom: 1px solid #e0e0e0;
+  background: white;
+  flex-shrink: 0;
+  z-index: 5;
+}
+
+/* Matches .lc-row-label width exactly: border-box so border is INSIDE the 90px */
+.lc-time-label-stub {
+  width: var(--label-w);
+  box-sizing: border-box;   /* must match .lc-row-label */
+  flex-shrink: 0;
+  border-right: 2px solid #e0e0e0;
+}
+
+/* 1440px-wide relative container for the absolute tick divs */
+.lc-time-ticks {
+  position: relative;
+  flex: 1;           /* fill remaining width after stub — matches .lc-row-body */
+  min-width: 0;
+  height: 100%;
+}
+
+.lc-tick {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  transform: translateX(-50%);
+}
+.lc-tick span {
+  font-size: 0.65rem;
+  color: #bbb;
+  white-space: nowrap;
+}
+.lc-tick::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  height: 5px;
+  background: #ddd;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PORT ROWS
+   Each row = sticky label + row-body (contains tide-zone above
+   ship-zone below; bands span the full row-body height)
+   ═══════════════════════════════════════════════════════════ */
+
+.lc-row {
+  display: flex;
+  border-bottom: 1px solid #e0e0e0;
+  /* flex: 1 so all rows share the remaining height equally;
+     min-height on each specific row class acts as a floor */
+  flex: 1;
+  min-height: 0;      /* allow shrinking below content height on large screens */
+  position: relative;
+}
+
+/* Row-specific min-heights & colours */
+.lc-row-tarbert  { min-height: var(--tarbert-h); background: #fafcff; flex: 0.7; }
+/* Foynes gets the green tint — it manages flood access from Foynes anchorage */
+.lc-row-foynes    { min-height: 130px; background: #f6fff9; }
+.lc-row-aughinish { min-height: 130px; background: #fff; }
+.lc-row-limerick  { min-height: 130px; background: #fffdf5; }
+
+/* Sticky row label — box-sizing: border-box ensures the border is INCLUDED
+   in the 90px width so it matches the time-label-stub exactly.
+   Mismatched box-sizing is the root cause of the 00:00 / shading misalignment. */
+.lc-row-label {
+  width: var(--label-w);
+  box-sizing: border-box;   /* border INCLUDED in 90px */
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #999;
+  padding: 8px 6px;
+  border-right: 2px solid #e0e0e0;
+  position: sticky;
+  left: 0;
+  background: inherit;
+  z-index: 4;
+  display: flex;
+  align-items: flex-start;
+}
+
+/* ── Row body: stacks tide-zone then ship-zone ────────────────── */
+.lc-row-body {
+  position: relative;     /* anchor for absolute flood/shift bands */
+  flex: 1;                /* fill remaining row width after the label */
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+}
+
+/* ── Tide zone (top section, fixed height) ──────────────── */
+.lc-tide-zone {
+  position: relative;
+  height: var(--tide-zone-h);
+  flex-shrink: 0;
+  border-bottom: 1px dashed #eee;
+  overflow: visible;      /* pins may stick up above the zone line */
+}
+
+/* ── Ship zone: must be tall enough for 3 vertical bands ───────
+   ETA base=2px, ETB base=45px, ETS base=90px, each card ~45px tall
+   so minimum zone height = 90 + 45 = 135px */
+.lc-ship-zone {
+  position: relative;
+  flex: 1;
+  min-height: 140px;
+}
+
+/* ── Tarbert SVG: fills its entire row body ─────────────── */
+.lc-tide-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.lc-tide-fill {
+  fill: rgba(109, 158, 235, 0.18);
+}
+.lc-tide-stroke {
+  fill: none;
+  stroke: #5c9de8;
+  stroke-width: 2;
+  stroke-dasharray: 5, 4;
+}
+
+/* ── Tide reference lines (Springs / Neaps) ─────────────── */
+.lc-ref-line {
+  stroke-width: 0.8;
+  stroke-dasharray: 6, 4;
+}
+.lc-springs-line { stroke: #c0392b; }   /* red — highest water */
+.lc-neaps-line   { stroke: #2980b9; }   /* blue — lowest range */
+
+.lc-ref-label {
+  font-size: 5px;
+  font-weight: bold;
+  /* Labels sit in SVG coordinate space — scale preserved by preserveAspectRatio=none
+     so we use a larger font-size that reads well against the row height */
+}
+.lc-springs-label { fill: #c0392b; }
+.lc-neaps-label   { fill: #2980b9; }
+
+/* ── Aughinish flood band: absolute, spans full row body ── */
+.lc-flood-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(72, 199, 142, 0.15);
+  border-left:  1px solid rgba(72, 199, 142, 0.5);
+  border-right: 1px solid rgba(72, 199, 142, 0.5);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Shift change band ──────────────────────────────────── */
+.lc-shift-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 5.2%;            /* 75min / 1440 * 100 ≈ 5.2% of the time axis */
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(0,0,0,0.04) 0px, rgba(0,0,0,0.04) 4px,
+    rgba(0,0,0,0.10) 4px, rgba(0,0,0,0.10) 8px
+  );
+  border-left:  1px solid rgba(0,0,0,0.15);
+  border-right: 1px solid rgba(0,0,0,0.15);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TIDE PINS (live inside .lc-tide-zone)
+   ═══════════════════════════════════════════════════════════ */
+
+.lc-tide-pin {
+  position: absolute;
+  top: 4px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.lc-tide-pin::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 1px;
+  height: 10px;
+  background: currentColor;
+  opacity: 0.3;
+}
+
+.lc-pin-time {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #888;
+  white-space: nowrap;
+}
+.lc-pin-label {
+  font-size: 0.58rem;
+  color: #aaa;
+  white-space: nowrap;
+}
+
+.lc-tide-pin.hw .lc-pin-time,
+.lc-tide-pin.hw .lc-pin-label { color: #e67e00; }
+
+.lc-tide-pin.lw .lc-pin-time,
+.lc-tide-pin.lw .lc-pin-label { color: #00897b; }
+
+.lc-tide-pin.pilotage .lc-pin-time,
+.lc-tide-pin.pilotage .lc-pin-label { color: #3a7bd5; }
+
+/* Solar pins — now direct children of .lc-row-body (not .lc-tide-zone),
+   so bottom:4px places them at the very foot of the Tarbert row. */
+.lc-solar-pin {
+  position: absolute;
+  bottom: 6px;           /* bottom of the full row-body */
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.lc-solar-pin .lc-pin-label {
+  font-size: 0.62rem;
+  white-space: nowrap;
+}
+.lc-solar-pin .lc-pin-time {
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.lc-solar-pin.dawn .lc-pin-time,
+.lc-solar-pin.dawn .lc-pin-label { color: #e67e00; }
+
+.lc-solar-pin.dusk .lc-pin-time,
+.lc-solar-pin.dusk .lc-pin-label { color: #8e44ad; }
+
+/* ═══════════════════════════════════════════════════════════
+   SHIP CARDS (live inside .lc-ship-zone — NEVER touch tide zone)
+   ═══════════════════════════════════════════════════════════ */
+
+.lc-ship-card {
+  position: absolute;
+  top: 8px;                 /* relative to ship-zone, not the whole row */
+  transform: translateX(-50%);
+  width: 82px;
+  padding: 2px 4px;
+  background: white;
+  border: 1px solid #90caf9;
+  border-bottom: 3px dashed #90caf9;
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.1);
+  z-index: 10;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  font-size: 0.60rem;
+  line-height: 1.25;
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 0.15s;
+}
+.lc-ship-card:hover { box-shadow: 0 3px 10px rgba(0,0,0,.2); z-index: 11; }
+
+/* Status colours: full border with stronger colour on the bottom edge */
+.lc-ship-card.marker-due            { border-color: #90caf9; border-bottom-color: #1e88e5; }
+.lc-ship-card.marker-awaiting-berth { border-color: #ffe082; border-bottom-color: #f9a825; }
+.lc-ship-card.marker-alongside      { border-color: #a5d6a7; border-bottom-color: #43a047; }
+
+.lc-ship-card.card-etb { border-bottom-style: solid; }
+.lc-ship-card.card-ets { border-bottom-style: dotted; border-bottom-width: 4px; }
+
+/* Large vessel (>20k GT) ETA — amber tint */
+.lc-ship-card.card-large { background: rgba(255, 193, 7, 0.1); }
+
+.lc-card-type {
+  font-size: 0.50rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #aaa;
+}
+.lc-card-time {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #222;
+}
+.lc-card-name {
+  font-weight: 600;
+  color: #111;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lc-card-port {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: #0288d1;
+}
+
+.lc-card-pilot {
+  font-size: 0.55rem;
+  font-style: italic;
+  color: #555;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Hover time indicator line ────────────────────────────
+   On hover, a vertical hairline extends upward from the card
+   toward the time axis to indicate the ship's time position.  */
+.lc-ship-card::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;         /* start at top edge of card */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  height: 2000px;       /* tall enough to reach time axis from anywhere */
+  background: rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  z-index: 20;
+}
+.lc-ship-card:hover::before {
+  opacity: 1;
+}

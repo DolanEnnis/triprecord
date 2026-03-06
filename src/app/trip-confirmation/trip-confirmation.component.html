@@ -5,7 +5,8 @@
     <button mat-flat-button color="accent" (click)="repairLegacyData()" style="margin-right: 8px;">
       <mat-icon>build</mat-icon> Repair Legacy Data
     </button>
-    <button mat-icon-button (click)="showHelp()" matTooltip="Show help">
+    <!-- #helpBtn is referenced by @defer below as the interaction trigger -->
+    <button mat-icon-button (click)="showHelp()" matTooltip="Show help" #helpBtn>
       <mat-icon>help_outline</mat-icon>
     </button>
   </div>
@@ -151,6 +152,13 @@
   New Trip
 </button>
 
-@if (showHelpPopup()) {
-  <app-help-popup (close)="closeHelp()"></app-help-popup>
+<!-- @defer: HelpPopupComponent's JS chunk is only downloaded after the user first
+     clicks the help button. The @placeholder gives Angular an element to watch
+     for the interaction trigger. -->
+@defer (on interaction(helpBtn)) {
+  @if (showHelpPopup()) {
+    <app-help-popup (close)="closeHelp()"></app-help-popup>
+  }
+} @placeholder {
+  <span></span>
 }

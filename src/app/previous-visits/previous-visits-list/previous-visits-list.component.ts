@@ -62,6 +62,8 @@ export class PreviousVisitsListComponent implements OnInit, AfterViewInit {
     return this._sortOrder;
   }
   
+  @Input() enableAutoScroll: boolean = false;
+
   private _sortOrder: 'inward' | 'sailing' = 'inward';
 
   @Output() visitClicked = new EventEmitter<EnrichedVisit>();
@@ -119,6 +121,9 @@ export class PreviousVisitsListComponent implements OnInit, AfterViewInit {
   }
 
   private scrollToBoundary() {
+    if (!this.enableAutoScroll) {
+      return;
+    }
     setTimeout(() => {
       // 1. Find the boundary visit ID
       const boundaryId = this.findBoundaryVisitId();

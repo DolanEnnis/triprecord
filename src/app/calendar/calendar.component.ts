@@ -1,22 +1,24 @@
 import { Component, computed, inject, input, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { EnvironmentalRepository } from '../services/repositories/environmental.repository';
-import { EnvironmentalEvent } from '../models';
+import { EnvironmentalEvent, VisitStatus } from '../models';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { switchMap } from 'rxjs/operators';
 import { Timestamp } from '@angular/fire/firestore';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { RiverStateService } from '../services/state/river-state.service';
 
 @Component({
   selector: 'app-calendar',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterLink],
   templateUrl: './calendar.component.html',
   styleUrls: ['./calendar.component.css']
 })
 export class CalendarComponent implements OnDestroy {
-  private readonly envRepo = inject(EnvironmentalRepository);
-  private readonly router = inject(Router);
+  private readonly envRepo    = inject(EnvironmentalRepository);
+  private readonly router     = inject(Router);
+  private readonly riverState = inject(RiverStateService);
 
   /** Current minute of the day (0–1439), updated every 60s for the now-line */
   readonly currentMinute = signal(this.getNowMinute());
@@ -41,7 +43,7 @@ export class CalendarComponent implements OnDestroy {
   }
 
   /**
-   * Optional date string from the route (e.g., /calendar/2026-03-01).
+   * Optional date string from the route (e.g., /calendar-portrait/2026-03-01).
    * Mapped automatically via withComponentInputBinding() in appConfig.
    */
   readonly date = input<string>();
@@ -70,6 +72,125 @@ export class CalendarComponent implements OnDestroy {
     ),
     { initialValue: [] as EnvironmentalEvent[] }
   );
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SHIP MARKERS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Projects active ship visits onto the 1440px timeline.
+   *
+   * MARKER TYPES:
+   *   ETA (dashed border) — from visit.initialEta — always created
+   *   ETB (solid border)  — from inwardTrip.boarding — created when boarding
+   *                         falls on the selected date
+   *
+   * COLLISION OFFSET: if two markers share a column + minute, each additional
+   * marker is shifted 12px to the right so they remain individually legible.
+   *
+   * PORT → COLUMN MAPPING:
+   *   Foynes, Shannon, Cappa     → 'foynes'
+   *   Aughinish, Moneypoint, Tarbert → 'aughinish'
+   *   Limerick                   → 'limerick'
+   */
+  readonly calendarShipMarkers = computed(() => {
+    const dateKey = this.selectedDate();
+    const ships   = this.riverState.activeShipsWithTrips();
+
+    /** Maps a berthPort string to one of our three calendar columns */
+    const toColumn = (port: string | null | undefined): 'limerick' | 'foynes' | 'aughinish' | null => {
+      if (!port) return null;
+      if (['Foynes', 'Moneypoint', 'Tarbert', 'Cappa'].includes(port))  return 'foynes';
+      if (['Aughinish'].includes(port))                                 return 'aughinish';
+      if (['Limerick', 'Shannon'].includes(port))                       return 'limerick';
+      return null;
+    };
+
+    /** Returns 'YYYY-MM-DD' from any Timestamp/Date/string (local time) */
+    const toDateKey = (ts: Timestamp | Date | string | null | undefined): string | null => {
+      if (!ts) return null;
+      const d = ts instanceof Timestamp ? ts.toDate() : new Date(ts);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+
+    type RawMarker = { visitId: string; shipName: string; gt: number; status: VisitStatus;
+                       markerType: 'ETA' | 'ETB' | 'ETS'; topPx: number; markerTime: string;
+                       pilotName: string | null;
+                       portName: string | null;
+                       column: 'limerick' | 'foynes' | 'aughinish'; offsetLeft: number };
+
+    const raw: RawMarker[] = [];
+
+    for (const ship of ships) {
+      const column = toColumn(ship.berthPort);
+      if (!column) continue; // port not displayed on this calendar
+
+      // ETA marker — always use initialEta as the ship arrival time
+      if (toDateKey(ship.initialEta) === dateKey) {
+        const min = this.calculateMinuteOfDay(ship.initialEta);
+        raw.push({
+          visitId: ship.id!, shipName: ship.shipName, gt: ship.grossTonnage,
+          status: ship.currentStatus as VisitStatus,
+          markerType: 'ETA',
+          topPx: min,
+          markerTime: `${String(Math.floor(min / 60)).padStart(2,'0')}:${String(min % 60).padStart(2,'0')}`,
+          pilotName: ship.inwardPilot ?? null,
+          portName: ship.berthPort ?? null,
+          column, offsetLeft: 0
+        });
+      }
+
+      // ETB marker — inward trip boarding time
+      const etb = ship.inwardTrip?.boarding;
+      if (etb && toDateKey(etb) === dateKey) {
+        const min = this.calculateMinuteOfDay(etb);
+        raw.push({
+          visitId: ship.id!, shipName: ship.shipName, gt: ship.grossTonnage,
+          status: ship.currentStatus as VisitStatus,
+          markerType: 'ETB',
+          topPx: min,
+          markerTime: `${String(Math.floor(min / 60)).padStart(2,'0')}:${String(min % 60).padStart(2,'0')}`,
+          pilotName: ship.inwardTrip?.pilot ?? null,
+          portName: ship.berthPort ?? null,
+          column, offsetLeft: 0
+        });
+      }
+
+      // ETS marker — outward trip boarding time (pilot boards to sail the ship out)
+      const ets = ship.outwardTrip?.boarding;
+      if (ets && toDateKey(ets) === dateKey) {
+        const min = this.calculateMinuteOfDay(ets);
+        raw.push({
+          visitId: ship.id!, shipName: ship.shipName, gt: ship.grossTonnage,
+          status: ship.currentStatus as VisitStatus,
+          markerType: 'ETS',
+          topPx: min,
+          markerTime: `${String(Math.floor(min / 60)).padStart(2,'0')}:${String(min % 60).padStart(2,'0')}`,
+          pilotName: ship.outwardTrip?.pilot ?? null,
+          portName: ship.berthPort ?? null,
+          column, offsetLeft: 0
+        });
+      }
+    }
+
+    // Collision offset: group by (column, topPx), assign staggered offsetLeft
+    const seen = new Map<string, number>();
+    for (const m of raw) {
+      const key = `${m.column}:${m.topPx}`;
+      const count = seen.get(key) ?? 0;
+      m.offsetLeft = count * 12;
+      seen.set(key, count + 1);
+    }
+
+    return raw;
+  });
+
+  /** ETA/ETB markers for the Limerick ship-half */
+  readonly limerickMarkers   = computed(() => this.calendarShipMarkers().filter(m => m.column === 'limerick'));
+  /** ETA/ETB markers for the Foynes ship-half */
+  readonly foynesMarkers     = computed(() => this.calendarShipMarkers().filter(m => m.column === 'foynes'));
+  /** ETA/ETB markers for the Aughinish ship-half */
+  readonly aughinishMarkers  = computed(() => this.calendarShipMarkers().filter(m => m.column === 'aughinish'));
 
   /**
    * Filters all events to return just the solar ones (Dawn / Dusk).
@@ -460,7 +581,7 @@ export class CalendarComponent implements OnDestroy {
    */
   onDateChange(event: any) {
     const newDate = event.target.value;
-    if (newDate) this.router.navigate(['/calendar', newDate]);
+    if (newDate) this.router.navigate(['/calendar-portrait', newDate]);
   }
 
   /** Shift the current date by ±1 day and navigate */
@@ -470,6 +591,22 @@ export class CalendarComponent implements OnDestroy {
     const y = current.getUTCFullYear();
     const m = String(current.getUTCMonth() + 1).padStart(2, '0');
     const d = String(current.getUTCDate()).padStart(2, '0');
-    this.router.navigate(['/calendar', `${y}-${m}-${d}`]);
+    this.router.navigate(['/calendar-portrait', `${y}-${m}-${d}`]);
+  }
+
+  /**
+   * Maps a VisitStatus to a CSS-safe class suffix.
+   * Used in [ngClass] bindings instead of a 'replace' pipe (which isn't built-in to Angular).
+   *  'Due'             → 'marker-due'
+   *  'Awaiting Berth'  → 'marker-awaiting-berth'
+   *  'Alongside'       → 'marker-alongside'
+   */
+  shipStatusClass(status: VisitStatus): string {
+    const map: Record<string, string> = {
+      'Due':            'marker-due',
+      'Awaiting Berth': 'marker-awaiting-berth',
+      'Alongside':      'marker-alongside',
+    };
+    return map[status] ?? 'marker-due';
   }
 }

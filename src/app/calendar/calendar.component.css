@@ -62,6 +62,22 @@
   gap: 12px;
 }
 
+.landscape-link {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #7c4dff;
+  text-decoration: none;
+  border: 1px solid #7c4dff;
+  border-radius: 10px;
+  padding: 2px 10px;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.landscape-link:hover {
+  background: #7c4dff;
+  color: white;
+}
+
 .disclaimer-inline {
   font-size: 0.75rem;
   color: #b45309;
@@ -361,14 +377,174 @@
     grid-template-columns: 50px 8% 1fr;
   }
 
-  /* Hide Foynes and Aughinish header cells and columns on mobile */
-  .header-cell:nth-child(4),
-  .header-cell:nth-child(5) { display: none; }
-
-  .body-row .port-column:nth-child(4),
-  .body-row .port-column:nth-child(5) { display: none; }
+  /* Hide Foynes and Aughinish on mobile (keep Limerick) */
+  .foynes-col,
+  .aughinish-col { display: none !important; }
 
   .solar-label { font-size: 0.6rem; padding: 1px 4px; }
   .tide-time { font-size: 0.65rem; }
   .tide-label { font-size: 0.6rem; }
+}
+
+/* ── Ship Markers ──────────────────────────────────────────── */
+.ship-half {
+  position: relative; /* needed for absolute children */
+  overflow: visible;
+}
+
+.ship-marker {
+  position: absolute;
+  right: 2px;
+  min-width: calc(100% - 6px);
+  width: max-content;
+  max-width: calc(200% - 4px);
+  padding: 3px 5px;
+  background: white;
+  border: 1px solid #90caf9;
+  border-right: 3px dashed #90caf9;
+  border-radius: 3px;
+  box-shadow: -1px 1px 3px rgba(0,0,0,.12);
+  z-index: 10;
+  cursor: pointer;
+  overflow: hidden;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  transition: box-shadow 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ship-marker:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,.22);
+  z-index: 11;
+}
+
+/* ETB → solid border-right */
+.ship-marker.marker-etb { border-right-style: solid; }
+
+/* ETS → dotted border-right */
+.ship-marker.marker-ets { border-right-style: dotted; border-right-width: 4px; }
+
+/* Status colours */
+.ship-marker.marker-due            { border-color: #90caf9; border-right-color: #1e88e5; }
+.ship-marker.marker-awaiting-berth { border-color: #ffe082; border-right-color: #f9a825; }
+.ship-marker.marker-alongside      { border-color: #a5d6a7; border-right-color: #43a047; }
+
+/* Large vessel (>20k GT) ETA — amber tint to flag significance */
+.ship-marker.marker-large-vessel   { background-color: rgba(255, 193, 7, 0.12); }
+
+.marker-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.marker-type {
+  font-weight: 700;
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  color: #555;
+  flex-shrink: 0;
+}
+
+.marker-time {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #222;
+}
+
+.marker-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #111;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.marker-port {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #0288d1;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.marker-pilot {
+  font-size: 0.72rem;
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Mobile Ship Feed ──────────────────────────────────────── */
+/* Shown on mobile where the columns are too narrow for markers */
+.ship-feed {
+  display: none; /* hidden by default — only shown on mobile */
+  padding: 12px;
+}
+
+.ship-feed-heading {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0 0 8px;
+  color: #333;
+}
+
+.ship-feed-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  background: white;
+  border-left: 4px solid #1e88e5;
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.1);
+  cursor: pointer;
+}
+
+.ship-feed-card.card-etb   { border-left-style: solid; }
+.ship-feed-card.card-ets   { border-left-style: dotted; border-left-width: 5px; }
+.ship-feed-card.status-marker-awaiting-berth { border-color: #f9a825; }
+.ship-feed-card.status-marker-alongside      { border-color: #43a047; }
+
+.feed-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+}
+.feed-marker-type { font-weight: 700; font-size: 0.7rem; color: #555; }
+.feed-ship-name   { font-weight: 600; }
+.feed-port-name   { font-size: 0.7rem; font-weight: 700; color: #0288d1; margin-right: auto; }
+.feed-gt          { font-size: 0.7rem; color: #777; margin-left: auto; }
+.feed-card-meta   { display: flex; justify-content: space-between; font-size: 0.7rem; color: #888; }
+
+@media (max-width: 600px) {
+  .ship-feed { display: block; }
+}
+
+/* ── Sticky Footer Date Picker ─────────────────────────────── */
+.calendar-footer-bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 16px;
+  background: white;
+  border-top: 1px solid #e0e0e0;
+  box-shadow: 0 -2px 6px rgba(0,0,0,.08);
+  z-index: 20;
+}
+
+.calendar-footer-bar input[type="date"] {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.9rem;
 }

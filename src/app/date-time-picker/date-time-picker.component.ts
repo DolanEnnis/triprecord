@@ -1,4 +1,5 @@
-import { Component, forwardRef, inject } from '@angular/core';
+import { Component, computed, forwardRef, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 
 import {
   ControlValueAccessor,
@@ -10,6 +11,7 @@ import {
   Validators
 } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 
 // --- Angular Material & Core Imports ---
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -17,6 +19,8 @@ import { MatInputModule } from '@angular/material/input';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule, DateAdapter } from '@angular/material/core';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 // --- Type Definitions ---
 // Strongly-typed interface for the date-time picker form
@@ -36,7 +40,9 @@ interface DateTimeForm {
     MatInputModule,
     MatDatepickerModule,
     MatNativeDateModule,
-    MatAutocompleteModule
+    MatAutocompleteModule,
+    MatIconModule,
+    MatTooltipModule,
 ],
   templateUrl: './date-time-picker.component.html',
   styleUrls: ['./date-time-picker.component.css'],
@@ -52,6 +58,16 @@ export class DateTimePickerComponent implements ControlValueAccessor {
   private readonly fb = inject(FormBuilder);
   // Use DateAdapter<Date> since we're working with native JavaScript Date objects
   private readonly adapter = inject(DateAdapter<Date>);
+
+  // BreakpointObserver emits a stream of events when the screen crosses size thresholds.
+  // toSignal() converts that Observable into a read-only Signal automatically — no
+  // manual subscribe/unsubscribe needed, Angular cleans it up for us.
+  private readonly breakpointObserver = inject(BreakpointObserver);
+  readonly isLargeScreen = toSignal(
+    // Breakpoints.Medium = '(min-width: 960px)' — same as Material's medium breakpoint
+    this.breakpointObserver.observe(Breakpoints.Medium),
+    { initialValue: { matches: window.innerWidth >= 960, breakpoints: {} } }
+  );
 
   // Typed FormGroup provides autocomplete and type safety for form controls
   form: FormGroup<DateTimeForm>;
@@ -71,6 +87,37 @@ export class DateTimePickerComponent implements ControlValueAccessor {
 
   onChange: (value: Date | null) => void = () => {};
   onTouched: () => void = () => {};
+
+  /**
+   * A writable signal that holds the currently-selected date from the form.
+   *
+   * WHY DO WE NEED THIS?
+   * Angular's reactive forms (FormControl) work with Observables/RxJS, but
+   * Angular's computed() can only track Signals. This private signal bridges
+   * the two worlds: we write to it inside valueChanges (RxJS), and computed()
+   * can read from it reactively.
+   */
+  private readonly _dateForLink = signal<Date | null>(null);
+
+  /**
+   * Derives the Calendar page URL from the selected date.
+   * computed() re-runs automatically whenever _dateForLink() changes.
+   *
+   * WHY a string href rather than routerLink?
+   * routerLink navigates within Angular's SPA but cannot open a new tab.
+   * A native <a href="..."> is the only reliable, cross-browser way to
+   * set target="_blank" and guarantee the new tab opens correctly.
+   */
+  readonly calendarHref = computed(() => {
+    const date = this._dateForLink();
+    if (!date) return null;
+
+    // Build YYYY-MM-DD using local date parts — same timezone the picker displays in
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `/calendar/${y}-${m}-${d}`;
+  });
 
   constructor() {
     this.adapter.setLocale('en-GB');
@@ -98,6 +145,13 @@ export class DateTimePickerComponent implements ControlValueAccessor {
             minute: '00'
           });
         }
+
+        // Keep _dateForLink in sync so calendarHref() stays reactive.
+        // We update the signal here inside the RxJS subscription, bridging
+        // the reactive-forms world into the Signals world.
+        this._dateForLink.set(dateValue);
+      } else {
+        this._dateForLink.set(null);
       }
     });
 
@@ -133,6 +187,10 @@ export class DateTimePickerComponent implements ControlValueAccessor {
         hour: String(value.getHours()).padStart(2, '0'),
         minute: String(value.getMinutes()).padStart(2, '0')
       }, { emitEvent: false });
+
+      // Keep the link signal in sync when the form is written to externally
+      // (e.g. when the parent component sets an initial value)
+      this._dateForLink.set(value);
     } else {
       // Clear the form when value is null
       this.form.setValue({
@@ -140,6 +198,7 @@ export class DateTimePickerComponent implements ControlValueAccessor {
         hour: '',
         minute: ''
       }, { emitEvent: false });
+      this._dateForLink.set(null);
     }
   }
 

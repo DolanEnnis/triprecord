@@ -6,11 +6,47 @@
 }
 
 .date-row {
+  display: flex;
+  flex-direction: column; /* stacks form field above the link */
   width: 100%;
 }
 
 .date-row mat-form-field {
   width: 100%;
+}
+
+/* Small text link sitting below the date field */
+.calendar-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.75rem;
+  color: var(--mat-sys-primary, #1976d2);
+  text-decoration: none;
+  padding: 0 0.25rem;
+  /* Pull up slightly to close the gap left by the form field's bottom margin */
+  margin-top: -0.75rem;
+  align-self: flex-start; /* don't stretch to full width */
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.calendar-link:hover {
+  text-decoration: underline;
+  background-color: rgba(25, 118, 210, 0.06);
+}
+
+.calendar-link-icon {
+  font-size: 0.9rem;
+  width: 0.9rem;
+  height: 0.9rem;
+  line-height: 0.9rem;
+}
+
+/* visibility:hidden keeps the link row height reserved before a date is selected */
+.calendar-link.hidden {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .time-row {

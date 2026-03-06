@@ -90,15 +90,30 @@ export const routes: Routes = [
   },
 
   {
-    path: 'calendar',
+    path: 'calendar-portrait',
     loadComponent: () => import('./calendar/calendar.component').then(c => c.CalendarComponent),
     canActivate: [roleGuard],
     data: { roles: ['pilot', 'admin', 'sfpc', 'viewer'] }
   },
   
   {
-    path: 'calendar/:date',
+    path: 'calendar-portrait/:date',
     loadComponent: () => import('./calendar/calendar.component').then(c => c.CalendarComponent),
+    canActivate: [roleGuard],
+    data: { roles: ['pilot', 'admin', 'sfpc', 'viewer'] }
+  },
+
+  // ── Landscape Calendar (Default) ──────────────────────────────
+  {
+    path: 'calendar',
+    loadComponent: () => import('./calendar-landscape/calendar-landscape.component').then(c => c.CalendarLandscapeComponent),
+    canActivate: [roleGuard],
+    data: { roles: ['pilot', 'admin', 'sfpc', 'viewer'] }
+  },
+
+  {
+    path: 'calendar/:date',
+    loadComponent: () => import('./calendar-landscape/calendar-landscape.component').then(c => c.CalendarLandscapeComponent),
     canActivate: [roleGuard],
     data: { roles: ['pilot', 'admin', 'sfpc', 'viewer'] }
   },

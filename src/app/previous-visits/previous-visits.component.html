@@ -54,11 +54,22 @@
     </div>
   </div>
 
-  <!-- Visits List -->
-  <app-previous-visits-list 
-    [data]="(visits$ | async) || []"
-    [filterValue]="filterValue"
-    [highlightMode]="highlightMode"
-    [sortOrder]="sortOrder">
-  </app-previous-visits-list>
+  <!-- @defer (on idle): lets the page header and controls paint first, then   -->
+  <!-- the browser fills in this heavy table+paginator component when idle.    -->
+  <!-- @loading shows a spinner so the user knows data is on its way.          -->
+  @defer (on idle) {
+    <app-previous-visits-list
+      [data]="(visits$ | async) || []"
+      [filterValue]="filterValue"
+      [highlightMode]="highlightMode"
+      [sortOrder]="sortOrder"
+      [enableAutoScroll]="true">
+    </app-previous-visits-list>
+  } @loading {
+    <div class="spinner-container">
+      <mat-progress-spinner mode="indeterminate"></mat-progress-spinner>
+    </div>
+  } @placeholder {
+    <div style="min-height: 200px;"></div>
+  }
 </div>

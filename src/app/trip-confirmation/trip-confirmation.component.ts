@@ -44,6 +44,9 @@ import { HelpPopupComponent } from '../help-popup/help-popup.component';
     HelpPopupComponent,
     MatSnackBarModule,
   ],
+  // CsvExportService uses papaparse. Providing it here (rather than 'root') keeps
+  // papaparse inside this lazy-loaded chunk and out of the initial bundle.
+  providers: [CsvExportService],
   templateUrl: './trip-confirmation.component.html',
   styleUrl: './trip-confirmation.component.css',
 })

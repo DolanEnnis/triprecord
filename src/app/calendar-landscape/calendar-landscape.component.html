@@ -1,0 +1,250 @@
+<div class="lc-wrapper">
+
+  <!-- ── HEADER ──────────────────────────────────────────── -->
+  <header class="lc-header">
+    <div class="lc-title">
+      <h1>Tidal Calendar <span class="lc-badge">Landscape View</span></h1>
+      <a routerLink="/calendar-portrait" class="lc-switch-link">↩ Portrait</a>
+    </div>
+    <!-- Day of week centred in header -->
+    <div class="lc-day-of-week">{{ selectedDayOfWeek() }}</div>
+    <div class="lc-date-selector">
+      <button class="lc-nav-btn" (click)="changeDay(-1)">&#8249;</button>
+      <input type="date" [value]="selectedDate()" (change)="onDateChange($event)">
+      <button class="lc-nav-btn" (click)="changeDay(1)">&#8250;</button>
+    </div>
+  </header>
+
+  <!-- ── SCROLLABLE BODY ──────────────────────────────────── -->
+  <div class="lc-scroll-container">
+    <div class="lc-inner">
+
+
+      <!-- Now line wrapper: mirrors the time-axis flex structure so left.%
+           is relative to the SAME coordinate space as tide pins/ship cards. -->
+      @if (showNowLine()) {
+        <div class="lc-now-line-wrap">
+          <div class="lc-time-label-stub"></div><!-- same 90px spacer as the time axis -->
+          <div class="lc-now-ticks">
+            <div class="lc-now-line" [style.left.%]="currentMinute() / 14.4"></div>
+          </div>
+        </div>
+      }
+
+      <!-- Hour tick axis: label stub keeps column alignment -->
+      <div class="lc-time-axis">
+        <div class="lc-time-label-stub"></div>
+        <div class="lc-time-ticks">
+          @for (h of hours; track h) {
+            <div class="lc-tick" [style.left.%]="h * 60 / 14.4">
+              <span>{{ h.toString().padStart(2,'0') }}:00</span>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- ══ TARBERT / SUN ROW ══ -->
+      <div class="lc-row lc-row-tarbert">
+        <div class="lc-row-label">☀️ Tarbert</div>
+        <div class="lc-row-body">
+          <!-- Night shading inside row-body: % aligns with tide pins/ship cards -->
+          @if (solarBounds().hasSolarData) {
+            <div class="lc-night lc-night-left" [style.width.%]="solarBounds().dawnMin / 14.4"></div>
+            <div class="lc-night lc-night-right" [style.left.%]="solarBounds().duskMin / 14.4"></div>
+          }
+          <!-- SVG viewBox is already 0 0 1440 100 so it scales correctly with preserveAspectRatio="none" -->
+          @if (tarbertPath()) {
+            <svg class="lc-tide-svg" preserveAspectRatio="none" viewBox="0 0 1440 100">
+              <!-- Filled wave -->
+              <path [attr.d]="tarbertPath()!.fill"   class="lc-tide-fill" />
+              <path [attr.d]="tarbertPath()!.stroke" class="lc-tide-stroke" />
+
+              <!-- Springs reference line at 5.1m → y ≈ 29 (caption below line) -->
+              <line x1="0" y1="29" x2="1440" y2="29" class="lc-ref-line lc-springs-line" />
+              <text x="6" y="34" class="lc-ref-label lc-springs-label">Springs 5.1m</text>
+
+              <!-- Neaps reference line at 3.3m → y ≈ 54 (caption above line) -->
+              <line x1="0" y1="54" x2="1440" y2="54" class="lc-ref-line lc-neaps-line" />
+              <text x="6" y="52" class="lc-ref-label lc-neaps-label">Neaps 3.3m</text>
+            </svg>
+          }
+          <div class="lc-tide-zone">
+            <!-- HW / LW Tarbert tide pins -->
+            @for (event of tarbertTideEvents(); track event.id) {
+              <div class="lc-tide-pin"
+                   [class.hw]="event.type === 'high'"
+                   [class.lw]="event.type === 'low'"
+                   [style.left.%]="minuteOfDay(event.timestamp) / 14.4">
+                <span class="lc-pin-time">{{ formatTime(event.timestamp) }}</span>
+                <span class="lc-pin-label">{{ event.type === 'high' ? 'HW' : 'LW' }} {{ event.height | number:'1.1-1' }}m</span>
+              </div>
+            }
+          </div>
+          <!-- Dawn / Dusk pins: directly in row-body so bottom:4% is relative
+               to the full Tarbert row height, placing them at the very bottom -->
+          @for (event of solarEvents(); track event.id) {
+            <div class="lc-solar-pin"
+                 [class.dawn]="event.type === 'dawn'"
+                 [class.dusk]="event.type === 'dusk'"
+                 [style.left.%]="minuteOfDay(event.timestamp) / 14.4">
+              <span class="lc-pin-label">{{ event.type === 'dawn' ? '🌅 Dawn' : '🌇 Dusk' }}</span>
+              <span class="lc-pin-time">{{ formatTime(event.timestamp) }}</span>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- ══ FOYNES ROW ══ -->
+      <div class="lc-row lc-row-foynes">
+        <div class="lc-row-label">Foynes</div>
+        <div class="lc-row-body">
+          <!-- Night shading -->
+          @if (solarBounds().hasSolarData) {
+            <div class="lc-night lc-night-left" [style.width.%]="solarBounds().dawnMin / 14.4"></div>
+            <div class="lc-night lc-night-right" [style.left.%]="solarBounds().duskMin / 14.4"></div>
+          }
+          <div class="lc-tide-zone">
+            @for (event of foynesTideEvents(); track event.id) {
+              <div class="lc-tide-pin"
+                   [class.hw]="event.type === 'high'"
+                   [class.lw]="event.type === 'low'"
+                   [style.left.%]="minuteOfDay(event.timestamp) / 14.4">
+                <span class="lc-pin-time">{{ formatTime(event.timestamp) }}</span>
+                <span class="lc-pin-label">{{ foynesEventLabel(event) }}</span>
+              </div>
+            }
+          </div>
+          <div class="lc-ship-zone">
+            @for (m of foynesMarkers(); track m.visitId + m.markerType) {
+              <div class="lc-ship-card"
+                   [ngClass]="shipStatusClass(m.status)"
+                   [class.card-etb]="m.markerType === 'ETB'"
+                   [class.card-ets]="m.markerType === 'ETS'"
+                   [class.card-large]="m.markerType === 'ETA' && m.gt > 20000"
+                   [style.left.%]="m.leftPx / 14.4"
+                   [style.top.px]="m.offsetTop"
+                   target="_blank"
+                   [routerLink]="['/edit', m.visitId]">
+                <span class="lc-card-type">{{ m.markerType }}</span>
+                <span class="lc-card-time">{{ m.markerTime }}</span>
+                <span class="lc-card-name">{{ m.shipName }}</span>
+                @if (m.pilotName) {
+                  <span class="lc-card-pilot">{{ m.pilotName }}</span>
+                }
+                @if (m.portName === 'Moneypoint' || m.portName === 'Tarbert' || m.portName === 'Cappa') {
+                  <span class="lc-card-port">{{ m.portName }}</span>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ AUGHINISH ROW ══ -->
+      <div class="lc-row lc-row-aughinish">
+        <div class="lc-row-label">Aughinish</div>
+        <div class="lc-row-body">
+          <!-- Night shading -->
+          @if (solarBounds().hasSolarData) {
+            <div class="lc-night lc-night-left" [style.width.%]="solarBounds().dawnMin / 14.4"></div>
+            <div class="lc-night lc-night-right" [style.left.%]="solarBounds().duskMin / 14.4"></div>
+          }
+          <!-- Flood bands: left and width as % -->
+          @for (win of aughinishWindows(); track win.bandLeft) {
+            <div class="lc-flood-band"
+                 [style.left.%]="win.bandLeft / 14.4"
+                 [style.width.%]="win.bandWidth / 14.4"></div>
+          }
+          <!-- Shift bands as % (07:00 = 420min = 29.17%, 19:00 = 1140min = 79.17%) -->
+          <div class="lc-shift-band" style="left: 29.17%"></div>
+          <div class="lc-shift-band" style="left: 79.17%"></div>
+
+          <div class="lc-tide-zone">
+            @for (win of aughinishWindows(); track win.bandLeft) {
+              @if (win.floodMin !== null) {
+                <div class="lc-tide-pin pilotage" [style.left.%]="win.floodMin / 14.4">
+                  <span class="lc-pin-time">{{ minuteToHHmm(win.floodMin) }}</span>
+                  <span class="lc-pin-label">Start Flood</span>
+                </div>
+              }
+              @if (win.xoverMin !== null && win.xoverMin !== 1440) {
+                <div class="lc-tide-pin pilotage" [style.left.%]="win.xoverMin! / 14.4">
+                  <span class="lc-pin-time">{{ minuteToHHmm(win.xoverMin!) }}</span>
+                  <span class="lc-pin-label">Last Xover</span>
+                </div>
+              }
+            }
+          </div>
+          <div class="lc-ship-zone">
+            @for (m of aughinishMarkers(); track m.visitId + m.markerType) {
+              <div class="lc-ship-card"
+                   [ngClass]="shipStatusClass(m.status)"
+                   [class.card-etb]="m.markerType === 'ETB'"
+                   [class.card-ets]="m.markerType === 'ETS'"
+                   [class.card-large]="m.markerType === 'ETA' && m.gt > 20000"
+                   [style.left.%]="m.leftPx / 14.4"
+                   [style.top.px]="m.offsetTop"
+                   target="_blank"
+                   [routerLink]="['/edit', m.visitId]">
+                <span class="lc-card-type">{{ m.markerType }}</span>
+                <span class="lc-card-time">{{ m.markerTime }}</span>
+                <span class="lc-card-name">{{ m.shipName }}</span>
+                @if (m.pilotName) {
+                  <span class="lc-card-pilot">{{ m.pilotName }}</span>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ LIMERICK ROW ══ -->
+      <div class="lc-row lc-row-limerick">
+        <div class="lc-row-label">Limerick</div>
+        <div class="lc-row-body">
+          <!-- Night shading -->
+          @if (solarBounds().hasSolarData) {
+            <div class="lc-night lc-night-left" [style.width.%]="solarBounds().dawnMin / 14.4"></div>
+            <div class="lc-night lc-night-right" [style.left.%]="solarBounds().duskMin / 14.4"></div>
+          }
+          <div class="lc-tide-zone">
+            @for (event of limerickTideEvents(); track event.id) {
+              <div class="lc-tide-pin"
+                   [class.hw]="event.type === 'high'"
+                   [class.pilotage]="event.type === 'boarding_limerick' || event.type === 'airport_boarding' || event.type === 'standby_airport'"
+                   [style.left.%]="minuteOfDay(event.timestamp) / 14.4">
+                <span class="lc-pin-time">{{ formatTime(event.timestamp) }}</span>
+                <span class="lc-pin-label">{{ limerickEventLabel(event) }}</span>
+              </div>
+            }
+          </div>
+          <div class="lc-ship-zone">
+            @for (m of limerickMarkers(); track m.visitId + m.markerType) {
+              <div class="lc-ship-card"
+                   [ngClass]="shipStatusClass(m.status)"
+                   [class.card-etb]="m.markerType === 'ETB'"
+                   [class.card-ets]="m.markerType === 'ETS'"
+                   [class.card-large]="m.markerType === 'ETA' && m.gt > 20000"
+                   [style.left.%]="m.leftPx / 14.4"
+                   [style.top.px]="m.offsetTop"
+                   target="_blank"
+                   [routerLink]="['/edit', m.visitId]">
+                <span class="lc-card-type">{{ m.markerType }}</span>
+                <span class="lc-card-time">{{ m.markerTime }}</span>
+                <span class="lc-card-name">{{ m.shipName }}</span>
+                @if (m.pilotName) {
+                  <span class="lc-card-pilot">{{ m.pilotName }}</span>
+                }
+                @if (m.portName === 'Shannon') {
+                  <span class="lc-card-port">Shannon</span>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /.lc-inner -->
+  </div><!-- /.lc-scroll-container -->
+
+</div><!-- /.lc-wrapper -->

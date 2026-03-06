@@ -3,9 +3,9 @@ import { DatePipe } from '@angular/common';
 import { TripWithWarnings } from './data-quality.service';
 import * as Papa from 'papaparse';
 
-@Injectable({
-  providedIn: 'root'
-})
+// No 'providedIn: root' here — this service imports papaparse, so we deliberately
+// scope it to the lazy-loaded TripConfirmationComponent to keep it out of the main bundle.
+@Injectable()
 export class CsvExportService {
   private readonly datePipe = inject(DatePipe);
 

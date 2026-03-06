@@ -8,6 +8,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatRadioModule } from '@angular/material/radio';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RouterModule } from '@angular/router';
 import { PreviousVisitsListComponent } from './previous-visits-list/previous-visits-list.component';
 import { VisitRepository } from '../services/repositories/visit.repository';
@@ -30,6 +31,7 @@ import { AuthService } from '../auth/auth';
     MatButtonModule,
     MatIconModule,
     MatRadioModule,
+    MatProgressSpinnerModule,
     RouterModule,
     PreviousVisitsListComponent
   ],

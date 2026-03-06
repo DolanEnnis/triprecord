@@ -4,6 +4,9 @@
     <div class="header-title">
       <h1>Tidal Calendar</h1>
       <span class="disclaimer-inline">⚠️ Indication only — verify against official Tide Tables and the Pilot.</span>
+      <a class="landscape-link"
+         [routerLink]="['/calendar', selectedDate()]"
+         title="Switch to Landscape View">⬛ Landscape</a>
     </div>
     <div class="date-selector">
       <button class="day-nav-btn" (click)="changeDay(-1)" title="Previous day">&#8249;</button>
@@ -18,9 +21,9 @@
     <div class="header-row">
       <div class="header-cell time-header"></div>
       <div class="header-cell solar-header">☀️</div>
-      <div class="header-cell port-header-cell">Limerick</div>
-      <div class="header-cell port-header-cell">Foynes</div>
-      <div class="header-cell port-header-cell">Aughinish</div>
+      <div class="header-cell port-header-cell foynes-col">Foynes</div>
+      <div class="header-cell port-header-cell aughinish-col">Aughinish</div>
+      <div class="header-cell port-header-cell limerick-col">Limerick</div>
     </div>
 
     <!-- ── ROW 2: The 1440px scrollable body ────────────────── -->
@@ -91,33 +94,8 @@
         </div>
       </div>
 
-      <!-- ═══ LIMERICK COLUMN ═══ -->
-      <div class="port-column">
-        <div class="tide-half">
-          @for (event of limerickTideEvents(); track event.id) {
-            <div 
-              class="tide-event"
-              [class.tide-hw]="event.type === 'high'"
-              [class.tide-pilotage]="event.type === 'boarding_limerick' || event.type === 'airport_boarding' || event.type === 'standby_airport'"
-              [style.top.px]="calculateMinuteOfDay(event.timestamp)"
-            >
-              <!-- For HW events, override the font colour with the neap→spring scale -->
-              <span
-                class="tide-time"
-                [style.color]="event.type === 'high' ? limerickHwFontColor(event.height) : null"
-              >{{ formatTime(event.timestamp) }}</span>
-              <span
-                class="tide-label"
-                [style.color]="event.type === 'high' ? limerickHwFontColor(event.height) : null"
-              >{{ limerickEventLabel(event) }}</span>
-            </div>
-          }
-        </div>
-        <div class="ship-half"></div>
-      </div>
-
       <!-- ═══ FOYNES COLUMN ═══ -->
-      <div class="port-column">
+      <div class="port-column foynes-col">
         <div class="tide-half">
           @for (event of foynesTideEvents(); track event.id) {
             <div
@@ -131,11 +109,35 @@
             </div>
           }
         </div>
-        <div class="ship-half"></div>
+        <div class="ship-half">
+          @for (m of foynesMarkers(); track m.visitId + m.markerType) {
+            <div class="ship-marker"
+                 [ngClass]="shipStatusClass(m.status)"
+                 [class.marker-etb]="m.markerType === 'ETB'"
+                 [class.marker-ets]="m.markerType === 'ETS'"
+                 [class.marker-large-vessel]="m.markerType === 'ETA' && m.gt > 20000"
+                 [style.top.px]="m.topPx"
+                 [style.margin-right.px]="m.offsetLeft"
+                 target="_blank"
+                 [routerLink]="['/edit', m.visitId]">
+              <div class="marker-header">
+                <span class="marker-type">{{ m.markerType }}</span>
+                <span class="marker-time">{{ m.markerTime }}</span>
+              </div>
+              <span class="marker-name">{{ m.shipName }}</span>
+              @if (m.portName === 'Shannon' || m.portName === 'Moneypoint' || m.portName === 'Tarbert' || m.portName === 'Cappa') {
+                <span class="marker-port">{{ m.portName }}</span>
+              }
+              @if (m.pilotName) {
+                <span class="marker-pilot">✦ {{ m.pilotName }}</span>
+              }
+            </div>
+          }
+        </div>
       </div>
 
-      <!-- ═══ AUGHINISH COLUMN (placeholder) ═══ -->
-      <div class="port-column">
+      <!-- ═══ AUGHINISH COLUMN ═══ -->
+      <div class="port-column aughinish-col">
         <div class="tide-half">
 
           <!-- Render one flood window band + labels per tidal cycle -->
@@ -172,10 +174,128 @@
           <div class="shift-change-band" style="top: 1140px"></div>
 
         </div>
-        <div class="ship-half"></div>
+        <!-- Ship markers for Aughinish -->
+        <div class="ship-half">
+          @for (m of aughinishMarkers(); track m.visitId + m.markerType) {
+            <div class="ship-marker"
+                 [ngClass]="shipStatusClass(m.status)"
+                 [class.marker-etb]="m.markerType === 'ETB'"
+                 [class.marker-ets]="m.markerType === 'ETS'"
+                 [class.marker-large-vessel]="m.markerType === 'ETA' && m.gt > 20000"
+                 [style.top.px]="m.topPx"
+                 [style.margin-right.px]="m.offsetLeft"
+                 target="_blank"
+                 [routerLink]="['/edit', m.visitId]">
+              <div class="marker-header">
+                <span class="marker-type">{{ m.markerType }}</span>
+                <span class="marker-time">{{ m.markerTime }}</span>
+              </div>
+              <span class="marker-name">{{ m.shipName }}</span>
+              @if (m.portName === 'Shannon' || m.portName === 'Moneypoint' || m.portName === 'Tarbert' || m.portName === 'Cappa') {
+                <span class="marker-port">{{ m.portName }}</span>
+              }
+              @if (m.pilotName) {
+                <span class="marker-pilot">✦ {{ m.pilotName }}</span>
+              }
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- ═══ LIMERICK COLUMN ═══ -->
+      <div class="port-column limerick-col">
+        <div class="tide-half">
+          @for (event of limerickTideEvents(); track event.id) {
+            <div 
+              class="tide-event"
+              [class.tide-hw]="event.type === 'high'"
+              [class.tide-pilotage]="event.type === 'boarding_limerick' || event.type === 'airport_boarding' || event.type === 'standby_airport'"
+              [style.top.px]="calculateMinuteOfDay(event.timestamp)"
+            >
+              <!-- For HW events, override the font colour with the neap→spring scale -->
+              <span
+                class="tide-time"
+                [style.color]="event.type === 'high' ? limerickHwFontColor(event.height) : null"
+              >{{ formatTime(event.timestamp) }}</span>
+              <span
+                class="tide-label"
+                [style.color]="event.type === 'high' ? limerickHwFontColor(event.height) : null"
+              >{{ limerickEventLabel(event) }}</span>
+            </div>
+          }
+        </div>
+        <div class="ship-half">
+          @for (m of limerickMarkers(); track m.visitId + m.markerType) {
+            <div class="ship-marker"
+                 [ngClass]="shipStatusClass(m.status)"
+                 [class.marker-etb]="m.markerType === 'ETB'"
+                 [class.marker-ets]="m.markerType === 'ETS'"
+                 [class.marker-large-vessel]="m.markerType === 'ETA' && m.gt > 20000"
+                 [style.top.px]="m.topPx"
+                 [style.margin-right.px]="m.offsetLeft"
+                 target="_blank"
+                 [routerLink]="['/edit', m.visitId]">
+              <div class="marker-header">
+                <span class="marker-type">{{ m.markerType }}</span>
+                <span class="marker-time">{{ m.markerTime }}</span>
+              </div>
+              <span class="marker-name">{{ m.shipName }}</span>
+              @if (m.portName === 'Shannon' || m.portName === 'Moneypoint' || m.portName === 'Tarbert' || m.portName === 'Cappa') {
+                <span class="marker-port">{{ m.portName }}</span>
+              }
+              @if (m.pilotName) {
+                <span class="marker-pilot">✦ {{ m.pilotName }}</span>
+              }
+            </div>
+          }
+        </div>
       </div>
 
     </div><!-- /.body-row -->
-
   </div><!-- /.timeline-container -->
+
+  <!-- ═══ MOBILE SHIP FEED ═══ -->
+  <!-- Shown only on small screens where the timeline columns are too narrow.    -->
+  <!-- @defer (on viewport): skips rendering this section until the user scrolls -->
+  <!-- past the 1440px timeline — saves layout work on the initial paint.        -->
+  @defer (on viewport) {
+    @if (calendarShipMarkers().length > 0) {
+      <section class="ship-feed">
+        <h2 class="ship-feed-heading">Ships — {{ selectedDate() }}</h2>
+        @for (m of calendarShipMarkers(); track m.visitId + m.markerType) {
+          <div class="ship-feed-card"
+               [ngClass]="'status-' + shipStatusClass(m.status)"
+               [class.card-etb]="m.markerType === 'ETB'"
+               [class.card-ets]="m.markerType === 'ETS'"
+               target="_blank"
+               [routerLink]="['/edit', m.visitId]">
+            <div class="feed-card-header">
+              <span class="feed-marker-type">{{ m.markerType }}</span>
+              <span class="feed-ship-name">{{ m.shipName }}</span>
+              @if (m.portName === 'Shannon' || m.portName === 'Moneypoint' || m.portName === 'Tarbert' || m.portName === 'Cappa') {
+                <span class="feed-port-name">{{ m.portName }}</span>
+              }
+              <span class="feed-gt">{{ m.gt | number }} GT</span>
+            </div>
+            <div class="feed-card-meta">
+              <span>{{ m.column | titlecase }}</span>
+              <span>{{ m.topPx | number:'2.0-0' | slice:0:-2 }}:{{ (m.topPx % 60) | number:'2.0-0' }}</span>
+            </div>
+          </div>
+        }
+      </section>
+    }
+  } @placeholder {
+    <!-- min-height ensures the IntersectionObserver trigger fires at the right -->
+    <!-- scroll position even before the content is rendered.                   -->
+    <div style="min-height: 50px;"></div>
+  }
+
+  <!-- ═══ STICKY FOOTER DATE PICKER ═══ -->
+  <footer class="calendar-footer-bar">
+    <button class="day-nav-btn" (click)="changeDay(-1)" title="Previous day">&#8249;</button>
+    <input type="date" id="datePickerBottom" [value]="selectedDate()" (change)="onDateChange($event)">
+    <button class="day-nav-btn" (click)="changeDay(1)" title="Next day">&#8250;</button>
+  </footer>
+
 </div>

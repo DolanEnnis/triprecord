@@ -1,5 +1,5 @@
 <div class="container" [formGroup]="form">
-  <!-- Date on its own row for mobile clarity -->
+  <!-- Date field with calendar link sitting below it -->
   <div class="date-row">
     <mat-form-field appearance="outline">
       <mat-label>Date</mat-label>
@@ -10,6 +10,18 @@
         <mat-error>Date is required</mat-error>
       }
     </mat-form-field>
+
+    <a
+      class="calendar-link"
+      [class.hidden]="!calendarHref()"
+      [href]="calendarHref() ?? '#'"
+      target="_blank"
+      rel="noopener noreferrer"
+      title="View this date on the Tidal Calendar"
+    >
+      <mat-icon class="calendar-link-icon">calendar_month</mat-icon>
+      View on Tidal Calendar
+    </a>
   </div>
 
   <!-- Hour and Minute side-by-side (compact on mobile) -->
