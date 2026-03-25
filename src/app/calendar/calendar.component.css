@@ -400,10 +400,9 @@
   max-width: calc(200% - 4px);
   padding: 3px 5px;
   background: white;
-  border: 1px solid #90caf9;
-  border-right: 3px dashed #90caf9;
+  border: none;
   border-radius: 3px;
-  box-shadow: -1px 1px 3px rgba(0,0,0,.12);
+  box-shadow: -3px 4px 14px rgba(0,0,0,.55);
   z-index: 10;
   cursor: pointer;
   overflow: hidden;
@@ -420,44 +419,29 @@
   z-index: 11;
 }
 
-/* ETB → solid border-right */
-.ship-marker.marker-etb { border-right-style: solid; }
-
-/* ETS → dotted border-right */
-.ship-marker.marker-ets { border-right-style: dotted; border-right-width: 4px; }
-
-/* Status colours */
-.ship-marker.marker-due            { border-color: #90caf9; border-right-color: #1e88e5; }
-.ship-marker.marker-awaiting-berth { border-color: #ffe082; border-right-color: #f9a825; }
-.ship-marker.marker-alongside      { border-color: #a5d6a7; border-right-color: #43a047; }
-
-/* Large vessel (>20k GT) ETA — amber tint to flag significance */
-.ship-marker.marker-large-vessel   { background-color: rgba(255, 193, 7, 0.12); }
-
-.marker-header {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
+/* Marker type backgrounds — dark with white text, no border */
+.ship-marker              { background: #3949ab; color: white; } /* ETA — indigo  */
+.ship-marker.marker-etb   { background: #00695c; color: white; } /* ETB — teal    */
+.ship-marker.marker-ets   { background: #b71c1c; color: white; } /* ETS — crimson */
 
 .marker-type {
   font-weight: 700;
   font-size: 0.65rem;
   letter-spacing: 0.05em;
-  color: #555;
+  color: rgba(255,255,255,0.70);
   flex-shrink: 0;
 }
 
 .marker-time {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #222;
+  color: white;
 }
 
 .marker-name {
   font-size: 0.82rem;
   font-weight: 600;
-  color: #111;
+  color: white;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -465,15 +449,14 @@
 
 .marker-port {
   font-size: 0.65rem;
-  font-weight: 700;
-  color: #0288d1;
+  color: rgba(255,255,255,0.75);
   white-space: nowrap;
   letter-spacing: 0.02em;
 }
 
 .marker-pilot {
   font-size: 0.72rem;
-  color: #666;
+  color: rgba(255,255,255,0.80);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

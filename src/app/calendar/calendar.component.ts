@@ -109,8 +109,9 @@ export class CalendarComponent implements OnDestroy {
     /** Returns 'YYYY-MM-DD' from any Timestamp/Date/string (local time) */
     const toDateKey = (ts: Timestamp | Date | string | null | undefined): string | null => {
       if (!ts) return null;
+      // Use UTC consistently to match how the selectedDate is built
       const d = ts instanceof Timestamp ? ts.toDate() : new Date(ts);
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
     };
 
     type RawMarker = { visitId: string; shipName: string; gt: number; status: VisitStatus;
@@ -122,54 +123,46 @@ export class CalendarComponent implements OnDestroy {
     const raw: RawMarker[] = [];
 
     for (const ship of ships) {
-      const column = toColumn(ship.berthPort);
-      if (!column) continue; // port not displayed on this calendar
+      const visitColumn = toColumn(ship.berthPort);
 
-      // ETA marker — always use initialEta as the ship arrival time
-      if (toDateKey(ship.initialEta) === dateKey) {
-        const min = this.calculateMinuteOfDay(ship.initialEta);
+      // Helper: push one marker
+      const push = (
+        ts: Timestamp,
+        type: 'ETA' | 'ETB' | 'ETS',
+        pilot: string | null,
+        portName: string | null,
+        colOverride?: 'limerick' | 'foynes' | 'aughinish' | null
+      ) => {
+        if (toDateKey(ts) !== dateKey) return;
+        const effectiveColumn = colOverride ?? visitColumn;
+        if (!effectiveColumn) return; // skip if nowhere to put it
+        const min = this.calculateMinuteOfDay(ts);
         raw.push({
           visitId: ship.id!, shipName: ship.shipName, gt: ship.grossTonnage,
           status: ship.currentStatus as VisitStatus,
-          markerType: 'ETA',
-          topPx: min,
+          markerType: type, topPx: min,
           markerTime: `${String(Math.floor(min / 60)).padStart(2,'0')}:${String(min % 60).padStart(2,'0')}`,
-          pilotName: ship.inwardPilot ?? null,
-          portName: ship.berthPort ?? null,
-          column, offsetLeft: 0
+          // pilot || null catches empty strings ''
+          pilotName: pilot || null,
+          portName,
+          column: effectiveColumn, offsetLeft: 0
         });
+      };
+
+      if (ship.initialEta) {
+        // ETA: no trip yet, use visit-level data
+        push(ship.initialEta, 'ETA', ship.inwardPilot || null, ship.berthPort ?? null);
       }
-
-      // ETB marker — inward trip boarding time
-      const etb = ship.inwardTrip?.boarding;
-      if (etb && toDateKey(etb) === dateKey) {
-        const min = this.calculateMinuteOfDay(etb);
-        raw.push({
-          visitId: ship.id!, shipName: ship.shipName, gt: ship.grossTonnage,
-          status: ship.currentStatus as VisitStatus,
-          markerType: 'ETB',
-          topPx: min,
-          markerTime: `${String(Math.floor(min / 60)).padStart(2,'0')}:${String(min % 60).padStart(2,'0')}`,
-          pilotName: ship.inwardTrip?.pilot ?? null,
-          portName: ship.berthPort ?? null,
-          column, offsetLeft: 0
-        });
+      if (ship.inwardTrip?.boarding) {
+        // ETB: use the inward trip's own port
+        const inPort = ship.inwardTrip.port ?? ship.berthPort ?? null;
+        const etbPilot = ship.inwardTrip.pilot || ship.inwardPilot || null;
+        push(ship.inwardTrip.boarding, 'ETB', etbPilot, inPort, toColumn(inPort));
       }
-
-      // ETS marker — outward trip boarding time (pilot boards to sail the ship out)
-      const ets = ship.outwardTrip?.boarding;
-      if (ets && toDateKey(ets) === dateKey) {
-        const min = this.calculateMinuteOfDay(ets);
-        raw.push({
-          visitId: ship.id!, shipName: ship.shipName, gt: ship.grossTonnage,
-          status: ship.currentStatus as VisitStatus,
-          markerType: 'ETS',
-          topPx: min,
-          markerTime: `${String(Math.floor(min / 60)).padStart(2,'0')}:${String(min % 60).padStart(2,'0')}`,
-          pilotName: ship.outwardTrip?.pilot ?? null,
-          portName: ship.berthPort ?? null,
-          column, offsetLeft: 0
-        });
+      if (ship.outwardTrip?.boarding) {
+        // ETS: use the outward trip's own port
+        const outPort = ship.outwardTrip.port ?? ship.berthPort ?? null;
+        push(ship.outwardTrip.boarding, 'ETS', ship.outwardTrip.pilot || null, outPort, toColumn(outPort));
       }
     }
 
@@ -338,10 +331,10 @@ export class CalendarComponent implements OnDestroy {
   limerickEventLabel(event: EnvironmentalEvent): string {
     switch (event.type) {
       case 'boarding_limerick':  return 'Bdg Lim';
-      case 'airport_boarding':   return 'Bdg Airport';
-      case 'standby_airport':    return 'St-By Airport';
-      case 'high': return `HW Limerick (${event.height}m)`;
-      case 'low':  return `LW Limerick (${event.height}m)`;
+      case 'airport_boarding':   return 'Bdg Air';
+      case 'standby_airport':    return 'St-By';
+      case 'high': return `HW (${event.height}m)`;
+      case 'low':  return `LW (${event.height}m)`;
       default:     return event.type;
     }
   }
@@ -360,8 +353,8 @@ export class CalendarComponent implements OnDestroy {
   /** Label for a Foynes tide event, including height. */
   foynesEventLabel(event: EnvironmentalEvent): string {
     switch (event.type) {
-      case 'high': return `HW Foynes (${event.height}m)`;
-      case 'low':  return `LW Foynes (${event.height}m)`;
+      case 'high': return `HW (${event.height}m)`;
+      case 'low':  return `LW (${event.height}m)`;
       default:     return event.type;
     }
   }
@@ -420,8 +413,8 @@ export class CalendarComponent implements OnDestroy {
    */
   tarbertEventLabel(event: EnvironmentalEvent): string {
     switch (event.type) {
-      case 'high': return `HW Tarbert (${event.height}m)`;
-      case 'low':  return `LW Tarbert (${event.height}m)`;
+      case 'high': return `HW (${event.height}m)`;
+      case 'low':  return `LW (${event.height}m)`;
       default:     return event.type;
     }
   }

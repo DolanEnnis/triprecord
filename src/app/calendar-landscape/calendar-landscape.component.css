@@ -459,10 +459,9 @@
   width: 82px;
   padding: 2px 4px;
   background: white;
-  border: 1px solid #90caf9;
-  border-bottom: 3px dashed #90caf9;
+  border: none;
   border-radius: 4px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.1);
+  box-shadow: 0 4px 14px rgba(0,0,0,.55);
   z-index: 10;
   cursor: pointer;
   display: flex;
@@ -476,45 +475,38 @@
 }
 .lc-ship-card:hover { box-shadow: 0 3px 10px rgba(0,0,0,.2); z-index: 11; }
 
-/* Status colours: full border with stronger colour on the bottom edge */
-.lc-ship-card.marker-due            { border-color: #90caf9; border-bottom-color: #1e88e5; }
-.lc-ship-card.marker-awaiting-berth { border-color: #ffe082; border-bottom-color: #f9a825; }
-.lc-ship-card.marker-alongside      { border-color: #a5d6a7; border-bottom-color: #43a047; }
-
-.lc-ship-card.card-etb { border-bottom-style: solid; }
-.lc-ship-card.card-ets { border-bottom-style: dotted; border-bottom-width: 4px; }
-
-/* Large vessel (>20k GT) ETA — amber tint */
-.lc-ship-card.card-large { background: rgba(255, 193, 7, 0.1); }
+/* Marker type backgrounds — dark with white text, no border */
+.lc-ship-card             { background: #3949ab; color: white; } /* ETA — indigo  */
+.lc-ship-card.card-etb    { background: #00695c; color: white; } /* ETB — teal    */
+.lc-ship-card.card-ets    { background: #b71c1c; color: white; } /* ETS — crimson */
 
 .lc-card-type {
   font-size: 0.50rem;
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: #aaa;
+  color: rgba(255,255,255,0.65);
 }
 .lc-card-time {
   font-size: 0.65rem;
   font-weight: 700;
-  color: #222;
+  color: white;
 }
 .lc-card-name {
   font-weight: 600;
-  color: #111;
+  color: white;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .lc-card-port {
   font-size: 0.55rem;
-  font-weight: 700;
-  color: #0288d1;
+  color: rgba(255,255,255,0.75);
 }
 
 .lc-card-pilot {
   font-size: 0.55rem;
   font-style: italic;
-  color: #555;
+  color: rgba(255,255,255,0.80);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
