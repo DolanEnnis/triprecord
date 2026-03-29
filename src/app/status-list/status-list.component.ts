@@ -11,8 +11,8 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatSelectModule } from '@angular/material/select';
 import { Router } from '@angular/router';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog, } from '@angular/material/dialog';
+import { MatSnackBar, } from '@angular/material/snack-bar';
 import { RiverStateService } from '../services/state/river-state.service';
 import { TimeAgoPipe } from '../shared/pipes/time-ago.pipe';
 import { Visit, VisitStatus } from '../models';
@@ -39,12 +39,11 @@ import { PortFilter, isValidPortFilter } from '../models';
     MatButtonToggleModule,
     MatMenuModule,
     MatSelectModule,
-    MatDialogModule,
-    MatSnackBarModule,
+    
+    
     DatePipe,
     TimeAgoPipe,
-    MatSlideToggleModule,
-  ],
+    MatSlideToggleModule],
   templateUrl: './status-list.component.html',
   styleUrl: './status-list.component.css',
 })
@@ -129,8 +128,7 @@ export class StatusListComponent {
       data: this.filteredAlongsideShips(),
       timeLabel: 'ETS',
       portFilterName: this.getFilteredPortName(),
-    },
-  ]);
+    }]);
 
   // Computed signal to check if current user is a viewer (read-only access)
   // Viewers can only see data and Marine Traffic links, but cannot edit anything
@@ -148,8 +146,7 @@ export class StatusListComponent {
     'note',
     'pilot',
     'updated',
-    'actions',
-  ];
+    'actions'];
 
   editTrip(row: StatusListRow) {
     if (row.visitId) {

@@ -4,8 +4,8 @@ import { DataService } from '../services/core/data.service';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../auth/auth';
 import {  UnifiedTrip } from '../models';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog, } from '@angular/material/dialog';
+import { MatSnackBar, } from '@angular/material/snack-bar';
 import { ConfirmationDialogComponent } from '../shared/confirmation-dialog/confirmation-dialog.component';
 import { CreateChargeDialogComponent } from '../create-charge-dialog/create-charge-dialog.component';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -14,7 +14,7 @@ import { MatSort, MatSortModule } from '@angular/material/sort';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatNativeDateModule } from '@angular/material/core';
+
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatPaginatorModule } from '@angular/material/paginator';
@@ -30,20 +30,18 @@ import { HelpPopupComponent } from '../help-popup/help-popup.component';
   imports: [
     CommonModule,
     MatTableModule,
-    MatDialogModule,
+    
     MatFormFieldModule,
     MatInputModule,
     MatSortModule,
     MatProgressSpinnerModule,
     MatButtonModule,
     MatIconModule,
-    MatNativeDateModule,
+    
     MatButtonToggleModule,
     MatTooltipModule,
     MatPaginatorModule,
-    HelpPopupComponent,
-    MatSnackBarModule,
-  ],
+    HelpPopupComponent],
   // CsvExportService uses papaparse. Providing it here (rather than 'root') keeps
   // papaparse inside this lazy-loaded chunk and out of the initial bundle.
   providers: [CsvExportService],

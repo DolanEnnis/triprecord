@@ -8,7 +8,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog } from '@angular/material/dialog';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatSnackBar, } from '@angular/material/snack-bar';
 import { MaritimeCalculatorService } from '../../services/maritime-calculator.service';
 import { CalculationResult, ShipPosition, Waypoint } from '../../interfaces/waypoint';
 import { Observable } from 'rxjs';
@@ -30,9 +30,7 @@ import { HelpDialogComponent } from '../help-dialog/help-dialog.component';
     MatInputModule,
     MatButtonModule,
     MatIconModule,
-    MatTooltipModule,
-    MatSnackBarModule
-  ],
+    MatTooltipModule],
   templateUrl: './control-panel.html',
   styleUrl: './control-panel.scss'
 })

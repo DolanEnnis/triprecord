@@ -7,7 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatSnackBar, } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { AuthService } from '../auth';
 import { finalize } from 'rxjs';
@@ -23,9 +23,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
     MatInputModule,
     MatButtonModule,
     MatProgressSpinnerModule,
-    MatIconModule,
-    MatSnackBarModule
-],
+    MatIconModule],
   templateUrl: './login.component.html',
   styleUrl: './login.component.css'
 })

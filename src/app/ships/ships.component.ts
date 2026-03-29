@@ -9,7 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatDialog, } from '@angular/material/dialog';
 import { Router } from '@angular/router';
 import { ShipRepository } from '../services/repositories/ship.repository';
 import { VisitRepository } from '../services/repositories/visit.repository';
@@ -48,7 +48,7 @@ import { AuthService } from '../auth/auth';
     MatCardModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
-    MatDialogModule,
+    
     ShipDetailsCard,
     PreviousVisitsListComponent
   ],

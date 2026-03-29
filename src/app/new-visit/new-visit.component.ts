@@ -9,14 +9,14 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule, DateAdapter } from '@angular/material/core';
+
+import {  DateAdapter } from '@angular/material/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatSnackBar, } from '@angular/material/snack-bar';
 import { MatAutocompleteModule, MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatDialog, } from '@angular/material/dialog';
 import { Router, RouterLink } from '@angular/router';
 
 // --- Custom Components ---
@@ -44,10 +44,9 @@ import { IFormComponent } from '../guards/form-component.interface';
     // Custom
     DateTimePickerComponent,
     // Material
-    MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule, MatDatepickerModule,
-    MatNativeDateModule, MatSelectModule, MatProgressSpinnerModule, MatAutocompleteModule, MatSnackBarModule,
-    MatTableModule, MatTooltipModule, MatDialogModule,
-  ],
+    MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule, 
+     MatSelectModule, MatProgressSpinnerModule, MatAutocompleteModule, 
+    MatTableModule, MatTooltipModule],
   templateUrl: './new-visit.component.html',
   styleUrl: './new-visit.component.css',
 })
@@ -360,9 +359,10 @@ export class NewVisitComponent implements OnInit, IFormComponent {
       };
 
       // Build audit stamp so the Cloud Function can log who created this visit and from where.
-      // The Router URL (e.g. '/new-visit') is the canonical route identifier.
+      // We use displayName (not uid) so the Change History dialog shows a readable name
+      // like "John Murphy" instead of a raw Firebase UID.
       const auditStamp: AuditablePayload = {
-        _modifiedBy: this.authService.currentUserSig()?.uid || 'unknown',
+        _modifiedBy: this.authService.currentUserSig()?.displayName || 'Unknown User',
         _modifiedFrom: this.router.url,
       };
 

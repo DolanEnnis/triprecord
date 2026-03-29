@@ -7,10 +7,10 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { MatSelectModule } from '@angular/material/select';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatSnackBar, } from '@angular/material/snack-bar';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatDialog, } from '@angular/material/dialog';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { SystemSettingsRepository } from '../services/repositories/system-settings.repository';
 import { VisitRepository } from '../services/repositories/visit.repository';
@@ -36,11 +36,9 @@ import { UpdateEtaDialogComponent } from '../dialogs/update-eta-dialog/update-et
     MatIconModule,
     MatTableModule,
     MatSelectModule,
-    MatSnackBarModule,
+    
     MatMenuModule,
-    MatTooltipModule,
-    MatDialogModule
-  ],
+    MatTooltipModule],
   templateUrl: './sheet-info.html',
   styleUrls: ['./sheet-info.css']
 })
@@ -665,7 +663,7 @@ async updateStatus(result: ReconciliationResult, newStatus: VisitStatus): Promis
       const dateMatch = pdfText.match(/Date:(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/);
       
       if (dateMatch) {
-        const [, day, month, year, hour, minute, second] = dateMatch;
+        const [ day, month, year, hour, minute, second] = dateMatch;
         // JavaScript Date months are 0-indexed
         const date = new Date(
           parseInt(year),

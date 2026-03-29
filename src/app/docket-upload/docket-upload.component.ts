@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatSnackBar, } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import {
   Storage,
@@ -40,9 +40,8 @@ import { EnvironmentInjector, runInInjectionContext } from '@angular/core';
     MatIconModule,
     MatButtonModule,
     MatProgressSpinnerModule,
-    MatSnackBarModule,
-    MatTooltipModule,
-  ],
+    
+    MatTooltipModule],
   templateUrl: './docket-upload.component.html',
   styleUrl: './docket-upload.component.css',
 })

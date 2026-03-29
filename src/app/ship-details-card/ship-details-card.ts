@@ -7,7 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatSnackBar, } from '@angular/material/snack-bar';
 import { ShipRepository } from '../services/repositories/ship.repository';
 import { Ship } from '../models';
 
@@ -39,9 +39,7 @@ import { Ship } from '../models';
     MatInputModule,
     MatButtonModule,
     MatIconModule,
-    MatProgressSpinnerModule,
-    MatSnackBarModule
-  ],
+    MatProgressSpinnerModule],
   templateUrl: './ship-details-card.html',
   styleUrl: './ship-details-card.css',
 })

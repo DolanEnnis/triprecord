@@ -32,7 +32,10 @@ export interface ShipIntelligenceDialogData {
 @Component({
   selector: 'app-ship-intelligence-dialog',
   standalone: true,
-  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule],
+  imports: [
+    CommonModule,  MatButtonModule, MatIconModule,
+    MatDialogModule
+  ],
   template: `
     <h2 mat-dialog-title>Ship Intelligence Report</h2>
     <mat-dialog-content>

@@ -22,7 +22,12 @@
               {
                 "glob": "**/*",
                 "input": "public"
-              }
+              },
+              {
+                "glob": "manifest.webmanifest",
+                "input": "src"
+              },
+              "src/assets"
             ],
             "styles": [
               "src/custom-theme.scss",
@@ -44,6 +49,7 @@
                 }
               ],
               "outputHashing": "all",
+              "serviceWorker": "ngsw-config.json",
               "fileReplacements": [
                 {
                   "replace": "src/environments/environment.ts",

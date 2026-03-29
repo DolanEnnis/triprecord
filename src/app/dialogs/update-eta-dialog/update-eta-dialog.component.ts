@@ -12,9 +12,10 @@ import { VisitStatus } from '../../models';
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    MatDialogModule,
+    
     MatButtonModule,
-    DateTimePickerComponent
+    DateTimePickerComponent,
+    MatDialogModule
   ],
   template: `
     <h2 mat-dialog-title>Update {{ timeLabel }} for {{ data.shipName }}</h2>

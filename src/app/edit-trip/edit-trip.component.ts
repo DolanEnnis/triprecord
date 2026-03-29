@@ -4,13 +4,13 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule, Validators, ValidatorFn, AbstractControl, ValidationErrors } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatDatepickerModule } from '@angular/material/datepicker';
+
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatNativeDateModule } from '@angular/material/core';
+import { MatSnackBar, } from '@angular/material/snack-bar';
+
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { VisitRepository } from '../services/repositories/visit.repository';
@@ -18,7 +18,7 @@ import { TripRepository } from '../services/repositories/trip.repository';
 import { ShipRepository } from '../services/repositories/ship.repository';
 import { PilotService } from '../services/state/pilot.service';
 import { ShipIntelligenceService } from '../services/integrations/ship-intelligence.service';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatDialog, } from '@angular/material/dialog';
 import { ShipIntelligenceDialogComponent } from '../dialogs/ship-intelligence-dialog.component';
 import { OldTripWarningDialogComponent } from '../dialogs/old-trip-warning-dialog.component';
 import { ConfirmDialogComponent } from '../dialogs/confirm-dialog.component';
@@ -85,14 +85,14 @@ function pilotValidator(pilotService: PilotService, originalPilotName?: string |
     ReactiveFormsModule,
     MatFormFieldModule,
     MatInputModule,
-    MatDatepickerModule,
+    
     MatSelectModule,
     MatButtonModule,
     MatIconModule,
     MatCardModule,
-    MatSnackBarModule,
-    MatNativeDateModule,
-    MatDialogModule,
+    
+    
+    
     MatAutocompleteModule,
     MatTooltipModule,
     DateTimePickerComponent,
@@ -793,10 +793,10 @@ export class EditTripComponent implements OnInit, IFormComponent {
 
     // AUDIT STAMP: Attach metadata to every write so Cloud Function triggers
     // can identify WHO made the change and from WHERE without a separate lookup.
-    // Using UID (not displayName) because it's guaranteed unique and can't be
-    // changed by the client, making it a reliable audit key.
+    // We use displayName here (not uid) so the Change History dialog shows a
+    // human-readable name like "John Murphy" instead of a raw Firebase UID.
     const auditStamp: AuditablePayload = {
-      _modifiedBy: this.authService.currentUserSig()?.uid || 'unknown',
+      _modifiedBy: this.authService.currentUserSig()?.displayName || 'Unknown User',
       _modifiedFrom: this.router.url,
     };
 

@@ -191,12 +191,12 @@ export class VisitWorkflowService {
         gt: chargeData.gt, 
         
         // Confirmation Metadata
-        // IMPORTANT: Firestore rejects JavaScript 'undefined' — use 'null' for optional fields
-        // that are intentionally empty. null is stored as a Firestore null type, undefined crashes.
-        isConfirmed: false,
-        confirmedBy: null,
-        confirmedById: null,
-        confirmedAt: null,
+        // Trips created manually by a pilot via "New Trip" are immediately confirmed —
+        // the pilot is the one entering the data, so no second confirmation step is needed.
+        isConfirmed: true,
+        confirmedBy: recordedBy,
+        confirmedById: user?.uid ?? null,
+        confirmedAt: now as Timestamp,
         
         recordedBy: recordedBy,
         recordedAt: now,

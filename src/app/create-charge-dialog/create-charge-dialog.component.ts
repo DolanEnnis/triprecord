@@ -2,7 +2,7 @@ import { Component, inject, Inject, OnInit, Optional, signal, computed, ViewChil
 import { DocketUploadComponent } from '../docket-upload/docket-upload.component';
 import { Router } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, ValidatorFn, AbstractControl, ValidationErrors } from '@angular/forms';
-import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog,  MatDialogRef, MatDialogModule } from '@angular/material/dialog';
 import { DataService } from '../services/core/data.service';
 import { AuthService } from '../auth/auth';
 import { PilotService } from '../services/state/pilot.service';
@@ -13,13 +13,15 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatDatepickerModule } from '@angular/material/datepicker';
+
 import { MatAutocompleteModule, MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
 import { MatSelectModule } from '@angular/material/select';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { DateAdapter, MatNativeDateModule } from '@angular/material/core';
+import { MatSnackBar, } from '@angular/material/snack-bar';
+import { DateAdapter } from '@angular/material/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
 import { Observable, of, firstValueFrom } from 'rxjs';
 import { debounceTime, distinctUntilChanged, startWith, switchMap } from 'rxjs/operators';
 import { ConfirmationDialogComponent } from '../shared/confirmation-dialog/confirmation-dialog.component';
@@ -87,19 +89,22 @@ export type ChargeDialogData =
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    MatDialogModule,
+    
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
-    MatDatepickerModule,
-    MatNativeDateModule,
+    
+    
     MatProgressSpinnerModule,
     MatAutocompleteModule,
-    MatSnackBarModule,
+    
     MatSelectModule,
     MatTooltipModule,
     MatIconModule,
     DocketUploadComponent,
+    MatDialogModule,
+    MatDatepickerModule,
+    MatNativeDateModule
   ],
   templateUrl: './create-charge-dialog.html',
   styleUrl: './create-charge-dialog.css',

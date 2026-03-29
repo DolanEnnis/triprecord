@@ -1,6 +1,6 @@
 import { Component, Inject, inject, OnInit, signal } from '@angular/core';
 import { CommonModule, DatePipe, KeyValuePipe } from '@angular/common';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA,  MatDialogRef, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -70,8 +70,9 @@ function formatValue(value: unknown): string {
   standalone: true,
   imports: [
     CommonModule, DatePipe, KeyValuePipe, TimeAgoPipe,
-    MatDialogModule, MatButtonModule, MatIconModule,
+     MatButtonModule, MatIconModule,
     MatProgressSpinnerModule, MatTooltipModule,
+    MatDialogModule
   ],
   template: `
     <!-- Dialog Header -->

@@ -1,5 +1,5 @@
 import { Component, inject } from '@angular/core';
-import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { CommonModule } from '@angular/common';
@@ -18,7 +18,10 @@ import { CommonModule } from '@angular/common';
 @Component({
   selector: 'app-old-trip-warning-dialog',
   standalone: true,
-  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule],
+  imports: [
+    CommonModule,  MatButtonModule, MatIconModule,
+    MatDialogModule
+  ],
   template: `
     <h2 mat-dialog-title>
       <mat-icon color="warn">warning</mat-icon>
