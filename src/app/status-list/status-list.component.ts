@@ -176,6 +176,10 @@ export class StatusListComponent {
       if (newDate) {
         const currentUser =
           this.authService.currentUserSig()?.displayName || 'Unknown';
+        const auditStamp = {
+          _modifiedBy: currentUser,
+          _modifiedFrom: this.router.url
+        };
         try {
           // StatusListRow now has properly typed status field (VisitStatus)
           await this.visitRepository.updateVisitDate(
@@ -184,6 +188,7 @@ export class StatusListComponent {
             row.status, // No cast needed - status is already VisitStatus
             newDate,
             currentUser,
+            auditStamp
           );
 
           // Show success message to user
@@ -318,6 +323,10 @@ export class StatusListComponent {
   ): Promise<void> {
     const currentUser =
       this.authService.currentUserSig()?.displayName || 'Unknown';
+    const auditStamp = {
+      _modifiedBy: currentUser,
+      _modifiedFrom: this.router.url
+    };
     try {
       if (newStatus === 'Cancelled') {
         const trips = await this.tripRepository.getTripsByVisitIdOnce(row.visitId);
@@ -349,7 +358,7 @@ export class StatusListComponent {
         if (!confirmed) return;
 
         // 3. Execute Cancellation
-        await this.visitWorkflowService.cancelVisit(row.visitId);
+        await this.visitWorkflowService.cancelVisit(row.visitId, auditStamp);
         
       } else {
         // Normal status update
@@ -357,6 +366,7 @@ export class StatusListComponent {
           row.visitId,
           newStatus,
           currentUser,
+          auditStamp
         );
       }
 
@@ -399,8 +409,13 @@ export class StatusListComponent {
       return;
     }
 
+    const auditStamp = {
+      _modifiedBy: this.authService.currentUserSig()?.displayName || 'Unknown',
+      _modifiedFrom: this.router.url
+    };
+
     try {
-      await this.tripRepository.updateTrip(row.tripId, { pilot: newPilot });
+      await this.tripRepository.updateTrip(row.tripId, { pilot: newPilot, ...auditStamp });
 
       // Show success message
       this.snackBar.open(

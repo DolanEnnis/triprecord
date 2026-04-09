@@ -242,6 +242,10 @@ openEtaDialog(result: ReconciliationResult): void {
   dialogRef.afterClosed().subscribe(async (newDate: Date | undefined) => {
     if (newDate && result.systemVisit) {
       const currentUser = this.auth.currentUser?.displayName || 'Unknown';
+      const auditStamp = {
+        _modifiedBy: currentUser,
+        _modifiedFrom: this.router.url
+      };
       try {
         // Update the visit date (ETA/ETB/ETS)
         await this.visitRepo.updateVisitDate(
@@ -249,7 +253,8 @@ openEtaDialog(result: ReconciliationResult): void {
           result.systemVisit.tripId,
           result.systemVisit.status,
           newDate,
-          currentUser
+          currentUser,
+          auditStamp
         );
         
         // Update the Visit source to track this came from Sheet-Info (AI-assisted)
@@ -300,10 +305,16 @@ async updatePilot(result: ReconciliationResult, newPilot: string): Promise<void>
   }
 
   try {
+    const auditStamp = {
+      _modifiedBy: this.auth.currentUser?.displayName || 'Unknown',
+      _modifiedFrom: this.router.url
+    };
+    
     // Update the Trip with new pilot + audit trail
     await this.tripRepo.updateTrip(tripId, { 
       pilot: newPilot,
-      recordedBy: 'Sheet-Info'
+      recordedBy: 'Sheet-Info',
+      ...auditStamp
     });
     
     // Update the Visit source to track this came from Sheet-Info (AI-assisted)
@@ -337,8 +348,12 @@ async updateStatus(result: ReconciliationResult, newStatus: VisitStatus): Promis
 
   const currentUser = this.auth.currentUser?.displayName || 'Unknown';
   try {
+    const auditStamp = {
+      _modifiedBy: currentUser,
+      _modifiedFrom: this.router.url
+    };
     // Update the status
-    await this.visitRepo.updateVisitStatus(visitId, newStatus, currentUser);
+    await this.visitRepo.updateVisitStatus(visitId, newStatus, currentUser, auditStamp);
     
     // Update the source field to track that this was updated from Sheet-Info page (AI-assisted)
     await this.visitRepo.updateVisit(visitId, { source: 'Sheet-Info' });

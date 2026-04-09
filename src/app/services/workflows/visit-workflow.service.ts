@@ -318,7 +318,7 @@ export class VisitWorkflowService {
    * 
    * @returns Object describing what happened for UI feedback.
    */
-  async cancelVisit(visitId: string): Promise<{ deletedTrips: number; warningLevel: 'NONE' | 'ACTIVE_DATA' }> {
+  async cancelVisit(visitId: string, auditStamp?: AuditablePayload): Promise<{ deletedTrips: number; warningLevel: 'NONE' | 'ACTIVE_DATA' }> {
     return runInInjectionContext(this.injector, async () => {
       const user = this.authService.currentUserSig();
       const recordedBy = user?.displayName || 'Unknown';
@@ -339,7 +339,7 @@ export class VisitWorkflowService {
       const warningLevel = hasActiveData ? 'ACTIVE_DATA' : 'NONE';
 
       // 4. Update Visit Status to Cancelled (Trips are KEPT for history as per user req)
-      await this.visitRepository.updateVisitStatus(visitId, 'Cancelled', recordedBy);
+      await this.visitRepository.updateVisitStatus(visitId, 'Cancelled', recordedBy, auditStamp);
 
       return { deletedTrips: 0, warningLevel };
     });

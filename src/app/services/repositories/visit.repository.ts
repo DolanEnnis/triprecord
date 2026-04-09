@@ -22,7 +22,7 @@ import {
 } from '@angular/fire/firestore';
 import { combineLatest, from, Observable, of } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
-import { AuditLog, Trip, Visit, VisitStatus, StatusListRow, EnrichedVisit, Port } from '../../models';
+import { AuditLog, Trip, Visit, VisitStatus, StatusListRow, EnrichedVisit, Port, AuditablePayload } from '../../models';
 import type { Query, QueryConstraint, QueryDocumentSnapshot } from '@angular/fire/firestore';
 
 
@@ -114,7 +114,8 @@ export class VisitRepository {
   async updateVisitStatus(
     visitId: string,
     newStatus: VisitStatus,
-    updatedBy: string
+    updatedBy: string,
+    auditStamp?: AuditablePayload
   ): Promise<void> {
     return runInInjectionContext(this.injector, async () => {
       const visitDocRef = doc(
@@ -125,6 +126,7 @@ export class VisitRepository {
         currentStatus: newStatus,
         statusLastUpdated: serverTimestamp(),
         updatedBy: updatedBy,
+        ...(auditStamp || {})
       });
     });
   }
@@ -291,7 +293,8 @@ export class VisitRepository {
     tripId: string | undefined, // Kept for backward compatibility but not used
     status: VisitStatus,
     newDate: Date,
-    updatedBy: string
+    updatedBy: string,
+    auditStamp?: AuditablePayload
   ): Promise<void> {
     return runInInjectionContext(this.injector, async () => {
       // 1. Always update the Visit's audit fields
@@ -299,6 +302,7 @@ export class VisitRepository {
       const visitUpdatePayload: Partial<Visit> = {
         statusLastUpdated: serverTimestamp(),
         updatedBy: updatedBy,
+        ...(auditStamp || {})
       };
 
       // 2. If 'Due', update initialEta on the Visit
@@ -325,6 +329,7 @@ export class VisitRepository {
           const tripDocRef = doc(this.firestore, `${this.TRIPS_COLLECTION}/${tripSnapshot.docs[0].id}`);
           await updateDoc(tripDocRef, {
             boarding: Timestamp.fromDate(newDate),
+            ...(auditStamp || {})
           });
         } else {
           // Trip doesn't exist - create it (defensive programming for legacy/incomplete data)
@@ -357,6 +362,7 @@ export class VisitRepository {
             monthNo: null,
             car: null,
             good: null,
+            ...(auditStamp || {})
           };
 
           await addDoc(collection(this.firestore, this.TRIPS_COLLECTION), newTrip);
