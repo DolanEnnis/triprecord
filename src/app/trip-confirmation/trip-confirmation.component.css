@@ -1,229 +1,307 @@
-.trip-confirmation-container {
-  padding: 1.5rem;
-}
+/* =============================================================================
+   TRIP CONFIRMATION V2 — Component Styles
+   Scope: encapsulated to app-trip-confirmation-v2 by Angular's view encapsulation.
+   No global leakage.
+   ============================================================================= */
 
-.ship-cell {
+/* -----------------------------------------------------------------------------
+   PAGE LAYOUT
+   ----------------------------------------------------------------------------- */
+
+.tc-page {
   display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.docket-cell {
-  width: 40px;
-  text-align: center;
-  padding: 0 !important;
-}
-
-.docket-indicator {
-  font-size: 18px;
-  width: 18px;
-  height: 18px;
-  color: #666;
-  opacity: 0.7;
-  vertical-align: middle;
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.controls-container {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-  margin-bottom: 1rem;
-}
-
-.controls-container mat-form-field {
-  width: 300px;
-}
-
-.spinner-container {
-  display: flex;
-  justify-content: center;
-  padding: 2rem;
-}
-
-.spacer {
-  flex: 1 1 auto;
-}
-
-/* Responsive adjustments for smaller screens */
-@media (max-width: 767px) {
-  .controls-container {
-    flex-direction: column;
-    align-items: stretch; /* Make items take full width */
-    gap: 1rem; /* Reduce the gap for a tighter vertical layout */
-  }
-
-  .spacer {
-    display: none;
-  }
-
-  .controls-container mat-form-field {
-    width: 100%; /* Allow the form field to take the full width */
-  }
-
-  .controls-container mat-button-toggle-group {
-    width: 100%; /* Make the toggle groups take full width */
-  }
-
-  .controls-container mat-button-toggle-group mat-button-toggle {
-    flex-grow: 1; /* Make the buttons inside the group distribute space evenly */
-  }
-}
-
-.table-container {
-  overflow: auto;
-  /* Add rounded corners to the table container for a softer look */
-  border-radius: 8px;
-}
-
-.data-row {
-  cursor: pointer;
-}
-
-.data-row:hover {
-  background-color: rgba(0, 0, 0, 0.04);
-}
-
-.confirmed-row {
-  /* De-emphasize confirmed rows with a subtle background, lighter text, and italics */
-  background-color: #eeeeee;
-  color: #757575;
-  font-style: italic;
-  cursor: not-allowed;
-}
-
-.confirmed-row.editable-row {
-  cursor: pointer;
-}
-
-.confirmed-row.editable-row:hover {
-  /* Provide a specific hover effect for editable confirmed rows since the base background is solid */
-  background-color: #e0e0e0;
-}
-
-.fab-add-trip {
-  position: fixed;
-  bottom: 4rem;
-  right: 2rem;
-  z-index: 100;
-  min-width: 140px;
-  height: 42px;
-  font-weight: 500;
-  background-color: #4CAF50 !important;
-  color: #000000 !important;
-  border: 2px solid #000000 !important;
-  border-radius: 28px !important;
-  transition: all 0.3s ease;
-}
-
-.fab-add-trip:hover {
-  background-color: #45a049 !important;
-  transform: translateY(-2px);
-}
-
-.metadata-cell {
-  font-size: 0.8em;
-  color: #616161;
-  line-height: 1.3;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.footer-actions {
-  display: flex;
-  justify-content: flex-end;
-  padding: 1rem;
-}
-
-.data-warnings {
-  margin-bottom: 5px;
-}
-
-.warning-text {
-  color: red;
-  font-size: 0.85em;
-  font-style: italic;
-}
-
-.help-backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
+  flex-direction: column;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  z-index: 1000;
+  padding: 16px 20px;
+  box-sizing: border-box;
+  gap: 16px;
+  background-color: var(--mat-app-background-color, #f5f5f5);
 }
 
-.help-popup {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: white;
-  padding: 2rem;
-  border-radius: 8px;
-  z-index: 1001;
-  width: clamp(300px, 90vw, 800px);
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-}
+/* -----------------------------------------------------------------------------
+   LOADING STATE
+   ----------------------------------------------------------------------------- */
 
-.help-header {
+.loading-container {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
-  margin-bottom: 1rem;
+  justify-content: center;
+  flex: 1;
+  gap: 16px;
+  min-height: 300px;
 }
 
-.help-header h2 {
+.loading-label {
+  color: var(--mat-app-text-color, #666);
+  font-size: 0.875rem;
   margin: 0;
 }
 
-.help-content ul {
-  padding-left: 20px;
-  margin-top: 0.5rem;
-  margin-bottom: 1rem;
+/* -----------------------------------------------------------------------------
+   PAGE HEADER
+   ----------------------------------------------------------------------------- */
+
+.tc-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-.help-content li {
-  margin-bottom: 0.5rem;
+.tc-header__heading {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--mat-app-on-surface, #1a1a1a);
+  line-height: 1.2;
 }
 
-.help-content .highlight-green {
-  background-color: #eeeeee;
-  padding: 2px 4px;
-  border-radius: 4px;
+/* Actionable badge — shown when unconfirmed trips exist */
+.actionable-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-.help-content .highlight-white {
-  background-color: #f5f5f5;
-  border: 1px solid #ddd;
-  padding: 2px 4px;
-  border-radius: 4px;
+.actionable-badge--active {
+  background-color: #fff3e0;   /* amber-50 */
+  color: #e65100;              /* deep-orange-900 */
+  border: 1px solid #ffcc80;  /* amber-200 */
 }
 
-.help-content button {
-  vertical-align: middle;
-  margin: 0 4px;
+.actionable-badge--clear {
+  background-color: #e8f5e9;  /* green-50 */
+  color: #2e7d32;             /* green-800 */
+  border: 1px solid #a5d6a7; /* green-200 */
 }
 
-/* Style the 'New Trip' button example to look like the FAB */
-.help-content p button[mat-flat-button] {
-  /* Use FAB color and shape */
-  background-color: #4CAF50;
-  border-radius: 28px;
-  min-width: 140px;
-  height: 42px;
+.actionable-badge__count {
+  font-size: 1rem;
+  font-weight: 700;
+}
 
-  /* Override disabled styles to make it look like the real button */
-  color: white;
-  opacity: 1;
+.actionable-badge__label {
+  opacity: 0.85;
+}
+
+/* -----------------------------------------------------------------------------
+   FILTER TOOLBAR
+   Uses flex-wrap so the toolbar gracefully wraps on smaller screens.
+   ----------------------------------------------------------------------------- */
+
+.tc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Search field takes up available space first before other controls */
+.toolbar__search {
+  flex: 1 1 200px;
+  min-width: 180px;
+}
+
+/* Select dropdowns have a fixed width so they don't grow unpredictably */
+.toolbar__select {
+  flex: 0 0 160px;
+}
+
+/* Toggle group — no extra width; size to content */
+.toolbar__toggle {
+  flex: 0 0 auto;
+}
+
+.toolbar__clear {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  color: var(--mat-app-on-surface-variant, #555);
+}
+
+/* Keep form field hint/error space from adding height */
+mat-form-field {
+  /* subscriptSizing="dynamic" is set on the element; this backs it up */
+  --mat-form-field-subscript-text-size: 0;
+}
+
+/* -----------------------------------------------------------------------------
+   TABLE WRAPPER
+   The wrapper handles scroll — not the page itself. This keeps the sticky
+   header row pinned at the top of the table, not the top of the viewport.
+   ----------------------------------------------------------------------------- */
+
+.tc-table-wrapper {
+  flex: 1;
+  overflow: auto;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  background: #fff;
+}
+
+.tc-table {
+  width: 100%;
+  /* Prevent the table from scrolling with the page — handled by wrapper */
+  min-width: 700px;
+}
+
+/* Sticky header row stays visible while the table body scrolls */
+.tc-table .mat-mdc-header-row {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #fff;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* Right-align numeric columns */
+.col-number {
+  text-align: right;
+  padding-right: 20px !important;
+}
+
+/* -----------------------------------------------------------------------------
+   TABLE ROWS
+   ----------------------------------------------------------------------------- */
+
+.tc-row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.tc-row:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+/* Ship name slightly bolder so it reads as the "primary" cell */
+.ship-name {
+  font-weight: 500;
+}
+
+/* Placeholder text for rows with no boarding date yet */
+.pending-label {
+  font-style: italic;
+  color: #9e9e9e;
+  font-size: 0.8125rem;
+}
+
+/* -----------------------------------------------------------------------------
+   PENDING TRIP ROW
+   Applied via [ngClass]="{ 'pending-trip-row': row.isPending }"
+   
+   Visual goal: draw the eye to rows that still need a boarding date
+   without being alarming. A warm amber-tinted background + italic text
+   reads as "needs attention" without looking like an error.
+   ----------------------------------------------------------------------------- */
+
+.pending-trip-row {
+  background-color: #fffde7 !important; /* yellow-50 — very subtle amber wash */
+  font-style: italic;
+}
+
+.pending-trip-row:hover {
+  background-color: #fff9c4 !important; /* yellow-100 — slightly deeper on hover */
+}
+
+/* -----------------------------------------------------------------------------
+   TRIP TYPE BADGE
+   Uses the [attr.data-type] attribute set in the template to colour badges
+   by value without needing a class per direction.
+   e.g.  <span class="type-badge" data-type="In">
+   ----------------------------------------------------------------------------- */
+
+.type-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.type-badge[data-type="In"] {
+  background-color: #e3f2fd; /* blue-50 */
+  color: #1565c0;            /* blue-800 */
+}
+
+.type-badge[data-type="Out"] {
+  background-color: #fce4ec; /* pink-50 */
+  color: #880e4f;            /* pink-900 */
+}
+
+.type-badge[data-type="Anchorage"],
+.type-badge[data-type="Shift"],
+.type-badge[data-type="BerthToBerth"] {
+  background-color: #f3e5f5; /* purple-50 */
+  color: #6a1b9a;            /* purple-800 */
+}
+
+.type-badge[data-type="Other"] {
+  background-color: #eceff1; /* blue-grey-50 */
+  color: #37474f;            /* blue-grey-800 */
+}
+
+/* -----------------------------------------------------------------------------
+   STATUS CHIP
+   Derived from row.isActionable — no external data needed.
+   ----------------------------------------------------------------------------- */
+
+.status-chip {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Actionable = not yet confirmed, needs action */
+.status-chip--actionable {
+  background-color: #fff3e0; /* amber-50 */
+  color: #e65100;            /* deep-orange-900 */
+}
+
+/* Confirmed = billed, read-only history */
+.status-chip--confirmed {
+  background-color: #e8f5e9; /* green-50 */
+  color: #2e7d32;            /* green-800 */
+}
+
+/* -----------------------------------------------------------------------------
+   EMPTY STATE
+   Shown via *matNoDataRow when displayedRows() is empty.
+   ----------------------------------------------------------------------------- */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  color: #9e9e9e;
+  text-align: center;
+}
+
+.empty-state__icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 12px;
+  opacity: 0.4;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 0.9rem;
 }

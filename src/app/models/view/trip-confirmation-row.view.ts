@@ -78,6 +78,12 @@ export interface TripConfirmationRow {
   /** Port of service → mapped from `trip.port` */
   port: Port | null;
 
+  /**
+   * Monthly trip number assigned by the pilot → mapped from `trip.monthNo`.
+   * Optional — not all trips have this recorded.
+   */
+  monthNo?: number | null;
+
   /** Pilot who performed the service → mapped from `trip.pilot` */
   pilot: string;
 

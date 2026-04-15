@@ -862,6 +862,8 @@ export class EditTripComponent implements OnInit, IFormComponent {
           monthNo: formVal.inwardTrip.monthNo ?? null,
           car: formVal.inwardTrip.car ?? null,
           good: formVal.inwardTrip.good ?? null,
+          shipName: formVal.ship.shipName,
+          gt: formVal.ship.grossTonnage,
           lastModifiedBy: updatedBy,
           lastModifiedAt: now,
           ...auditStamp, // Triggers onTripWritten Cloud Function
@@ -889,7 +891,9 @@ export class EditTripComponent implements OnInit, IFormComponent {
           pilotNo: null,
           monthNo: null,
           car: null,
-          good: null
+          good: null,
+          shipName: formVal.ship.shipName,
+          gt: formVal.ship.grossTonnage
         };
         this.inwardTripId = await this.tripRepo.addTrip(newInwardTrip);
         console.log('Created new inward trip with ID:', this.inwardTripId);
@@ -916,6 +920,8 @@ export class EditTripComponent implements OnInit, IFormComponent {
           monthNo: formVal.outwardTrip.monthNo ?? null,
           car: formVal.outwardTrip.car ?? null,
           good: formVal.outwardTrip.good ?? null,
+          shipName: formVal.ship.shipName,
+          gt: formVal.ship.grossTonnage,
           lastModifiedBy: updatedBy,
           lastModifiedAt: now,
           ...auditStamp, // Triggers onTripWritten Cloud Function
@@ -943,7 +949,9 @@ export class EditTripComponent implements OnInit, IFormComponent {
           pilotNo: null,
           monthNo: null,
           car: null,
-          good: null
+          good: null,
+          shipName: formVal.ship.shipName,
+          gt: formVal.ship.grossTonnage
         };
         this.outwardTripId = await this.tripRepo.addTrip(newOutwardTrip);
         console.log('Created new outward trip with ID:', this.outwardTripId);
@@ -978,6 +986,8 @@ export class EditTripComponent implements OnInit, IFormComponent {
             boarding: tripData.boarding ? Timestamp.fromDate(tripData.boarding) : null,
             port: tripData.port ?? null,
             pilotNotes: tripData.pilotNotes ?? '',
+            shipName: formVal.ship.shipName,
+            gt: formVal.ship.grossTonnage,
             lastModifiedBy: updatedBy,
             lastModifiedAt: now,
             ...auditStamp, // Triggers onTripWritten Cloud Function
@@ -1002,6 +1012,8 @@ export class EditTripComponent implements OnInit, IFormComponent {
             monthNo: null,
             car: null,
             good: null,
+            shipName: formVal.ship.shipName,
+            gt: formVal.ship.grossTonnage,
             ...auditStamp, // Triggers onTripWritten Cloud Function
           };
           

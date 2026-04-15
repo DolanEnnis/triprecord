@@ -7,6 +7,7 @@ import { mapTripToConfirmationRow } from '../../models/mappers/trip-confirmation
 import type { TripConfirmationRow } from '../../models/view/trip-confirmation-row.view';
 import type { Port } from '../../models/types';
 import type { TripType } from '../../models/types';
+import { AuthService } from '../../auth/auth';
 
 // ---------------------------------------------------------------------------
 // FILTER TYPES
@@ -62,6 +63,7 @@ export type TripStatusFilter = 'All' | 'Actionable' | 'Confirmed';
 export class TripLogV2Service {
   // Injecting only TripRepository — no VisitRepository, no ChargeRepository.
   private readonly tripRepository = inject(TripRepository);
+  private readonly authService = inject(AuthService);
 
   // -------------------------------------------------------------------------
   // CONFIGURATION
@@ -111,24 +113,49 @@ export class TripLogV2Service {
         // Transform each raw Trip into a flat TripConfirmationRow.
         // The mapper handles all field priority logic, Timestamp → Date conversion,
         // and data-quality warning generation.
-        return uniqueTrips.map(mapTripToConfirmationRow);
+        // Sort immediately so that _allRows is always in the canonical order:
+        // dated rows newest-first, pending rows (no boarding date) at the bottom.
+        // All downstream consumers (filteredRows, actionableCount, etc.) inherit
+        // this order for free — no re-sorting needed anywhere else.
+        return uniqueTrips.map(mapTripToConfirmationRow).sort(TripLogV2Service.sortRows);
       }),
     ),
     { initialValue: [] },
   );
 
   // -------------------------------------------------------------------------
-  // FILTER SIGNALS (writable — the component sets these via the UI)
+  // FILTER SIGNALS
+  //
+  // Pattern: private writable backing signal + public read-only view.
+  //
+  // LEARNING: WHY THIS PATTERN?
+  // Exposing a writable signal directly (e.g. `readonly directionFilter = signal(...)`) 
+  // lets ANY injector call `.set()` on it, bypassing your intended API surface.
+  // By making the signal `private` and returning it via `.asReadonly()`, the
+  // PUBLIC type is `Signal<T>` (read-only) — the `.set()` and `.update()` methods
+  // are stripped at compile time. Mutation can only happen through the explicit
+  // setter methods below, giving you full control over state changes.
+  //
+  // `.asReadonly()` has ZERO runtime cost — it is purely a TypeScript type cast.
   // -------------------------------------------------------------------------
 
-  /** Which trip direction to show: 'All', 'In', or 'Out'. */
-  readonly directionFilter = signal<TripDirectionFilter>('All');
+  /** Private writable source — only mutated via setDirectionFilter() / resetFilters(). */
+  private readonly _directionFilter = signal<TripDirectionFilter>('All');
 
-  /** Which port to show: 'All' or a specific Port value. */
-  readonly portFilter = signal<TripPortFilter>('All');
+  /** Private writable source — only mutated via setPortFilter() / resetFilters(). */
+  private readonly _portFilter = signal<TripPortFilter>('All');
 
-  /** Which confirmation state to show: 'All', 'Actionable', or 'Confirmed'. */
-  readonly statusFilter = signal<TripStatusFilter>('All');
+  /** Private writable source — only mutated via setStatusFilter() / resetFilters(). */
+  private readonly _statusFilter = signal<TripStatusFilter>('All');
+
+  /** Read-only public view of the direction filter — template and component bind to this. */
+  readonly directionFilter = this._directionFilter.asReadonly();
+
+  /** Read-only public view of the port filter. */
+  readonly portFilter = this._portFilter.asReadonly();
+
+  /** Read-only public view of the status filter. */
+  readonly statusFilter = this._statusFilter.asReadonly();
 
   // -------------------------------------------------------------------------
   // PUBLIC API — DERIVED SIGNALS
@@ -151,8 +178,15 @@ export class TripLogV2Service {
     const direction = this.directionFilter();
     const port = this.portFilter();
     const status = this.statusFilter();
+    const user = this.authService.currentUserSig();
 
     return this._allRows().filter((row) => {
+      // --- Ghost Trip Filter ---
+      // Hide pending trips (no boarding date set) from non-admin users.
+      if (row.isPending && user?.userType !== 'admin') {
+        return false;
+      }
+
       // --- Direction filter ---
       // 'All' passes everything. Otherwise we match the typeTrip field directly.
       if (direction !== 'All' && row.typeTrip !== direction) return false;
@@ -204,13 +238,45 @@ export class TripLogV2Service {
   });
 
   /**
-   * Resets all three filters back to their defaults.
+   * Resets all three filters back to their defaults in one atomic step.
    * Call this when the user clicks "Clear Filters" in the component.
    */
   resetFilters(): void {
-    this.directionFilter.set('All');
-    this.portFilter.set('All');
-    this.statusFilter.set('All');
+    // Use the private backing signals — the public views are read-only.
+    this._directionFilter.set('All');
+    this._portFilter.set('All');
+    this._statusFilter.set('All');
+  }
+
+  // -------------------------------------------------------------------------
+  // PUBLIC FILTER SETTERS
+  //
+  // These are the ONLY sanctioned way for external code to mutate filter state.
+  // Components call these methods; they never touch the private signals directly.
+  // -------------------------------------------------------------------------
+
+  /**
+   * Sets the trip direction filter.
+   * @param value 'All' | 'In' | 'Out'
+   */
+  setDirectionFilter(value: TripDirectionFilter): void {
+    this._directionFilter.set(value);
+  }
+
+  /**
+   * Sets the port filter.
+   * @param value 'All' | a Port string (e.g. 'Foynes', 'Aughinish')
+   */
+  setPortFilter(value: TripPortFilter): void {
+    this._portFilter.set(value);
+  }
+
+  /**
+   * Sets the confirmation status filter.
+   * @param value 'All' | 'Actionable' | 'Confirmed'
+   */
+  setStatusFilter(value: TripStatusFilter): void {
+    this._statusFilter.set(value);
   }
 
   // -------------------------------------------------------------------------
@@ -249,67 +315,40 @@ export class TripLogV2Service {
     const cutoff = Timestamp.fromDate(threeMonthsAgo);
 
     return this.tripRepository.getRecentTrips(cutoff).pipe(
-      map((trips) => {
-        // Step 4: Map each raw Trip entity to a flat TripConfirmationRow.
-        // Every field is named exactly as the Material table column definitions expect.
-        const rows: TripConfirmationRow[] = trips.map((trip) => ({
-          // --- Identity ---
-          id:      trip.id!,       // id is always populated after a Firestore fetch
-          visitId: trip.visitId,   // undefined for standalone trips — that is valid
-
-          // --- Display fields (direct 1:1 from Trip document) ---
-          ship:        trip.shipName            || 'Unknown Ship',
-          gt:          trip.gt                  || 0,
-          boarding:    this.toSafeDate(trip.boarding),        // Timestamp | null → Date | null
-          port:        trip.port                || null,
-          pilot:       trip.pilot               || '',
-          typeTrip:    trip.typeTrip,
-          sailingNote: trip.pilotNotes          || '',
-          extra:       trip.extraChargesNotes   || '',
-
-          // --- Derived booleans (computed once here, never in the template) ---
-          // THE NEW PIVOT: we trust the boolean, not source strings.
-          isActionable: !trip.isConfirmed,
-          // isPending flags rows with no boarding date for special sort treatment.
-          isPending:    !trip.boarding,
-
-          // --- Audit fields: resolved with a priority chain ---
-          // Priority: most-recent edit → billing confirmation → original creation
-          updatedBy: trip.lastModifiedBy ?? trip.confirmedBy ?? trip.recordedBy ?? 'System',
-          updateTime: (
-            this.toSafeDate(trip.lastModifiedAt) ??
-            this.toSafeDate(trip.confirmedAt)    ??
-            this.toSafeDate(trip.recordedAt)     ??
-            new Date()
-          ),
-
-          // --- Docket (optional) ---
-          docketUrl:  trip.docketUrl,
-          docketType: trip.docketType,
-        }));
-
-        // Step 5: Sort the mapped rows.
-        // Rule 1 — pending rows (no boarding date) always sink to the bottom.
-        // Rule 2 — for all other rows, newest boarding date first (descending).
-        return rows.sort((a, b) => {
-          // If exactly one row is pending, it loses (goes toward the bottom).
-          if (a.isPending && !b.isPending) return 1;   // a sinks
-          if (!a.isPending && b.isPending) return -1;  // b sinks
-
-          // Both pending or both dated: sort by boarding date descending.
-          // Pending rows have null boarding, so we fall back to 0 (stable position)
-          // which keeps them in their original order relative to each other.
-          const timeA = a.boarding?.getTime() ?? 0;
-          const timeB = b.boarding?.getTime() ?? 0;
-          return timeB - timeA; // descending: larger (more recent) timestamp first
-        });
-      }),
+      // Delegate to the shared pure mapper — identical field mapping as _allRows,
+      // no duplication. Then apply the same canonical sort so this Observable
+      // and the Signal pipeline always produce identically-ordered data.
+      map((trips) => trips.map(mapTripToConfirmationRow).sort(TripLogV2Service.sortRows)),
     );
   }
 
   // -------------------------------------------------------------------------
   // PRIVATE HELPERS
   // -------------------------------------------------------------------------
+
+  /**
+   * Canonical sort comparator for `TripConfirmationRow[]`.
+   *
+   * Rules (in priority order):
+   *  1. Pending rows (no boarding date) always sink to the bottom.
+   *  2. All other rows sort by `boarding` date descending (newest first).
+   *
+   * Defined as a `static` method so it can be passed directly as a callback
+   * to `.sort()` without binding `this`. This also makes it trivially
+   * unit-testable: `[rowA, rowB].sort(TripLogV2Service.sortRows)`.
+   */
+  static sortRows(a: TripConfirmationRow, b: TripConfirmationRow): number {
+    // If exactly one row is pending, it loses — push it toward the bottom.
+    if (a.isPending && !b.isPending) return 1;
+    if (!a.isPending && b.isPending) return -1;
+
+    // Both pending or both dated: sort by boarding timestamp, newest first.
+    // Pending rows have null boarding, so we fall back to 0 to keep their
+    // relative order stable (no arbitrary re-ordering among pending rows).
+    const timeA = a.boarding?.getTime() ?? 0;
+    const timeB = b.boarding?.getTime() ?? 0;
+    return timeB - timeA; // positive → b is newer → b comes first
+  }
 
   /**
    * Safely converts a Firestore Timestamp, a duck-typed Timestamp object,

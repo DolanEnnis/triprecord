@@ -116,6 +116,7 @@ export function mapTripToConfirmationRow(trip: Trip): TripConfirmationRow {
     gt:         trip.gt        ?? 0,
     boarding,
     port:       trip.port      ?? null,
+    monthNo:    trip.monthNo   ?? null,   // pilot's monthly trip counter
     pilot:      trip.pilot,
     typeTrip:   trip.typeTrip,
     sailingNote: trip.pilotNotes        ?? '',

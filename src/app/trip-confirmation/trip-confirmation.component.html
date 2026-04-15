@@ -1,164 +1,227 @@
-<div class="trip-confirmation-container">
-  <div class="header">
-    <h1>Trip Confirmation</h1>
-    <div class="spacer"></div>
-    <button mat-flat-button color="accent" (click)="repairLegacyData()" style="margin-right: 8px;">
-      <mat-icon>build</mat-icon> Repair Legacy Data
-    </button>
-    <!-- #helpBtn is referenced by @defer below as the interaction trigger -->
-    <button mat-icon-button (click)="showHelp()" matTooltip="Show help" #helpBtn>
-      <mat-icon>help_outline</mat-icon>
-    </button>
-  </div>
+<div class="tc-page">
 
-  <div class="controls-container">
-    <mat-form-field appearance="outline">
-      <mat-label>Filter Trips</mat-label>
-      <input matInput (keyup)="applyFilter($event)" placeholder="Search by ship, port, pilot..." #input>
-    </mat-form-field>
-
-    <div class="spacer"></div>
-
-    <mat-button-toggle-group [value]="directionFilter()" (valueChange)="onDirectionChange($event)" aria-label="Filter by direction">
-      <mat-button-toggle value="All">All</mat-button-toggle>
-      <mat-button-toggle value="In">In</mat-button-toggle>
-      <mat-button-toggle value="Out">Out</mat-button-toggle>
-    </mat-button-toggle-group>
-
-    <mat-button-toggle-group [value]="pilotFilter()" (valueChange)="onPilotFilterChange($event)" aria-label="Filter by pilot">
-      <mat-button-toggle value="All">All Trips</mat-button-toggle>
-      <mat-button-toggle value="My">{{ userName() }} Trips</mat-button-toggle>
-    </mat-button-toggle-group>
-  </div>
-
-  <!-- Show a spinner while the initial data is loading -->
+  <!-- =========================================================
+       LOADING STATE
+       @if is the modern Angular control flow (replaces *ngIf).
+       The spinner renders while isLoading() is true, and the
+       entire main content block is deferred until data arrives.
+  ========================================================= -->
   @if (isLoading()) {
-    <div class="spinner-container"><mat-progress-spinner mode="indeterminate"></mat-progress-spinner></div>
+    <div class="loading-container">
+      <mat-spinner diameter="48"></mat-spinner>
+      <p class="loading-label">Loading trips…</p>
+    </div>
+
   } @else {
-    <div class="table-container mat-elevation-z8">
-      <table mat-table [dataSource]="dataSource" matSort matSortActive="boarding" matSortDirection="desc" class="mat-table">
 
-        <!-- Ship Column -->
+    <!-- =====================================================
+         PAGE HEADER
+    ===================================================== -->
+    <div class="tc-header">
+      <div class="tc-header__title">
+        <h1 class="tc-header__heading">Trip Confirmation</h1>
+      </div>
+
+      <!-- Actionable badge: only shown when there are items to act on -->
+      @if (actionableCount() > 0) {
+        <div class="actionable-badge actionable-badge--active"
+             matTooltip="Trips that require a billing confirmation">
+          <span class="actionable-badge__count">{{ actionableCount() }}</span>
+          <span class="actionable-badge__label">Actionable</span>
+        </div>
+      } @else {
+        <div class="actionable-badge actionable-badge--clear"
+             matTooltip="All trips are confirmed">
+          All Confirmed ✓
+        </div>
+      }
+    </div>
+
+    <!-- =====================================================
+         FILTER TOOLBAR
+         Each control updates a Signal — the table re-renders
+         reactively with no manual refresh call needed.
+    ===================================================== -->
+    <div class="tc-toolbar">
+
+      <!-- Text Search -->
+      <mat-form-field appearance="outline" class="toolbar__search" subscriptSizing="dynamic">
+        <mat-label>Search ship, port, pilot…</mat-label>
+        <input
+          id="tc-search-input"
+          matInput
+          [value]="textFilter()"
+          (input)="onTextInput($event)"
+          autocomplete="off" />
+        <mat-icon matSuffix>search</mat-icon>
+      </mat-form-field>
+
+      <!-- Direction toggle: All / In / Out -->
+      <mat-button-toggle-group
+        id="tc-direction-toggle"
+        [value]="tripLogService.directionFilter()"
+        (change)="updateDirectionFilter($event.value)"
+        aria-label="Trip direction filter">
+        <mat-button-toggle value="All">All</mat-button-toggle>
+        <mat-button-toggle value="In">In</mat-button-toggle>
+        <mat-button-toggle value="Out">Out</mat-button-toggle>
+      </mat-button-toggle-group>
+
+      <!-- Pilot toggle: All Trips / Brian's Trips -->
+      <mat-button-toggle-group
+        id="tc-pilot-toggle"
+        [value]="pilotFilter()"
+        (change)="onPilotFilterChange($event.value)"
+        aria-label="Pilot filter">
+        <mat-button-toggle value="All">All Trips</mat-button-toggle>
+        <mat-button-toggle value="My">{{ userName() }} Trips</mat-button-toggle>
+      </mat-button-toggle-group>
+
+      <!-- Status Filter (kept as select) -->
+      <mat-form-field appearance="outline" class="toolbar__select" subscriptSizing="dynamic">
+        <mat-label>Status</mat-label>
+        <mat-select
+          id="tc-status-select"
+          [value]="tripLogService.statusFilter()"
+          (selectionChange)="updateStatusFilter($event.value)">
+          <mat-option value="All">All Trips</mat-option>
+          <mat-option value="Actionable">Actionable Only</mat-option>
+          <mat-option value="Confirmed">Confirmed Only</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <!-- Clear Filters -->
+      <button
+        id="tc-clear-btn"
+        mat-stroked-button
+        (click)="clearFilters()"
+        class="toolbar__clear"
+        matTooltip="Reset all filters to defaults">
+        <mat-icon>filter_alt_off</mat-icon>
+        Clear
+      </button>
+
+    </div>
+
+    <!-- =====================================================
+         DATA TABLE
+         [dataSource]="displayedRows()" — reads the computed
+         signal directly. Every Firestore push or filter change
+         causes displayedRows() to recompute and the table to
+         re-render, with no manual subscription or .data= needed.
+    ===================================================== -->
+    <div class="tc-table-wrapper">
+      <table
+        mat-table
+        [dataSource]="displayedRows()"
+        class="tc-table"
+        aria-label="Trip confirmation records">
+
+        <!-- ── Ship Column ───────────────────────────── -->
         <ng-container matColumnDef="ship">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header>Ship</th>
-          <td mat-cell *matCellDef="let element">{{ element.ship }}</td>
+          <th mat-header-cell *matHeaderCellDef>Ship</th>
+          <td mat-cell *matCellDef="let row" class="col-ship">
+            <span class="ship-name">{{ row.ship }}</span>
+          </td>
         </ng-container>
 
-        <!-- GT Column -->
+        <!-- ── Gross Tonnage Column ───────────────────── -->
         <ng-container matColumnDef="gt">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header>GT</th>
-          <td mat-cell *matCellDef="let element">{{ element.gt | number }}</td>
+          <th mat-header-cell *matHeaderCellDef class="col-number">GT</th>
+          <td mat-cell *matCellDef="let row" class="col-number">
+            {{ row.gt | number }}
+          </td>
         </ng-container>
 
-        <!-- Date Column -->
+        <!-- ── Boarding Date Column ───────────────────── -->
         <ng-container matColumnDef="boarding">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header>Boarding Date</th>
-          <td mat-cell *matCellDef="let element">{{ element.boarding | date:'dd-MM-yy' }}</td>
+          <th mat-header-cell *matHeaderCellDef>Boarding</th>
+          <td mat-cell *matCellDef="let row">
+            @if (row.boarding) {
+              <!-- date:'short' gives e.g. "9/4/26, 14:30" -->
+              {{ row.boarding | date:'dd/MM/yy, HH:mm' }}
+            } @else {
+              <!-- isPending rows have no boarding date yet -->
+              <span class="pending-label">No Date Yet</span>
+            }
+          </td>
         </ng-container>
 
-        <ng-container matColumnDef="typeTrip">
-          <th mat-header-cell *matHeaderCellDef>Type</th>
-          <td mat-cell *matCellDef="let element">{{ element.typeTrip }}</td>
-        </ng-container>
-
-        <!-- Port Column -->
+        <!-- ── Port Column ────────────────────────────── -->
         <ng-container matColumnDef="port">
-          <th mat-header-cell *matHeaderCellDef>To/From</th>
-          <td mat-cell *matCellDef="let element">{{ element.port }}</td>
+          <th mat-header-cell *matHeaderCellDef>Port</th>
+          <td mat-cell *matCellDef="let row">{{ row.port || '—' }}</td>
         </ng-container>
 
-        <!-- Extra Column -->
-        <ng-container matColumnDef="extra">
-          <th mat-header-cell *matHeaderCellDef>Extras</th>
-          <td mat-cell *matCellDef="let element">{{ element.extra }}</td>
-        </ng-container>
-
-        <!-- Pilot No Column (No Header) -->
-        <ng-container matColumnDef="pilotNo">
-          <th mat-header-cell *matHeaderCellDef></th>
-          <td mat-cell *matCellDef="let element">{{ element.pilotNo }}</td>
-        </ng-container>
-
-        <!-- Month No Column (No Header) -->
+        <!-- ── Month No Column ───────────────────────── -->
         <ng-container matColumnDef="monthNo">
-          <th mat-header-cell *matHeaderCellDef></th>
-          <td mat-cell *matCellDef="let element">{{ element.monthNo }}</td>
+          <th mat-header-cell *matHeaderCellDef class="col-number">Month No</th>
+          <td mat-cell *matCellDef="let row" class="col-number">
+            {{ row.monthNo ?? '—' }}
+          </td>
         </ng-container>
 
-        <!-- Pilot Column -->
+        <!-- ── Pilot Column ───────────────────────────── -->
         <ng-container matColumnDef="pilot">
           <th mat-header-cell *matHeaderCellDef>Pilot</th>
-          <td mat-cell *matCellDef="let element">{{ element.pilot }}</td>
+          <td mat-cell *matCellDef="let row">{{ row.pilot || '—' }}</td>
         </ng-container>
 
-        <!-- Note Column -->
-        <ng-container matColumnDef="sailingNote">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header>Note</th>
-          <td mat-cell *matCellDef="let element">
-            @if (element.dataWarnings && element.dataWarnings.length > 0) {
-              <div class="data-warnings">
-                @for (warning of element.dataWarnings; track warning) {
-                  <div class="warning-text">{{ warning }}</div>
-                }
-              </div>
-            }
-            {{ element.sailingNote }}
+        <!-- ── Trip Type Column ──────────────────────── -->
+        <ng-container matColumnDef="typeTrip">
+          <th mat-header-cell *matHeaderCellDef>Type</th>
+          <td mat-cell *matCellDef="let row">
+            <!--
+              [attr.data-type] lets CSS target the badge colour by value
+              without needing a separate class per direction.
+              e.g.  [data-type="In"]  { background: ... }
+            -->
+            <span class="type-badge" [attr.data-type]="row.typeTrip">
+              {{ row.typeTrip }}
+            </span>
           </td>
         </ng-container>
 
-        <!-- Docket Column -->
-        <ng-container matColumnDef="docket">
-          <th mat-header-cell *matHeaderCellDef></th>
-          <td mat-cell *matCellDef="let element" class="docket-cell">
-            @if (element.docketUrl) {
-              <mat-icon 
-                class="docket-indicator" 
-                [matTooltip]="'Attached ' + (element.docketType === 'image' ? 'photo' : 'PDF')"
-              >attach_file</mat-icon>
-            }
+        <!-- ── Status Column (derived from isActionable) ─ -->
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef>Status</th>
+          <td mat-cell *matCellDef="let row">
+            <span
+              class="status-chip"
+              [class.status-chip--actionable]="row.isActionable"
+              [class.status-chip--confirmed]="!row.isActionable">
+              {{ row.isActionable ? 'Actionable' : 'Confirmed' }}
+            </span>
           </td>
         </ng-container>
 
-        <!-- Update Time Column -->
-        <ng-container matColumnDef="metadata">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header="updateTime" class="metadata-cell">Last Update</th>
-          <td mat-cell *matCellDef="let element" class="metadata-cell">
-            <div>{{ element.updatedBy }} ({{ element.source }})</div>
-            <div>{{ element.updateTime | date : "dd-MM-yy HH:mm" }}</div>
+        <!-- ── Header & Row Definitions ─────────────── -->
+        <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+
+        <!--
+          (click) — opens the dialog (currently just logs).
+          [ngClass] — adds 'pending-trip-row' when boarding is null,
+                      giving pending rows a distinct visual treatment.
+        -->
+        <tr
+          mat-row
+          *matRowDef="let row; columns: displayedColumns;"
+          (click)="onRowClicked(row)"
+          [ngClass]="{ 'pending-trip-row': row.isPending }"
+          class="tc-row">
+        </tr>
+
+        <!-- Empty state row — shown when displayedRows() is empty -->
+        <tr class="mat-row" *matNoDataRow>
+          <td class="empty-state" [attr.colspan]="displayedColumns.length">
+            <mat-icon class="empty-state__icon">search_off</mat-icon>
+            <p>No trips match the current filters.</p>
           </td>
-        </ng-container>
+        </tr>
 
-        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns" (click)="onRowClicked(row)" [ngClass]="{
-          'confirmed-row': !row.isActionable,
-          'editable-row': !row.isActionable && isOwnTrip(row)
-        }" class="data-row"></tr>
-
-        <tr class="mat-row" *matNoDataRow><td class="mat-cell" [attr.colspan]="displayedColumns.length">No trips match your filter criteria.</td></tr>
       </table>
     </div>
 
-    <!-- Actions for the table, like exporting -->
-    <div class="footer-actions">
-      <button mat-stroked-button (click)="exportConfirmedTripsToCsv()" matTooltip="Export confirmed trips from the current view to a CSV file">
-        <mat-icon>download</mat-icon>
-        Export Confirmed
-      </button>
-    </div>
-  }
+  }<!-- end @else -->
+
 </div>
-
-<button mat-flat-button class="fab-add-trip" (click)="openNewChargeDialog()" matTooltip="Create a new Trip from scratch">
-  New Trip
-</button>
-
-<!-- @defer: HelpPopupComponent's JS chunk is only downloaded after the user first
-     clicks the help button. The @placeholder gives Angular an element to watch
-     for the interaction trigger. -->
-@defer (on interaction(helpBtn)) {
-  @if (showHelpPopup()) {
-    <app-help-popup (close)="closeHelp()"></app-help-popup>
-  }
-} @placeholder {
-  <span></span>
-}

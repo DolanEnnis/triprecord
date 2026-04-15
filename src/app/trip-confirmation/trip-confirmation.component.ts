@@ -1,369 +1,258 @@
-import { AfterViewInit, Component, computed, effect, inject, OnInit, signal, ViewChild, WritableSignal } from '@angular/core';
-import { MatTableDataSource, MatTableModule } from '@angular/material/table';
-import { DataService } from '../services/core/data.service';
-import { CommonModule } from '@angular/common';
-import { AuthService } from '../auth/auth';
-import {  UnifiedTrip } from '../models';
-import { MatDialog, } from '@angular/material/dialog';
-import { MatSnackBar, } from '@angular/material/snack-bar';
-import { ConfirmationDialogComponent } from '../shared/confirmation-dialog/confirmation-dialog.component';
-import { CreateChargeDialogComponent } from '../create-charge-dialog/create-charge-dialog.component';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { CommonModule, DatePipe } from '@angular/common';
+import { MatTableModule } from '@angular/material/table';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatSort, MatSortModule } from '@angular/material/sort';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatIconModule } from '@angular/material/icon';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatPaginatorModule } from '@angular/material/paginator';
-import { DataQualityService, TripWithWarnings } from '../services/utilities/data-quality.service';
-import { CsvExportService } from '../services/utilities/csv-export.service';
-import { HelpPopupComponent } from '../help-popup/help-popup.component';
+import {
+  TripLogV2Service,
+  TripDirectionFilter,
+  TripPortFilter,
+  TripStatusFilter,
+} from '../services/core/trip-log-v2.service';
+import { AuthService } from '../auth/auth';
+import type { TripConfirmationRow } from '../models';
 
+// ---------------------------------------------------------------------------
+// SEVERANCE CONTRACT — enforced by imports above
+// This component MUST NOT import:
+//   - UnifiedTrip, Charge, ChargeableEvent
+//   - UnifiedTripLogService or DataService (legacy)
+// All data flows from TripLogV2Service → TripConfirmationRow → template.
+// Dialogs will receive only row.id and row.visitId — never a pre-built payload.
+// ---------------------------------------------------------------------------
 
-
+/**
+ * Trip Confirmation Component (Formerly V2)
+ *
+ * @remarks
+ * This is a **thin component** — it owns no data-fetching logic, no sorting,
+ * no mapping, and no raw Firestore access. All of that lives in TripLogV2Service.
+ *
+ * The component's only responsibilities are:
+ *  1. Exposing the service's Signals to the template as named aliases.
+ *  2. Forwarding user interactions (filter changes, row clicks) back to the service.
+ *  3. Opening dialogs with the minimal data they need (trip ID + visit ID).
+ *
+ * **Why alias the signals instead of using the service directly in the template?**
+ * Exposing named properties (`rows`, `isLoading`) keeps the template readable and
+ * decoupled from the service's internal naming. If the service is ever renamed or
+ * replaced, we only update the aliases here — the template HTML doesn't change.
+ */
 @Component({
   selector: 'app-trip-confirmation',
   standalone: true,
   imports: [
     CommonModule,
+    DatePipe,
     MatTableModule,
-    
     MatFormFieldModule,
     MatInputModule,
-    MatSortModule,
-    MatProgressSpinnerModule,
+    MatSelectModule,
     MatButtonModule,
-    MatIconModule,
-    
     MatButtonToggleModule,
+    MatIconModule,
+    MatProgressSpinnerModule,
     MatTooltipModule,
-    MatPaginatorModule,
-    HelpPopupComponent],
-  // CsvExportService uses papaparse. Providing it here (rather than 'root') keeps
-  // papaparse inside this lazy-loaded chunk and out of the initial bundle.
-  providers: [CsvExportService],
+  ],
   templateUrl: './trip-confirmation.component.html',
   styleUrl: './trip-confirmation.component.css',
 })
-export class TripConfirmationComponent implements OnInit, AfterViewInit {
-  private readonly dataService = inject(DataService);
-  private readonly dialog = inject(MatDialog);
-  private readonly authService = inject(AuthService);
-  private readonly dataQualityService = inject(DataQualityService);
-  private readonly csvExportService = inject(CsvExportService);
-  private readonly snackBar = inject(MatSnackBar);
+export class TripConfirmationComponent implements OnInit {
 
-  displayedColumns: string[] = ['ship', 'gt', 'boarding', 'typeTrip', 'port', 'extra', 'pilotNo', 'monthNo', 'pilot', 'sailingNote', 'docket', 'metadata'];
-  dataSource = new MatTableDataSource<TripWithWarnings>();
+  // -------------------------------------------------------------------------
+  // SERVICE INJECTION
+  //
+  // We inject TripLogV2Service as the single source of truth.
+  // It is `readonly` so nothing in this component can reassign the reference.
+  // -------------------------------------------------------------------------
 
-  // Source signal for all trips from the service
-  allTrips: WritableSignal<UnifiedTrip[]> = signal([]);
+  protected readonly tripLogService = inject(TripLogV2Service);
+  private  readonly authService    = inject(AuthService);
 
-  // A computed signal that applies data quality checks to the raw trip data
-  tripsWithWarnings = computed(() => {
-    return this.dataQualityService.applyDataQualityChecks(this.allTrips());
-  });
+  // -------------------------------------------------------------------------
+  // SERVICE SIGNAL ALIASES
+  // -------------------------------------------------------------------------
 
-  // Signals for filtering criteria
-  // LEARNING: WHY WE START WITH 'All' AND OVERRIDE IN ngOnInit
-  // We can't read `authService.currentUserSig()` inside signal() at declaration time
-  // because Signals read in a non-reactive context don't create dependencies.
-  // ngOnInit runs after the constructor and DI are fully set up, so the auth
-  // profile is reliably available there for returning users.
-  directionFilter = signal<'All' | 'In' | 'Out'>('All');
-  pilotFilter = signal<'All' | 'My'>('My');
-  textFilter = signal<string>('');
-  showHelpPopup = signal(false);
-  isLoading = signal(true); // To track loading state, used by the template
+  /** Base filtered dataset from the service (direction + port + status applied). */
+  readonly rows = this.tripLogService.filteredRows;
 
-  // A computed signal for the user's name. Defaults to 'My' if not available.
-  // This reactively updates if the logged-in user changes.
-  userName = computed(() => {
+  /** True while the first Firestore response is in-flight. */
+  readonly isLoading = this.tripLogService.isLoading;
+
+  /** Count of actionable rows after all filters are applied. */
+  readonly actionableCount = this.tripLogService.actionableCount;
+
+  // -------------------------------------------------------------------------
+  // LOCAL UI SIGNALS
+  //
+  // These are component-owned — they don't belong in the service because:
+  //  - pilotFilter is user-session-specific, not meaningful to other consumers.
+  //  - textFilter is a transient search term, not a persisted data concern.
+  //
+  // `displayedRows` then applies these on top of the service's already-filtered
+  // `rows()`, creating a clean two-tier filter chain:
+  //   Firestore → service filters (dir/port/status) → UI filters (pilot/text)
+  // -------------------------------------------------------------------------
+
+  /** 'My' = show only this pilot's trips; 'All' = show everyone's trips. */
+  readonly pilotFilter = signal<'My' | 'All'>('My');
+
+  /** Free-text search string applied against ship, port, pilot, and notes. */
+  readonly textFilter = signal<string>('');
+
+  /**
+   * Tracks the value of the direction <mat-select> including the synthetic
+   * 'Default' option. Kept separate from the service filter so we can restore
+   * the UI back to 'Division Default' visually after clearFilters().
+   *
+   * NOTE: No longer needed — direction is now a mat-button-toggle-group
+   * which reads directly from tripLogService.directionFilter().
+   * Kept as a comment for context; can be deleted entirely in a cleanup pass.
+   */
+  // readonly directionSelectValue = signal<TripDirectionFilter | 'Default'>('Default');
+
+  // -------------------------------------------------------------------------
+  // COMPUTED SIGNALS
+  // -------------------------------------------------------------------------
+
+  /**
+   * Possessive display name for the "My" pilot toggle.
+   * e.g. "John's" trips vs "All" trips.
+   */
+  readonly userName = computed(() => {
     const name = this.authService.currentUserSig()?.displayName;
-    if (name) {
-      // If a name exists, make it possessive.
-      return `${name}'s`;
-    }
-    return 'My'; // Otherwise, fall back to 'My' for the button text.
+    return name ? `${name}'s` : 'My';
   });
 
-  // A computed signal that automatically filters the trips whenever a dependency changes
-  filteredTrips = computed(() => {
-    const trips = this.tripsWithWarnings();
-    const direction = this.directionFilter();
-    const pilotSelection = this.pilotFilter();
-    const currentUser = this.authService.currentUserSig();
-    const text = this.textFilter().toLowerCase();
+  /**
+   * The final dataset that the Material table renders.
+   * Applies pilot + text filters on top of the service's direction/port/status output.
+   *
+   * LEARNING: WHY A SECOND COMPUTED?
+   * The service's `filteredRows` doesn't know about pilot or text — those are
+   * UI-only concerns. Rather than polluting the service, we chain a second
+   * `computed()` here. Angular knows each Signal dependency and re-runs only
+   * when `rows()`, `pilotFilter()`, or `textFilter()` actually changes.
+   */
+  readonly displayedRows = computed(() => {
+    const rows    = this.rows();
+    const pilot   = this.pilotFilter();
+    const text    = this.textFilter().toLowerCase();
+    const user    = this.authService.currentUserSig();
 
-    // 1. Filter by direction
-    let filtered = trips.filter(trip => {
-      if (direction === 'All') return true;
-      return trip.typeTrip === direction;
-    });
+    return rows.filter((row) => {
+      // --- Pilot filter ---
+      if (pilot === 'My' && user) {
+        const isOwn       = row.pilot === user.displayName;
+        const isUnassigned = !row.pilot;
+        if (!isOwn && !isUnassigned) return false;
+      }
 
-    // 2. Filter by pilot
-    if (pilotSelection === 'My' && currentUser) {
-      // A trip is considered "My" if it's assigned to the current user OR if it has no pilot assigned yet.
-      // The `!trip.pilot` check handles cases where the pilot is null, undefined, or an empty string.
-      filtered = filtered.filter(trip => trip.pilot === currentUser.displayName || !trip.pilot);
-    }
+      // --- Text filter ---
+      if (text) {
+        const haystack = [
+          row.ship, row.port ?? '', row.pilot,
+          row.sailingNote, row.extra, row.updatedBy,
+        ].join(' ').toLowerCase();
+        if (!haystack.includes(text)) return false;
+      }
 
-    // 3. Filter by text
-    if (!text) {
-      return filtered;
-    }
-    return filtered.filter(trip => {
-      const searchStr = `${trip.ship} ${trip.gt} ${trip.port} ${trip.pilot} ${trip.sailingNote} ${trip.extra} ${trip.updatedBy}`.toLowerCase();
-      return searchStr.includes(text);
+      return true;
     });
   });
 
-  @ViewChild(MatSort) set sort(sort: MatSort) {
-    // This setter is called when the matSort directive is available.
-    this.dataSource.sort = sort;
+  // -------------------------------------------------------------------------
+  // FILTER METHODS
+  //
+  // These are thin forwarders — they set the writable signals in the service,
+  // which causes `filteredRows` (and therefore `rows`) to recompute automatically.
+  //
+  // The template calls these methods on user interaction (button toggle, select change).
+  // The component never needs to manually refresh data or call a separate "apply" step.
+  // -------------------------------------------------------------------------
+
+  /** Forwards the direction value directly to the service setter. */
+  updateDirectionFilter(value: TripDirectionFilter): void {
+    this.tripLogService.setDirectionFilter(value);
   }
 
-  constructor() {
-    // When the filteredTrips signal changes, update the table's data source
-    effect(() => {
-      this.dataSource.data = this.filteredTrips();
-    });
+  /** Updates the port filter via the service setter. */
+  updatePortFilter(port: TripPortFilter): void {
+    this.tripLogService.setPortFilter(port);
   }
+
+  /** Updates the status filter via the service setter. */
+  updateStatusFilter(status: TripStatusFilter): void {
+    this.tripLogService.setStatusFilter(status);
+  }
+
+  /** Updates the pilot filter (local UI signal). */
+  onPilotFilterChange(value: 'My' | 'All'): void {
+    this.pilotFilter.set(value);
+  }
+
+  /** Updates the text search filter (local UI signal). */
+  onTextInput(event: Event): void {
+    const value = (event.target as HTMLInputElement).value.trim();
+    this.textFilter.set(value);
+  }
+
+  /**
+   * Resets all filters — both service-level and local UI signals — back to defaults.
+   * The select UI is also reset to 'Division Default'.
+   */
+  clearFilters(): void {
+    this.tripLogService.resetFilters();   // direction + port + status
+    this.pilotFilter.set('My');           // local pilot filter
+    this.textFilter.set('');             // local text filter
+    this.applyDivisionDefault();         // re-apply direction from user profile
+  }
+
+  // -------------------------------------------------------------------------
+  // LIFECYCLE
+  // -------------------------------------------------------------------------
 
   ngOnInit(): void {
-    // Set the direction filter default based on the pilot's division.
-    // - 'In' pilot  → show only Inward trips by default
-    // - 'Out' pilot → show only Outward trips by default
-    // - Everyone else (admin, sfpc, viewer, pilot without division) → show All
+    // Apply the direction filter default on load based on the user's division.
+    this.applyDivisionDefault();
+  }
+
+  // -------------------------------------------------------------------------
+  // ROW INTERACTION
+  // -------------------------------------------------------------------------
+
+  onRowClicked(row: TripConfirmationRow): void {
+    // Stub — dialogs wired up in the next phase.
+    console.log('Row clicked. Trip ID:', row.id, 'Visit ID:', row.visitId);
+  }
+
+  // -------------------------------------------------------------------------
+  // PRIVATE HELPERS
+  // -------------------------------------------------------------------------
+
+  /**
+   * Sets the service direction filter based on the logged-in pilot's division.
+   * Called on init and when the user selects "Division Default" from the dropdown.
+   */
+  private applyDivisionDefault(): void {
     const user = this.authService.currentUserSig();
     if (user?.userType === 'pilot' && user.division === 'In') {
-      this.directionFilter.set('In');
+      this.tripLogService.setDirectionFilter('In');
     } else if (user?.userType === 'pilot' && user.division === 'Out') {
-      this.directionFilter.set('Out');
-    }
-    // All other roles: leave as 'All' (the signal default)
-
-    this.loadTrips();
-    if (typeof localStorage !== 'undefined' && !localStorage.getItem('hasSeenHelpPopup')) {
-      this.showHelp();
-      localStorage.setItem('hasSeenHelpPopup', 'true');
+      this.tripLogService.setDirectionFilter('Out');
+    } else {
+      this.tripLogService.setDirectionFilter('All');
     }
   }
 
-  ngAfterViewInit(): void {
-    // Custom sorting for the 'Note' column which is a composite of warnings and the note itself.
-    this.dataSource.sortingDataAccessor = (item: TripWithWarnings, property: string) => {
-      switch (property) {
-        case 'sailingNote': {
-          let noteWithWarnings = item.sailingNote || '';
-          if (item.dataWarnings && item.dataWarnings.length > 0) {
-            const warningsText = `[${item.dataWarnings.join('; ')}] `;
-            noteWithWarnings = `${warningsText}${noteWithWarnings}`.trim();
-          }
-          return noteWithWarnings;
-        }
-        case 'boarding':
-          return item.boarding ? new Date(item.boarding).getTime() : 0;
-        default:
-          return (item as any)[property];
-      }
-    };
-
-    // Store the original sortData function and bind it to the dataSource to preserve context
-    const defaultSortData = this.dataSource.sortData.bind(this.dataSource);
-    
-    // Override sortData to implement "My Trips First" logic
-    // Override sortData to implement "My Trips First" logic AND "Pending Trips Last"
-    this.dataSource.sortData = (data: TripWithWarnings[], sort: MatSort) => {
-      // 1. Separate Pending Trips (No Date) from Dated Trips
-      // User Req: "These should be at the very bottom"
-      const pendingTrips = data.filter(t => !t.boarding);
-      const datedTrips = data.filter(t => !!t.boarding);
-
-      // 2. Sort the dated trips using the default sorter (column sorting)
-      const activeSortData = defaultSortData(datedTrips, sort);
-
-      // 3. Apply "My Trips" filter to the dated trips
-      // If the 'My' filter is active, we validly assume the user wants to see their trips first.
-      let finalDatedTrips = activeSortData;
-      if (this.pilotFilter() === 'My') {
-        finalDatedTrips = activeSortData.sort((a, b) => {
-          const aIsMine = this.isOwnTrip(a);
-          const bIsMine = this.isOwnTrip(b);
-
-          if (aIsMine && !bIsMine) return -1; // a comes first
-          if (!aIsMine && bIsMine) return 1;  // b comes first
-          return 0; // maintain relative order from default sort
-        });
-      }
-
-      // 4. Combine: Date-Sorted Trips + Pending Trips at the bottom
-      return [...finalDatedTrips, ...pendingTrips];
-    };
-  }
-
-  showHelp(): void {
-    this.showHelpPopup.set(true);
-  }
-
-  closeHelp(): void {
-    this.showHelpPopup.set(false);
-  }
-
-  loadTrips(): void {
-    this.isLoading.set(true);
-    this.dataService.getUnifiedTripLog().subscribe({
-      next: (trips) => {
-        this.allTrips.set(trips);
-        this.isLoading.set(false);
-      },
-      error: (err) => {
-        console.error('Failed to load trips', err);
-        this.isLoading.set(false); // Ensure spinner is turned off on error
-      }
-    });
-  }
-
-  applyFilter(event: Event) {
-    const filterValue = (event.target as HTMLInputElement).value;
-    this.textFilter.set(filterValue.trim());
-  }
-
-  onRowClicked(trip: TripWithWarnings) {
-    // If the trip is actionable, open the dialog to create a charge from the visit.
-    if (trip.isActionable && trip.chargeableEvent) {
-      this.openCreateFromVisitDialog(trip);
-      return;
-    }
-
-    // If the trip is NOT actionable (it's a confirmed charge), check if the user can edit it.
-    if (!trip.isActionable && this.isOwnTrip(trip)) {
-      this.handleEditConfirmedTrip(trip);
-    }
-  }
-
-  isOwnTrip(trip: TripWithWarnings): boolean {
-    const currentUser = this.authService.currentUserSig();
-    const isAdmin = this.authService.isAdmin();
-    return (!!currentUser && currentUser.displayName === trip.pilot) || isAdmin;
-  }
-
-  private openCreateFromVisitDialog(trip: TripWithWarnings): void {
-    const dialogRef = this.dialog.open(CreateChargeDialogComponent, {
-      width: 'clamp(300px, 80vw, 600px)',
-      data: {
-        mode: 'fromVisit',
-        event: trip.chargeableEvent
-      },
-    });
-
-    dialogRef.afterClosed().subscribe((result) => {
-      if (result === 'success') {
-        this.loadTrips();
-      }
-    });
-  }
-
-  private handleEditConfirmedTrip(trip: TripWithWarnings): void {
-    const confirmDialogRef = this.dialog.open(ConfirmationDialogComponent, {
-      data: {
-        title: 'Confirm Edit',
-        message: 'Are you sure you want to edit this confirmed trip? This will overwrite the existing record.'
-      }
-    });
-
-    confirmDialogRef.afterClosed().subscribe(confirmed => {
-      if (confirmed) {
-        this.openEditTripDialog(trip);
-      }
-    });
-  }
-
-  private openEditTripDialog(trip: TripWithWarnings): void {
-    const editDialogRef = this.dialog.open(CreateChargeDialogComponent, {
-      width: 'clamp(300px, 80vw, 600px)',
-      data: {
-        mode: 'editCharge',
-        charge: trip // The dialog is configured to accept this structure for editing
-      }
-    });
-
-    editDialogRef.afterClosed().subscribe(result => {
-      if (result === 'success' || result === 'deleted') {
-        this.loadTrips();
-      }
-    });
-  }
-
-  openNewChargeDialog(): void {
-    const confirmDialogRef = this.dialog.open(ConfirmationDialogComponent, {
-      data: {
-        title: 'Check for Existing Trip',
-        message: 'Have you checked the list for an existing trip? Creating a new record when one exists causes data duplication. Please search thoroughly before proceeding.',
-        confirmText: 'Create New Trip',
-        cancelText: 'Cancel'
-      }
-    });
-
-    confirmDialogRef.afterClosed().subscribe(confirmed => {
-      if (confirmed) {
-        // Extract unique active ship names for the warning check
-        const activeShips = Array.from(new Set(this.allTrips().map(t => t.ship).filter(s => !!s)));
-
-        // Opening the dialog without data tells it to be in "create" mode.
-        const dialogRef = this.dialog.open(CreateChargeDialogComponent, {
-          width: 'clamp(300px, 80vw, 600px)',
-          data: { activeShips }, // Pass the list of active ships
-        });
-
-        dialogRef.afterClosed().subscribe(result => {
-          // If the dialog returns 'success', it means a standalone charge was created.
-          if (result === 'success') {
-            this.loadTrips();
-          }
-        });
-      }
-    });
-  }
-
-  onDirectionChange(newDirection: 'All' | 'In' | 'Out') {
-    this.directionFilter.set(newDirection);
-  }
-
-  onPilotFilterChange(newFilter: 'All' | 'My') {
-    this.pilotFilter.set(newFilter);
-  }
-
-  exportConfirmedTripsToCsv(): void {
-    // Get trips from the computed signal (respects all active filters)
-    const currentTrips = this.filteredTrips();
-
-    // Filter this list further to get only confirmed trips (!isActionable)
-    const confirmedTrips = currentTrips.filter(trip => !trip.isActionable);
-
-    if (confirmedTrips.length === 0) {
-      // Show info message using MatSnackBar - auto-dismisses after 5 seconds
-      this.snackBar.open('There are no confirmed trips to export with the current filters.', 'Close', { duration: 5000 });
-      return;
-    }
-
-    this.csvExportService.exportConfirmedTrips(confirmedTrips);
-  }
-
-  repairLegacyData(): void {
-    if (!confirm('Run legacy data repair? This will check last 3 months of unconfirmed trips and backfill missing ship details.')) return;
-    
-    this.isLoading.set(true);
-    this.dataService.repairRecentTrips().then((count: number) => {
-      this.snackBar.open(`Repair complete. Fixed ${count} trips.`, 'Close', { duration: 5000 });
-      this.loadTrips();
-    }).catch((err: any) => {
-      console.error('Repair failed', err);
-      this.snackBar.open('Repair failed. Check console.', 'Close', { duration: 5000 });
-      this.isLoading.set(false);
-    });
-  }
+  /** Column order for the Material table — single source of truth used by both header and row defs. */
+  readonly displayedColumns = [
+    'ship', 'gt', 'boarding', 'port', 'monthNo', 'pilot', 'typeTrip', 'status',
+  ];
 }
