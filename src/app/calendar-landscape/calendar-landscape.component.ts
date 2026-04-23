@@ -33,12 +33,10 @@ export class CalendarLandscapeComponent implements OnDestroy {
   );
 
   /** True when selected date is today.
-   *  WHY UTC: selectedDate() is built from UTC parts, so we must compare
-   *  against UTC today — otherwise on an Irish winter midnight the
-   *  local date would be yesterday while selectedDate is still today. */
+   *  Using local time to properly check boundaries */
   readonly showNowLine = computed(() => {
     const now = new Date();
-    const todayKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
+    const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     return this.selectedDate() === todayKey;
   });
 
@@ -56,16 +54,16 @@ export class CalendarLandscapeComponent implements OnDestroy {
     const routeDate = this.date();
     if (routeDate) return routeDate;
     const now = new Date();
-    const y = now.getUTCFullYear();
-    const m = String(now.getUTCMonth() + 1).padStart(2, '0');
-    const d = String(now.getUTCDate()).padStart(2, '0');
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
   });
 
   /** Day-of-week name for the selected date, e.g. 'Wednesday' */
   readonly selectedDayOfWeek = computed(() => {
-    const d = new Date(this.selectedDate() + 'T00:00:00Z');
-    return d.toLocaleDateString('en-IE', { weekday: 'long', timeZone: 'UTC' });
+    const d = new Date(this.selectedDate() + 'T00:00:00');
+    return d.toLocaleDateString('en-IE', { weekday: 'long' });
   });
 
   readonly allEvents = toSignal(
@@ -83,12 +81,12 @@ export class CalendarLandscapeComponent implements OnDestroy {
   /** Timestamp → minute of day (0–1439), used as left-px position */
   minuteOfDay(timestamp: Timestamp): number {
     const d = timestamp.toDate();
-    return d.getUTCHours() * 60 + d.getUTCMinutes();
+    return d.getHours() * 60 + d.getMinutes();
   }
 
   formatTime(timestamp: Timestamp): string {
     const d = timestamp.toDate();
-    return `${d.getUTCHours().toString().padStart(2, '0')}:${d.getUTCMinutes().toString().padStart(2, '0')}`;
+    return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
   }
 
   /** Format a raw minute-of-day integer as 'HH:mm'. E.g. 387 → '06:27' */
@@ -273,9 +271,9 @@ export class CalendarLandscapeComponent implements OnDestroy {
 
     const toDateKey = (ts: Timestamp | Date | string | null | undefined): string | null => {
       if (!ts) return null;
-      // WHY UTC: boarding timestamps are stored as UTC in Firestore.
+      // Using local time to properly map the correct day boundary
       const d = ts instanceof Timestamp ? ts.toDate() : new Date(ts);
-      return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     };
 
     type Marker = {
@@ -396,11 +394,11 @@ export class CalendarLandscapeComponent implements OnDestroy {
   }
 
   changeDay(offset: 1 | -1) {
-    const current = new Date(this.selectedDate() + 'T00:00:00Z');
-    current.setUTCDate(current.getUTCDate() + offset);
-    const y = current.getUTCFullYear();
-    const m = String(current.getUTCMonth() + 1).padStart(2, '0');
-    const d = String(current.getUTCDate()).padStart(2, '0');
+    const current = new Date(this.selectedDate() + 'T00:00:00');
+    current.setDate(current.getDate() + offset);
+    const y = current.getFullYear();
+    const m = String(current.getMonth() + 1).padStart(2, '0');
+    const d = String(current.getDate()).padStart(2, '0');
     this.router.navigate(['/calendar', `${y}-${m}-${d}`]);
   }
 }

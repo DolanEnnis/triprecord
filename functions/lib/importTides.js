@@ -5,6 +5,7 @@ const admin = require("firebase-admin");
 const https_1 = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const sync_1 = require("csv-parse/sync");
+const moment = require("moment-timezone");
 // =============================================================================
 // HELPER FUNCTIONS
 // =============================================================================
@@ -30,14 +31,15 @@ function parseDateString(dateStr) {
 }
 /**
  * Merges a YYYY-MM-DD date string and an HH:MM time string into a
- * Firestore Timestamp. Treats input as UTC.
+ * Firestore Timestamp. Parses the time in the Europe/Dublin timezone
+ * to properly handle local Irish daylight savings time.
  */
 function createTimestamp(dateStr, timeStr) {
     const timeParts = timeStr.includes(':') ? timeStr.split(':') : ['00', '00'];
     const hours = (timeParts[0] || '0').trim().padStart(2, '0');
     const minutes = (timeParts[1] || '0').trim().padStart(2, '0');
-    const isoString = `${dateStr}T${hours}:${minutes}:00Z`;
-    const dateObj = new Date(isoString);
+    // Parse specifically in Europe/Dublin strictly matching the format
+    const dateObj = moment.tz(`${dateStr} ${hours}:${minutes}`, "YYYY-MM-DD HH:mm", "Europe/Dublin").toDate();
     return admin.firestore.Timestamp.fromDate(dateObj);
 }
 /**
@@ -70,14 +72,10 @@ function buildDeterministicId(port, type, timestamp) {
  *
  * DATE SAFETY: This uses the *computed* Date object, not the CSV's row date.
  * When you subtract 4.5 hours from a HW at 02:00, the result (21:30 the
- * previous day) correctly gets yesterday's dateKey. This is critical for
- * pilotage events near midnight.
+ * previous day) correctly gets yesterday's dateKey in local Irish time.
  */
 function deriveDateKey(date) {
-    const y = date.getUTCFullYear().toString();
-    const m = (date.getUTCMonth() + 1).toString().padStart(2, '0');
-    const d = date.getUTCDate().toString().padStart(2, '0');
-    return `${y}-${m}-${d}`;
+    return moment.tz(date, "Europe/Dublin").format("YYYY-MM-DD");
 }
 /**
  * Extracts a typed error message from an unknown catch value.

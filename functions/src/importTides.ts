@@ -2,6 +2,7 @@ import * as admin from 'firebase-admin';
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import { parse } from 'csv-parse/sync';
+import * as moment from 'moment-timezone';
 
 // =============================================================================
 // INTERFACES
@@ -73,15 +74,16 @@ function parseDateString(dateStr: string): string {
 
 /**
  * Merges a YYYY-MM-DD date string and an HH:MM time string into a
- * Firestore Timestamp. Treats input as UTC.
+ * Firestore Timestamp. Parses the time in the Europe/Dublin timezone
+ * to properly handle local Irish daylight savings time.
  */
 function createTimestamp(dateStr: string, timeStr: string): admin.firestore.Timestamp {
   const timeParts: string[] = timeStr.includes(':') ? timeStr.split(':') : ['00', '00'];
   const hours: string = (timeParts[0] || '0').trim().padStart(2, '0');
   const minutes: string = (timeParts[1] || '0').trim().padStart(2, '0');
 
-  const isoString: string = `${dateStr}T${hours}:${minutes}:00Z`;
-  const dateObj: Date = new Date(isoString);
+  // Parse specifically in Europe/Dublin strictly matching the format
+  const dateObj: Date = moment.tz(`${dateStr} ${hours}:${minutes}`, "YYYY-MM-DD HH:mm", "Europe/Dublin").toDate();
   return admin.firestore.Timestamp.fromDate(dateObj);
 }
 
@@ -117,14 +119,10 @@ function buildDeterministicId(port: string, type: string, timestamp: admin.fires
  *
  * DATE SAFETY: This uses the *computed* Date object, not the CSV's row date.
  * When you subtract 4.5 hours from a HW at 02:00, the result (21:30 the
- * previous day) correctly gets yesterday's dateKey. This is critical for
- * pilotage events near midnight.
+ * previous day) correctly gets yesterday's dateKey in local Irish time.
  */
 function deriveDateKey(date: Date): string {
-  const y: string = date.getUTCFullYear().toString();
-  const m: string = (date.getUTCMonth() + 1).toString().padStart(2, '0');
-  const d: string = date.getUTCDate().toString().padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  return moment.tz(date, "Europe/Dublin").format("YYYY-MM-DD");
 }
 
 /**

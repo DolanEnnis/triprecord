@@ -78,12 +78,6 @@
   <div class="pilot-own-section">
     <h3 class="pilot-section-title">Pilot's Own Info</h3>
     <div class="pilot-four-col-grid">
-      <!-- Pilot No -->
-      <mat-form-field appearance="outline">
-        <mat-label>Pilot No</mat-label>
-        <input matInput type="number" formControlName="pilotNo" placeholder="No.">
-      </mat-form-field>
-
       <!-- Month No -->
       <mat-form-field appearance="outline">
         <mat-label>Month No</mat-label>
@@ -151,7 +145,7 @@
       @if (isSaving) {
         <mat-progress-spinner mode="indeterminate" diameter="20"></mat-progress-spinner>
       } @else {
-        <span>Save Charge</span>
+        <span>Confirm</span>
       }
     </button>
   </div>

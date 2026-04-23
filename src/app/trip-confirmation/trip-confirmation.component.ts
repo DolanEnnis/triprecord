@@ -9,6 +9,9 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { Router } from '@angular/router';
 import {
   TripLogV2Service,
   TripDirectionFilter,
@@ -16,15 +19,15 @@ import {
   TripStatusFilter,
 } from '../services/core/trip-log-v2.service';
 import { AuthService } from '../auth/auth';
-import type { TripConfirmationRow } from '../models';
+import type { TripConfirmationRow, ChargeableEvent } from '../models';
+import { CreateChargeDialogComponent } from '../create-charge-dialog/create-charge-dialog.component';
 
 // ---------------------------------------------------------------------------
 // SEVERANCE CONTRACT — enforced by imports above
 // This component MUST NOT import:
-//   - UnifiedTrip, Charge, ChargeableEvent
+//   - UnifiedTrip, Charge
 //   - UnifiedTripLogService or DataService (legacy)
 // All data flows from TripLogV2Service → TripConfirmationRow → template.
-// Dialogs will receive only row.id and row.visitId — never a pre-built payload.
 // ---------------------------------------------------------------------------
 
 /**
@@ -59,6 +62,8 @@ import type { TripConfirmationRow } from '../models';
     MatIconModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
+    MatDialogModule,
+    MatSnackBarModule,
   ],
   templateUrl: './trip-confirmation.component.html',
   styleUrl: './trip-confirmation.component.css',
@@ -74,6 +79,9 @@ export class TripConfirmationComponent implements OnInit {
 
   protected readonly tripLogService = inject(TripLogV2Service);
   private  readonly authService    = inject(AuthService);
+  private  readonly router         = inject(Router);
+  private  readonly dialog         = inject(MatDialog);
+  private  readonly snackBar       = inject(MatSnackBar);
 
   // -------------------------------------------------------------------------
   // SERVICE SIGNAL ALIASES
@@ -228,8 +236,54 @@ export class TripConfirmationComponent implements OnInit {
   // -------------------------------------------------------------------------
 
   onRowClicked(row: TripConfirmationRow): void {
-    // Stub — dialogs wired up in the next phase.
-    console.log('Row clicked. Trip ID:', row.id, 'Visit ID:', row.visitId);
+    if (row.isActionable) {
+      // Reconstruct a ChargeableEvent payload strictly for this dialog interaction. 
+      // Doing this late-binding map keeps the data flow to the table lean and fast, only formatting this payload when actually required.
+      const event: ChargeableEvent = {
+        ship: row.ship,
+        gt: row.gt,
+        boarding: row.boarding,
+        port: row.port,
+        pilot: row.pilot,
+        typeTrip: row.typeTrip,
+        sailingNote: row.sailingNote,
+        extra: row.extra,
+        visitId: row.visitId!,
+        tripId: row.id,
+        isConfirmed: false, // Is actionable, therefore not confirmed
+        tripDirection: row.typeTrip === 'In' ? 'inward' : row.typeTrip === 'Out' ? 'outward' : 'other',
+        // --- Firebase Undefined Field Prevention ---
+        // Firebase strictly forbids 'undefined' in payloads (throws Invalid Data error).
+        // If the flat row doesn't have these, we MUST provide null to ensure the 
+        // Reactive Form inside the dialog initializes safely and doesn't pass undefined.
+        monthNo: row.monthNo ?? null,
+        pilotNo: null,
+        good: null,
+        car: null
+      };
+
+      const dialogRef = this.dialog.open(CreateChargeDialogComponent, {
+        width: '100%',
+        maxWidth: '600px',
+        data: { mode: 'fromVisit', event }
+      });
+
+      // Because we use a Firebase real-time listener upstream, a successful charge creation
+      // will update the database, triggering a refresh of the Component Signals without any manual reloading logic here.
+      dialogRef.afterClosed().subscribe(result => {
+        if (result === 'success') {
+          this.snackBar.open('Charge created successfully!', 'Close', { duration: 3000 });
+        }
+      });
+    } else {
+      // Since it's confirmed and we aren't tracking the legacy /charges doc id here,
+      // routing them off-page to edit is the safest way to prevent state conflicts.
+      if (row.visitId) {
+        this.router.navigate(['/edit', row.visitId]);
+      } else {
+        this.snackBar.open('Error: Cannot edit this trip (Missing Visit ID)', 'Close', { duration: 5000 });
+      }
+    }
   }
 
   // -------------------------------------------------------------------------

@@ -57,9 +57,9 @@ export class CalendarComponent implements OnDestroy {
     
     // Default to today
     const now = new Date();
-    const y = now.getUTCFullYear();
-    const m = String(now.getUTCMonth() + 1).padStart(2, '0');
-    const d = String(now.getUTCDate()).padStart(2, '0');
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
   });
 
@@ -109,9 +109,9 @@ export class CalendarComponent implements OnDestroy {
     /** Returns 'YYYY-MM-DD' from any Timestamp/Date/string (local time) */
     const toDateKey = (ts: Timestamp | Date | string | null | undefined): string | null => {
       if (!ts) return null;
-      // Use UTC consistently to match how the selectedDate is built
+      // Use local time consistently
       const d = ts instanceof Timestamp ? ts.toDate() : new Date(ts);
-      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     };
 
     type RawMarker = { visitId: string; shipName: string; gt: number; status: VisitStatus;
@@ -210,9 +210,9 @@ export class CalendarComponent implements OnDestroy {
    */
   calculateMinuteOfDay(timestamp: Timestamp): number {
     const date = timestamp.toDate();
-    // Use UTC to avoid timezone issues with raw time extractions
-    const hours = date.getUTCHours();
-    const minutes = date.getUTCMinutes();
+    // Use true local time per user directive to properly map times visually
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
     return (hours * 60) + minutes;
   }
 
@@ -221,8 +221,8 @@ export class CalendarComponent implements OnDestroy {
    */
   formatTime(timestamp: Timestamp): string {
     const date = timestamp.toDate();
-    const hours = date.getUTCHours().toString().padStart(2, '0');
-    const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
     return `${hours}:${minutes}`;
   }
 
@@ -579,11 +579,12 @@ export class CalendarComponent implements OnDestroy {
 
   /** Shift the current date by ±1 day and navigate */
   changeDay(offset: 1 | -1) {
-    const current = new Date(this.selectedDate() + 'T00:00:00Z');
-    current.setUTCDate(current.getUTCDate() + offset);
-    const y = current.getUTCFullYear();
-    const m = String(current.getUTCMonth() + 1).padStart(2, '0');
-    const d = String(current.getUTCDate()).padStart(2, '0');
+    // Creating from YYYY-MM-DD + T00:00:00 gives us a local midnight Date
+    const current = new Date(this.selectedDate() + 'T00:00:00');
+    current.setDate(current.getDate() + offset);
+    const y = current.getFullYear();
+    const m = String(current.getMonth() + 1).padStart(2, '0');
+    const d = String(current.getDate()).padStart(2, '0');
     this.router.navigate(['/calendar-portrait', `${y}-${m}-${d}`]);
   }
 
