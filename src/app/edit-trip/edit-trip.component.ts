@@ -22,8 +22,9 @@ import { MatDialog, } from '@angular/material/dialog';
 import { ShipIntelligenceDialogComponent } from '../dialogs/ship-intelligence-dialog.component';
 import { OldTripWarningDialogComponent } from '../dialogs/old-trip-warning-dialog.component';
 import { ConfirmDialogComponent } from '../dialogs/confirm-dialog.component';
-import { Trip, Visit, Ship, Port, VisitStatus, TripType, Source, EnrichedVisit, AuditablePayload } from '../models';
+import { Trip, Visit, Ship, Port, VisitStatus, TripType, Source, EnrichedVisit, AuditablePayload, ChargeableEvent } from '../models';
 import { AuditHistoryDialogComponent } from '../dialogs/audit-history-dialog.component';
+import { CreateChargeDialogComponent } from '../create-charge-dialog/create-charge-dialog.component';
 import { combineLatest, filter, map, switchMap, of, forkJoin, catchError, tap, take, Observable } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Timestamp } from '@angular/fire/firestore';
@@ -34,6 +35,7 @@ import { IFormComponent } from '../guards/form-component.interface';
 import { AuthService } from '../auth/auth';
 import { Location } from '@angular/common';
 import { TimeAgoPipe } from '../shared/pipes/time-ago.pipe';
+import { DocketUploadComponent } from '../docket-upload/docket-upload.component';
 
 /**
  * Custom validator to ensure the selected pilot is from the valid pilot list.
@@ -98,9 +100,7 @@ function pilotValidator(pilotService: PilotService, originalPilotName?: string |
     DateTimePickerComponent,
     PreviousVisitsListComponent,
     TimeAgoPipe,  // For displaying relative time in header
-    // Note: Dialog components opened via MatDialog.open() (ConfirmDialogComponent,
-    // AuditHistoryDialogComponent, etc.) do NOT go here — they are resolved by DI
-    // at runtime, not by the template compiler. Adding them causes NG8113 warnings.
+    DocketUploadComponent
   ],
   templateUrl: './edit-trip.component.html',
   styleUrls: ['./edit-trip.component.css']
@@ -468,7 +468,8 @@ export class EditTripComponent implements OnInit, IFormComponent {
         const { visit, ship, trips } = data;
         
         // Populate Form
-        const isAdmin = this.authService.currentUserSig()?.userType === 'admin';
+        const userType = this.authService.currentUserSig()?.userType?.toLowerCase();
+        const isAdmin = userType === 'admin';
         this.isAdmin.set(isAdmin);
 
         if (ship) {
@@ -717,7 +718,40 @@ export class EditTripComponent implements OnInit, IFormComponent {
    */
   hasUnsavedAdditionalTrip = false;
 
-  async save() {
+  // Docket Upload State
+  isDocketUploading = false;
+  
+  pendingInwardDocketUrl: string | undefined;
+  pendingInwardDocketPath: string | undefined;
+  pendingInwardDocketType: 'image' | 'pdf' | undefined;
+
+  pendingOutwardDocketUrl: string | undefined;
+  pendingOutwardDocketPath: string | undefined;
+  pendingOutwardDocketType: 'image' | 'pdf' | undefined;
+
+  pendingAdditionalDockets: { [index: number]: { docketUrl: string, docketPath: string, docketType: 'image' | 'pdf' } } = {};
+
+  onInwardDocketUploaded(result: { docketUrl: string; docketPath: string; docketType: 'image' | 'pdf' }): void {
+    this.pendingInwardDocketUrl = result.docketUrl;
+    this.pendingInwardDocketPath = result.docketPath;
+    this.pendingInwardDocketType = result.docketType;
+  }
+
+  onOutwardDocketUploaded(result: { docketUrl: string; docketPath: string; docketType: 'image' | 'pdf' }): void {
+    this.pendingOutwardDocketUrl = result.docketUrl;
+    this.pendingOutwardDocketPath = result.docketPath;
+    this.pendingOutwardDocketType = result.docketType;
+  }
+
+  onAdditionalDocketUploaded(index: number, result: { docketUrl: string; docketPath: string; docketType: 'image' | 'pdf' }): void {
+    this.pendingAdditionalDockets[index] = result;
+  }
+
+  onDocketUploadingChange(uploading: boolean): void {
+    this.isDocketUploading = uploading;
+  }
+
+  async save(navigateBack: boolean = true): Promise<boolean> {
     // FEATURE: Old Trip Warning
     // Check if this is an old trip (60+ days) and user hasn't acknowledged
     if (this.isOldTrip() && !this.userAcknowledgedOldTrip()) {
@@ -731,7 +765,7 @@ export class EditTripComponent implements OnInit, IFormComponent {
       
       if (!userConfirmed) {
         // User clicked "Cancel" - don't save
-        return;
+        return false;
       }
       
       // User clicked "Edit Anyway" - remember this so we don't show again
@@ -759,12 +793,11 @@ export class EditTripComponent implements OnInit, IFormComponent {
 
       const confirmed = await dialogRef.afterClosed().toPromise();
       if (!confirmed) {
-        return;
+        return false;
       }
     }
     
-    // If form is invalid, mark all fields as touched to show validation errors
-    if (this.form.invalid) {
+    if (this.form.invalid || this.isDocketUploading) {
       this.form.markAllAsTouched();
       
       // Use the extracted error collection method (DRY principle!)
@@ -780,7 +813,7 @@ export class EditTripComponent implements OnInit, IFormComponent {
         panelClass: 'error-snackbar'
       });
       
-      return;
+      return false;
     }
 
     this.saving.set(true);
@@ -850,24 +883,49 @@ export class EditTripComponent implements OnInit, IFormComponent {
              inwardPortToSave = currentBerthPort;
         }
 
-        // Update existing inward trip (Always update - Firestore rules filter allowed fields)
-        const inwardTripUpdate: Partial<Trip> = {
-          pilot: formVal.inwardTrip.pilot ?? '',
-          boarding: formVal.inwardTrip.boarding ? Timestamp.fromDate(formVal.inwardTrip.boarding) : null,
-          port: inwardPortToSave ?? null,
-          pilotNotes: formVal.inwardTrip.pilotNotes ?? '',
-          extraChargesNotes: formVal.inwardTrip.extraChargesNotes ?? '',
-          ownNote: formVal.inwardTrip.ownNote ?? null,
-          pilotNo: formVal.inwardTrip.pilotNo ?? null,
-          monthNo: formVal.inwardTrip.monthNo ?? null,
-          car: formVal.inwardTrip.car ?? null,
-          good: formVal.inwardTrip.good ?? null,
-          shipName: formVal.ship.shipName,
-          gt: formVal.ship.grossTonnage,
-          lastModifiedBy: updatedBy,
-          lastModifiedAt: now,
-          ...auditStamp, // Triggers onTripWritten Cloud Function
-        };
+        // Update existing inward trip
+        let inwardTripUpdate: Partial<Trip>;
+        if (this.inwardTripConfirmed() && !this.isAdmin()) {
+          inwardTripUpdate = {
+            pilotNotes: formVal.inwardTrip.pilotNotes ?? '',
+            ownNote: formVal.inwardTrip.ownNote ?? null,
+            pilotNo: formVal.inwardTrip.pilotNo ?? null,
+            monthNo: formVal.inwardTrip.monthNo ?? null,
+            car: formVal.inwardTrip.car ?? null,
+            good: formVal.inwardTrip.good ?? null,
+            lastModifiedAt: now,
+            ...(this.pendingInwardDocketUrl ? {
+              docketUrl: this.pendingInwardDocketUrl,
+              docketPath: this.pendingInwardDocketPath,
+              docketType: this.pendingInwardDocketType,
+            } : {}),
+            ...(!this.inwardTripData()?.shipName ? { shipName: formVal.ship.shipName } : {}),
+            ...(!this.inwardTripData()?.gt ? { gt: formVal.ship.grossTonnage } : {}),
+            ...auditStamp, // Triggers onTripWritten Cloud Function
+          };
+        } else {
+          inwardTripUpdate = {
+            pilot: formVal.inwardTrip.pilot ?? '',
+            boarding: formVal.inwardTrip.boarding ? Timestamp.fromDate(formVal.inwardTrip.boarding) : null,
+            port: inwardPortToSave ?? null,
+            pilotNotes: formVal.inwardTrip.pilotNotes ?? '',
+            extraChargesNotes: formVal.inwardTrip.extraChargesNotes ?? '',
+            ownNote: formVal.inwardTrip.ownNote ?? null,
+            pilotNo: formVal.inwardTrip.pilotNo ?? null,
+            monthNo: formVal.inwardTrip.monthNo ?? null,
+            car: formVal.inwardTrip.car ?? null,
+            good: formVal.inwardTrip.good ?? null,
+            shipName: formVal.ship.shipName,
+            gt: formVal.ship.grossTonnage,
+            lastModifiedAt: now,
+            ...(this.pendingInwardDocketUrl ? {
+              docketUrl: this.pendingInwardDocketUrl,
+              docketPath: this.pendingInwardDocketPath,
+              docketType: this.pendingInwardDocketType,
+            } : {}),
+            ...auditStamp, // Triggers onTripWritten Cloud Function
+          };
+        }
         await this.tripRepo.updateTrip(this.inwardTripId, inwardTripUpdate);
       } else if (formVal.inwardTrip?.pilot || formVal.inwardTrip?.boarding) {
         
@@ -909,23 +967,48 @@ export class EditTripComponent implements OnInit, IFormComponent {
         }
 
         // Update existing outward trip
-        const outwardTripUpdate: Partial<Trip> = {
-          pilot: formVal.outwardTrip.pilot ?? '',
-          boarding: formVal.outwardTrip.boarding ? Timestamp.fromDate(formVal.outwardTrip.boarding) : null,
-          port: outwardPortToSave ?? null,
-          pilotNotes: formVal.outwardTrip.pilotNotes ?? '',
-          extraChargesNotes: formVal.outwardTrip.extraChargesNotes ?? '',
-          ownNote: formVal.outwardTrip.ownNote ?? null,
-          pilotNo: formVal.outwardTrip.pilotNo ?? null,
-          monthNo: formVal.outwardTrip.monthNo ?? null,
-          car: formVal.outwardTrip.car ?? null,
-          good: formVal.outwardTrip.good ?? null,
-          shipName: formVal.ship.shipName,
-          gt: formVal.ship.grossTonnage,
-          lastModifiedBy: updatedBy,
-          lastModifiedAt: now,
-          ...auditStamp, // Triggers onTripWritten Cloud Function
-        };
+        let outwardTripUpdate: Partial<Trip>;
+        if (this.outwardTripConfirmed() && !this.isAdmin()) {
+          outwardTripUpdate = {
+            pilotNotes: formVal.outwardTrip.pilotNotes ?? '',
+            ownNote: formVal.outwardTrip.ownNote ?? null,
+            pilotNo: formVal.outwardTrip.pilotNo ?? null,
+            monthNo: formVal.outwardTrip.monthNo ?? null,
+            car: formVal.outwardTrip.car ?? null,
+            good: formVal.outwardTrip.good ?? null,
+            lastModifiedAt: now,
+            ...(this.pendingOutwardDocketUrl ? {
+              docketUrl: this.pendingOutwardDocketUrl,
+              docketPath: this.pendingOutwardDocketPath,
+              docketType: this.pendingOutwardDocketType,
+            } : {}),
+            ...(!this.outwardTripData()?.shipName ? { shipName: formVal.ship.shipName } : {}),
+            ...(!this.outwardTripData()?.gt ? { gt: formVal.ship.grossTonnage } : {}),
+            ...auditStamp, // Triggers onTripWritten Cloud Function
+          };
+        } else {
+          outwardTripUpdate = {
+            pilot: formVal.outwardTrip.pilot ?? '',
+            boarding: formVal.outwardTrip.boarding ? Timestamp.fromDate(formVal.outwardTrip.boarding) : null,
+            port: outwardPortToSave ?? null,
+            pilotNotes: formVal.outwardTrip.pilotNotes ?? '',
+            extraChargesNotes: formVal.outwardTrip.extraChargesNotes ?? '',
+            ownNote: formVal.outwardTrip.ownNote ?? null,
+            pilotNo: formVal.outwardTrip.pilotNo ?? null,
+            monthNo: formVal.outwardTrip.monthNo ?? null,
+            car: formVal.outwardTrip.car ?? null,
+            good: formVal.outwardTrip.good ?? null,
+            shipName: formVal.ship.shipName,
+            gt: formVal.ship.grossTonnage,
+            lastModifiedAt: now,
+            ...(this.pendingOutwardDocketUrl ? {
+              docketUrl: this.pendingOutwardDocketUrl,
+              docketPath: this.pendingOutwardDocketPath,
+              docketType: this.pendingOutwardDocketType,
+            } : {}),
+            ...auditStamp, // Triggers onTripWritten Cloud Function
+          };
+        }
         await this.tripRepo.updateTrip(this.outwardTripId, outwardTripUpdate);
       } else if (formVal.outwardTrip?.pilot || formVal.outwardTrip?.boarding) {
         
@@ -980,18 +1063,40 @@ export class EditTripComponent implements OnInit, IFormComponent {
 
         if (tripId) {
           // Update existing trip
-          const updatePayload: Partial<Trip> = {
-            typeTrip: tripData.typeTrip,
-            pilot: tripData.pilot ?? '',
-            boarding: tripData.boarding ? Timestamp.fromDate(tripData.boarding) : null,
-            port: tripData.port ?? null,
-            pilotNotes: tripData.pilotNotes ?? '',
-            shipName: formVal.ship.shipName,
-            gt: formVal.ship.grossTonnage,
-            lastModifiedBy: updatedBy,
-            lastModifiedAt: now,
-            ...auditStamp, // Triggers onTripWritten Cloud Function
-          };
+          const originalTrip = this.additionalTripsData().find(t => t.id === tripId);
+          let updatePayload: Partial<Trip>;
+          
+          if (originalTrip?.isConfirmed && !this.isAdmin()) {
+            updatePayload = {
+              pilotNotes: tripData.pilotNotes ?? '',
+              lastModifiedAt: now,
+              ...(this.pendingAdditionalDockets[i] ? {
+                docketUrl: this.pendingAdditionalDockets[i].docketUrl,
+                docketPath: this.pendingAdditionalDockets[i].docketPath,
+                docketType: this.pendingAdditionalDockets[i].docketType,
+              } : {}),
+              ...(!originalTrip?.shipName ? { shipName: formVal.ship.shipName } : {}),
+              ...(!originalTrip?.gt ? { gt: formVal.ship.grossTonnage } : {}),
+              ...auditStamp,
+            };
+          } else {
+            updatePayload = {
+              typeTrip: tripData.typeTrip,
+              pilot: tripData.pilot ?? '',
+              boarding: tripData.boarding ? Timestamp.fromDate(tripData.boarding) : null,
+              port: tripData.port ?? null,
+              pilotNotes: tripData.pilotNotes ?? '',
+              shipName: formVal.ship.shipName,
+              gt: formVal.ship.grossTonnage,
+              lastModifiedAt: now,
+              ...(this.pendingAdditionalDockets[i] ? {
+                docketUrl: this.pendingAdditionalDockets[i].docketUrl,
+                docketPath: this.pendingAdditionalDockets[i].docketPath,
+                docketType: this.pendingAdditionalDockets[i].docketType,
+              } : {}),
+              ...auditStamp, // Triggers onTripWritten Cloud Function
+            };
+          }
           await this.tripRepo.updateTrip(tripId, updatePayload);
         } else {
           // Create new trip
@@ -1016,8 +1121,8 @@ export class EditTripComponent implements OnInit, IFormComponent {
             gt: formVal.ship.grossTonnage,
             ...auditStamp, // Triggers onTripWritten Cloud Function
           };
-          
-          await this.tripRepo.addTrip(newTrip);
+          const newTripId = await this.tripRepo.addTrip(newTrip);
+          this.additionalTripIds[i] = newTripId;
         }
       }
 
@@ -1038,10 +1143,14 @@ export class EditTripComponent implements OnInit, IFormComponent {
       // - Ships page (/ships)
       // - Any other page
       // The browser history remembers where they were, so we just go back one step.
-      this.location.back();
+      if (navigateBack) {
+        this.location.back();
+      }
+      return true;
     } catch (err) {
       console.error('Error saving', err);
       this.snackBar.open('Error saving changes', 'Close');
+      return false;
     } finally {
       this.saving.set(false);
     }
@@ -1294,17 +1403,39 @@ export class EditTripComponent implements OnInit, IFormComponent {
   }
 
   /**
+   * Checks if the current logged-in user is a pilot (any pilot).
+   * Pilots can upload dockets for any trip in a visit they are editing.
+   */
+  isPilot(): boolean {
+    return this.authService.currentUserSig()?.userType?.toLowerCase() === 'pilot';
+  }
+
+  /**
+   * Checks if the current logged-in user is the pilot assigned to the given additional trip.
+   */
+  isCurrentUserAdditionalPilot(index: number): boolean {
+    const additionalTrips = this.form.get('additionalTrips') as FormArray;
+    const pilotName = additionalTrips.at(index)?.get('pilot')?.value;
+    const currentUser = this.authService.currentUserSig();
+    
+    if (!pilotName || !currentUser) return false;
+    
+    return pilotName.toLowerCase() === currentUser.displayName?.toLowerCase();
+  }
+
+  /**
    * Checks if the current user is authorized to view a specific trip's docket.
-   * Admins can see everything; pilots can see dockets for their own trips.
+   * Admins, SFPC, and all Pilots can view all dockets.
    */
   isUserAuthorizedForTrip(trip: Trip | null | undefined): boolean {
-    if (!trip) return false;
-    if (this.isAdmin()) return true;
+    const userType = this.authService.currentUserSig()?.userType?.toLowerCase();
     
-    const currentUser = this.authService.currentUserSig();
-    if (!currentUser || !trip.pilot) return false;
+    // Admins, SFPC, and all pilots can view dockets
+    if (userType === 'admin' || userType === 'sfpc' || userType === 'pilot') {
+      return true;
+    }
     
-    return trip.pilot.toLowerCase() === currentUser.displayName?.toLowerCase();
+    return false;
   }
 
   // Helper needed for the template to check if there's a valid pilot service
@@ -1341,11 +1472,89 @@ export class EditTripComponent implements OnInit, IFormComponent {
   }
 
   /**
-   * LEARNING: EXTRACTING REUSABLE VALIDATION LOGIC
-   * 
-   * WHY THIS METHOD EXISTS:
-   * - The save() method already has excellent error collection logic
-   * - Instead of duplicating that code, we extract it into a reusable method
+   * Opens the confirmation dialog for a specific trip directly from the edit page.
+   * This reuses the same flow as the Trip Confirmation table.
+   * If the form has unsaved changes, it automatically saves them before opening the dialog.
+   */
+  async openConfirmDialog(tripType: 'In' | 'Out' | 'Additional', index?: number): Promise<void> {
+    if (!this.visitId) {
+      this.snackBar.open('Cannot confirm trip: Visit ID is missing.', 'Close', { duration: 3000 });
+      return;
+    }
+
+    if (this.form.dirty || this.hasUnsavedAdditionalTrip || this.isDocketUploading) {
+      this.snackBar.open('Saving changes before confirming trip...', 'Close', { duration: 2000 });
+      const success = await this.save(false);
+      if (!success) {
+        return; // Validation failed or error
+      }
+    }
+
+    let tripId: string | null = null;
+    let tripData: Trip | null = null;
+    let formGroup: FormGroup | null = null;
+    let tripDirection: 'inward' | 'outward' | 'other' = 'other';
+
+    if (tripType === 'In') {
+      tripId = this.inwardTripId;
+      tripData = this.inwardTripData();
+      formGroup = this.form.get('inwardTrip') as FormGroup;
+      tripDirection = 'inward';
+    } else if (tripType === 'Out') {
+      tripId = this.outwardTripId;
+      tripData = this.outwardTripData();
+      formGroup = this.form.get('outwardTrip') as FormGroup;
+      tripDirection = 'outward';
+    } else if (tripType === 'Additional' && index !== undefined) {
+      tripId = this.additionalTripIds[index] || null;
+      tripData = this.additionalTripsData()[index] || null;
+      formGroup = this.additionalTripsArray.at(index) as FormGroup;
+      tripDirection = 'other';
+    }
+
+    if (!tripId || !formGroup) {
+      this.snackBar.open('Error: Trip could not be found after saving.', 'Close', { duration: 3000 });
+      return;
+    }
+
+    const event: ChargeableEvent = {
+      ship: this.form.get('ship')?.get('shipName')?.value || 'Unknown Ship',
+      gt: this.form.get('ship')?.get('grossTonnage')?.value || 0,
+      boarding: formGroup.get('boarding')?.value || null,
+      port: formGroup.get('port')?.value || null,
+      pilot: formGroup.get('pilot')?.value || null,
+      typeTrip: tripType === 'In' ? 'In' : tripType === 'Out' ? 'Out' : (formGroup.get('typeTrip')?.value || 'Other'),
+      sailingNote: formGroup.get('pilotNotes')?.value || '',
+      extra: tripData?.extraChargesNotes || '',
+      visitId: this.visitId,
+      tripId: tripId,
+      isConfirmed: false,
+      tripDirection: tripDirection,
+      monthNo: formGroup.get('monthNo')?.value ?? tripData?.monthNo ?? null,
+      pilotNo: formGroup.get('pilotNo')?.value ?? tripData?.pilotNo ?? null,
+      good: formGroup.get('good')?.value ?? tripData?.good ?? null,
+      car: formGroup.get('car')?.value ?? tripData?.car ?? null,
+      docketUrl: (tripType === 'In' ? this.pendingInwardDocketUrl : tripType === 'Out' ? this.pendingOutwardDocketUrl : (index !== undefined ? this.pendingAdditionalDockets[index]?.docketUrl : null)) || tripData?.docketUrl,
+      docketPath: (tripType === 'In' ? this.pendingInwardDocketPath : tripType === 'Out' ? this.pendingOutwardDocketPath : (index !== undefined ? this.pendingAdditionalDockets[index]?.docketPath : null)) || tripData?.docketPath,
+      docketType: (tripType === 'In' ? this.pendingInwardDocketType : tripType === 'Out' ? this.pendingOutwardDocketType : (index !== undefined ? this.pendingAdditionalDockets[index]?.docketType : null)) || tripData?.docketType
+    };
+
+    const dialogRef = this.dialog.open(CreateChargeDialogComponent, {
+      width: '100%',
+      maxWidth: '600px',
+      data: { mode: 'fromVisit', event }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result === 'success') {
+        this.snackBar.open('Trip confirmed and charge created successfully!', 'Close', { duration: 3000 });
+        this.loadData(this.visitId!);
+      }
+    });
+  }
+
+  /**
+   * Helper to collect all validation errors across the entire form.
    * - Both the tooltip AND the save() snackbar can use the same validation messages
    * 
    * PATTERN: DRY (Don't Repeat Yourself) PRINCIPLE
@@ -1424,6 +1633,10 @@ export class EditTripComponent implements OnInit, IFormComponent {
    * @returns Tooltip text explaining what's wrong, or success message if valid
    */
   getSaveButtonTooltip(): string {
+    if (this.isDocketUploading) {
+      return 'Please wait for the docket to finish uploading...';
+    }
+
     // Form is valid - show positive message
     if (this.form.valid && !this.saving()) {
       return 'Save all changes';

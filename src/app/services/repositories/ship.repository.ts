@@ -100,37 +100,39 @@ export class ShipRepository {
    * @returns Stats about how many trips were updated/skipped.
    */
   async updateShip(shipId: string, data: Partial<Ship>): Promise<{ updatedCount: number; skippedConfirmedCount: number }> {
-    const shipDocRef = doc(this.firestore, `ships/${shipId}`);
-    
-    // 1. Update the master Ship record
-    const updates: any = { ...data };
-    
-    // Maintain the lowercase helper field if name changes
-    if (data.shipName) {
-      updates.shipName_lowercase = data.shipName.toLowerCase();
-      updates.updatedAt = serverTimestamp();
-    } else {
-      updates.updatedAt = serverTimestamp();
-    }
-    
-    await updateDoc(shipDocRef, updates);
-
-    // 2. Trigger Data Consistency Sync if Name or GT changed
-    // (We need to ensure we run consistency check if either name or GT is modified)
-    if (data.shipName || data.grossTonnage !== undefined) {
-      // Fetch the Full Ship document to get final state (in case we only updated one field)
-      const updatedShipSnap = await getDoc(shipDocRef);
-      if (updatedShipSnap.exists()) {
-        const updatedShip = updatedShipSnap.data() as Ship;
-        return this.tripRepository.updateShipDetailsForAllTrips(
-          shipId,
-          updatedShip.shipName,
-          updatedShip.grossTonnage
-        );
+    return runInInjectionContext(this.injector, async () => {
+      const shipDocRef = doc(this.firestore, `ships/${shipId}`);
+      
+      // 1. Update the master Ship record
+      const updates: any = { ...data };
+      
+      // Maintain the lowercase helper field if name changes
+      if (data.shipName) {
+        updates.shipName_lowercase = data.shipName.toLowerCase();
+        updates.updatedAt = serverTimestamp();
+      } else {
+        updates.updatedAt = serverTimestamp();
       }
-    }
-    
-    return { updatedCount: 0, skippedConfirmedCount: 0 };
+      
+      await updateDoc(shipDocRef, updates);
+
+      // 2. Trigger Data Consistency Sync if Name or GT changed
+      // (We need to ensure we run consistency check if either name or GT is modified)
+      if (data.shipName || data.grossTonnage !== undefined) {
+        // Fetch the Full Ship document to get final state (in case we only updated one field)
+        const updatedShipSnap = await getDoc(shipDocRef);
+        if (updatedShipSnap.exists()) {
+          const updatedShip = updatedShipSnap.data() as Ship;
+          return this.tripRepository.updateShipDetailsForAllTrips(
+            shipId,
+            updatedShip.shipName,
+            updatedShip.grossTonnage
+          );
+        }
+      }
+      
+      return { updatedCount: 0, skippedConfirmedCount: 0 };
+    });
   }
 
   /**

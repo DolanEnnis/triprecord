@@ -415,13 +415,8 @@
                   ></textarea>
                 </mat-form-field>
 
-                <!-- Pilot No, Month No, Good, Car on one line -->
-                <div class="pilot-four-col-grid">
-                  <mat-form-field appearance="outline">
-                    <mat-label>Pilot No</mat-label>
-                    <input matInput type="number" formControlName="pilotNo" />
-                  </mat-form-field>
-
+                <!-- Month No, Good, Car on one line -->
+                <div class="pilot-three-col-grid">
                   <mat-form-field appearance="outline">
                     <mat-label>Month No</mat-label>
                     <input matInput type="number" formControlName="monthNo" />
@@ -445,35 +440,80 @@
                 </div>
               </div>
             }
-            <!-- INWARD DOCKET VIEWER -->
-            @if (inwardTripData()?.docketUrl && isUserAuthorizedForTrip(inwardTripData())) {
-              <div class="card-docket-section">
-                <h4 class="card-docket-title">
-                  <mat-icon>attach_file</mat-icon>
-                  Attached Docket
-                </h4>
+            <!-- INWARD DOCKET VIEWER & UPLOAD -->
+            <div class="card-footer-actions">
+              @if ((isCurrentUserInwardPilot() || isAdmin()) && inwardTripId && !inwardTripData()?.isConfirmed) {
+                <button
+                  type="button"
+                  mat-stroked-button
+                  color="primary"
+                  class="confirm-trip-btn"
+                  (click)="openConfirmDialog('In')"
+                  matTooltip="Confirm this trip and create a charge"
+                >
+                  <mat-icon>check_circle</mat-icon>
+                  Confirm Trip
+                </button>
+              }
+            </div>
 
-                @if (inwardTripData()?.docketType === 'image') {
-                  <div class="docket-image-container">
-                    <img
-                      [src]="inwardTripData()!.docketUrl"
-                      alt="Trip docket"
-                      class="docket-preview-img"
-                      (click)="lightboxImageUrl.set(inwardTripData()!.docketUrl!)"
-                      matTooltip="Click to view full size"
-                    />
-                  </div>
-                } @else if (inwardTripData()?.docketType === 'pdf') {
-                  <a
-                    [href]="inwardTripData()!.docketUrl"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    mat-stroked-button
-                    class="view-pdf-button"
-                  >
-                    <mat-icon>picture_as_pdf</mat-icon>
-                    View PDF Docket
-                  </a>
+            @if (isUserAuthorizedForTrip(inwardTripData()) || isPilot() || isAdmin()) {
+              <div class="card-docket-section">
+                <!-- If user can upload (Pilot/Admin) -->
+                @if (isPilot() || isAdmin()) {
+                  @if (inwardTripId) {
+                    <h4 class="card-docket-title">
+                      <mat-icon>attach_file</mat-icon>
+                      {{ inwardTripData()?.docketUrl ? 'Replace Docket' : 'Attach Docket' }}
+                    </h4>
+                    <app-docket-upload
+                      [tripId]="inwardTripId"
+                      [existingDocketUrl]="inwardTripData()?.docketUrl"
+                      [existingDocketPath]="inwardTripData()?.docketPath"
+                      [existingDocketType]="inwardTripData()?.docketType"
+                      (docketUploaded)="onInwardDocketUploaded($event)"
+                      (uploadingChange)="onDocketUploadingChange($event)"
+                    ></app-docket-upload>
+                  } @else {
+                    <h4 class="card-docket-title">
+                      <mat-icon>attach_file</mat-icon>
+                      Attach Docket
+                    </h4>
+                    <p style="font-size: 0.9em; font-style: italic; color: #6b7280; margin-top: 8px;">
+                      <mat-icon style="vertical-align: bottom; font-size: 16px; width: 16px; height: 16px;">info</mat-icon>
+                      Please save this new trip first to upload a docket.
+                    </p>
+                  }
+                }
+                <!-- If user can ONLY view (SFPC etc), show read-only viewer -->
+                @else if (inwardTripData()?.docketUrl) {
+                  <h4 class="card-docket-title">
+                    <mat-icon>attach_file</mat-icon>
+                    Attached Docket
+                  </h4>
+
+                  @if (inwardTripData()?.docketType === 'image') {
+                    <div class="docket-image-container">
+                      <img
+                        [src]="inwardTripData()!.docketUrl"
+                        alt="Trip docket"
+                        class="docket-preview-img"
+                        (click)="lightboxImageUrl.set(inwardTripData()!.docketUrl!)"
+                        matTooltip="Click to view full size"
+                      />
+                    </div>
+                  } @else if (inwardTripData()?.docketType === 'pdf') {
+                    <a
+                      [href]="inwardTripData()!.docketUrl"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      mat-stroked-button
+                      class="view-pdf-button"
+                    >
+                      <mat-icon>picture_as_pdf</mat-icon>
+                      View PDF Docket
+                    </a>
+                  }
                 }
               </div>
             }
@@ -625,13 +665,8 @@
                   ></textarea>
                 </mat-form-field>
 
-                <!-- Pilot No, Month No, Good, Car on one line -->
-                <div class="pilot-four-col-grid">
-                  <mat-form-field appearance="outline">
-                    <mat-label>Pilot No</mat-label>
-                    <input matInput type="number" formControlName="pilotNo" />
-                  </mat-form-field>
-
+                <!-- Month No, Good, Car on one line -->
+                <div class="pilot-three-col-grid">
                   <mat-form-field appearance="outline">
                     <mat-label>Month No</mat-label>
                     <input matInput type="number" formControlName="monthNo" />
@@ -656,35 +691,80 @@
               </div>
             }
 
-            <!-- OUTWARD DOCKET VIEWER -->
-            @if (outwardTripData()?.docketUrl && isUserAuthorizedForTrip(outwardTripData())) {
-              <div class="card-docket-section">
-                <h4 class="card-docket-title">
-                  <mat-icon>attach_file</mat-icon>
-                  Attached Docket
-                </h4>
+            <!-- OUTWARD DOCKET VIEWER & UPLOAD -->
+            <div class="card-footer-actions">
+              @if ((isCurrentUserOutwardPilot() || isAdmin()) && outwardTripId && !outwardTripData()?.isConfirmed) {
+                <button
+                  type="button"
+                  mat-stroked-button
+                  color="primary"
+                  class="confirm-trip-btn"
+                  (click)="openConfirmDialog('Out')"
+                  matTooltip="Confirm this trip and create a charge"
+                >
+                  <mat-icon>check_circle</mat-icon>
+                  Confirm Trip
+                </button>
+              }
+            </div>
 
-                @if (outwardTripData()?.docketType === 'image') {
-                  <div class="docket-image-container">
-                    <img
-                      [src]="outwardTripData()!.docketUrl"
-                      alt="Trip docket"
-                      class="docket-preview-img"
-                      (click)="lightboxImageUrl.set(outwardTripData()!.docketUrl!)"
-                      matTooltip="Click to view full size"
-                    />
-                  </div>
-                } @else if (outwardTripData()?.docketType === 'pdf') {
-                  <a
-                    [href]="outwardTripData()!.docketUrl"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    mat-stroked-button
-                    class="view-pdf-button"
-                  >
-                    <mat-icon>picture_as_pdf</mat-icon>
-                    View PDF Docket
-                  </a>
+            @if (isUserAuthorizedForTrip(outwardTripData()) || isPilot() || isAdmin()) {
+              <div class="card-docket-section">
+                <!-- If user can upload (Pilot/Admin) -->
+                @if (isPilot() || isAdmin()) {
+                  @if (outwardTripId) {
+                    <h4 class="card-docket-title">
+                      <mat-icon>attach_file</mat-icon>
+                      {{ outwardTripData()?.docketUrl ? 'Replace Docket' : 'Attach Docket' }}
+                    </h4>
+                    <app-docket-upload
+                      [tripId]="outwardTripId"
+                      [existingDocketUrl]="outwardTripData()?.docketUrl"
+                      [existingDocketPath]="outwardTripData()?.docketPath"
+                      [existingDocketType]="outwardTripData()?.docketType"
+                      (docketUploaded)="onOutwardDocketUploaded($event)"
+                      (uploadingChange)="onDocketUploadingChange($event)"
+                    ></app-docket-upload>
+                  } @else {
+                    <h4 class="card-docket-title">
+                      <mat-icon>attach_file</mat-icon>
+                      Attach Docket
+                    </h4>
+                    <p style="font-size: 0.9em; font-style: italic; color: #6b7280; margin-top: 8px;">
+                      <mat-icon style="vertical-align: bottom; font-size: 16px; width: 16px; height: 16px;">info</mat-icon>
+                      Please save this new trip first to upload a docket.
+                    </p>
+                  }
+                }
+                <!-- If user can ONLY view (SFPC etc), show read-only viewer -->
+                @else if (outwardTripData()?.docketUrl) {
+                  <h4 class="card-docket-title">
+                    <mat-icon>attach_file</mat-icon>
+                    Attached Docket
+                  </h4>
+
+                  @if (outwardTripData()?.docketType === 'image') {
+                    <div class="docket-image-container">
+                      <img
+                        [src]="outwardTripData()!.docketUrl"
+                        alt="Trip docket"
+                        class="docket-preview-img"
+                        (click)="lightboxImageUrl.set(outwardTripData()!.docketUrl!)"
+                        matTooltip="Click to view full size"
+                      />
+                    </div>
+                  } @else if (outwardTripData()?.docketType === 'pdf') {
+                    <a
+                      [href]="outwardTripData()!.docketUrl"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      mat-stroked-button
+                      class="view-pdf-button"
+                    >
+                      <mat-icon>picture_as_pdf</mat-icon>
+                      View PDF Docket
+                    </a>
+                  }
                 }
               </div>
             }
@@ -818,35 +898,80 @@
                         rows="2"
                       ></textarea>
                     </mat-form-field>
-                    <!-- ADDITIONAL TRIP DOCKET VIEWER -->
-                    @if (additionalTripsData()[i]?.docketUrl && isUserAuthorizedForTrip(additionalTripsData()[i])) {
-                      <div class="card-docket-section">
-                        <h4 class="card-docket-title">
-                          <mat-icon>attach_file</mat-icon>
-                          Attached Docket
-                        </h4>
+                    <!-- ADDITIONAL TRIP DOCKET VIEWER & UPLOAD -->
+                    <div class="card-footer-actions">
+                      @if ((isCurrentUserAdditionalPilot(i) || isAdmin()) && additionalTripIds[i] && !additionalTripsData()[i]?.isConfirmed) {
+                        <button
+                          type="button"
+                          mat-stroked-button
+                          color="primary"
+                          class="confirm-trip-btn"
+                          (click)="openConfirmDialog('Additional', i)"
+                          matTooltip="Confirm this trip and create a charge"
+                        >
+                          <mat-icon>check_circle</mat-icon>
+                          Confirm Trip
+                        </button>
+                      }
+                    </div>
 
-                        @if (additionalTripsData()[i].docketType === 'image') {
-                          <div class="docket-image-container">
-                            <img
-                              [src]="additionalTripsData()[i].docketUrl"
-                              alt="Trip docket"
-                              class="docket-preview-img"
-                              (click)="lightboxImageUrl.set(additionalTripsData()[i].docketUrl!)"
-                              matTooltip="Click to view full size"
-                            />
-                          </div>
-                        } @else if (additionalTripsData()[i].docketType === 'pdf') {
-                          <a
-                            [href]="additionalTripsData()[i].docketUrl"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            mat-stroked-button
-                            class="view-pdf-button"
-                          >
-                            <mat-icon>picture_as_pdf</mat-icon>
-                            View PDF Docket
-                          </a>
+                    @if (isUserAuthorizedForTrip(additionalTripsData()[i]) || isPilot() || isAdmin()) {
+                      <div class="card-docket-section">
+                        <!-- If user can upload (Pilot/Admin) -->
+                        @if (isPilot() || isAdmin()) {
+                          @if (additionalTripIds[i]) {
+                            <h4 class="card-docket-title">
+                              <mat-icon>attach_file</mat-icon>
+                              {{ additionalTripsData()[i]?.docketUrl ? 'Replace Docket' : 'Attach Docket' }}
+                            </h4>
+                            <app-docket-upload
+                              [tripId]="additionalTripIds[i]!"
+                              [existingDocketUrl]="additionalTripsData()[i]?.docketUrl"
+                              [existingDocketPath]="additionalTripsData()[i]?.docketPath"
+                              [existingDocketType]="additionalTripsData()[i]?.docketType"
+                              (docketUploaded)="onAdditionalDocketUploaded(i, $event)"
+                              (uploadingChange)="onDocketUploadingChange($event)"
+                            ></app-docket-upload>
+                          } @else {
+                            <h4 class="card-docket-title">
+                              <mat-icon>attach_file</mat-icon>
+                              Attach Docket
+                            </h4>
+                            <p style="font-size: 0.9em; font-style: italic; color: #6b7280; margin-top: 8px;">
+                              <mat-icon style="vertical-align: bottom; font-size: 16px; width: 16px; height: 16px;">info</mat-icon>
+                              Please save this new trip first to upload a docket.
+                            </p>
+                          }
+                        }
+                        <!-- If user can ONLY view (SFPC etc), show read-only viewer -->
+                        @else if (additionalTripsData()[i]?.docketUrl) {
+                          <h4 class="card-docket-title">
+                            <mat-icon>attach_file</mat-icon>
+                            Attached Docket
+                          </h4>
+
+                          @if (additionalTripsData()[i].docketType === 'image') {
+                            <div class="docket-image-container">
+                              <img
+                                [src]="additionalTripsData()[i].docketUrl"
+                                alt="Trip docket"
+                                class="docket-preview-img"
+                                (click)="lightboxImageUrl.set(additionalTripsData()[i].docketUrl!)"
+                                matTooltip="Click to view full size"
+                              />
+                            </div>
+                          } @else if (additionalTripsData()[i].docketType === 'pdf') {
+                            <a
+                              [href]="additionalTripsData()[i].docketUrl"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              mat-stroked-button
+                              class="view-pdf-button"
+                            >
+                              <mat-icon>picture_as_pdf</mat-icon>
+                              View PDF Docket
+                            </a>
+                          }
                         }
                       </div>
                     }

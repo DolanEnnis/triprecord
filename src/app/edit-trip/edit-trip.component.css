@@ -524,6 +524,18 @@
 }
 
 /* Card-integrated Docket View */
+.card-footer-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.confirm-trip-btn {
+  border-color: #3f51b5 !important;
+  color: #3f51b5 !important;
+}
+
 .card-docket-section {
   grid-column: 1 / -1;
   border-top: 1px solid #e5e7eb;

@@ -195,6 +195,16 @@
           </td>
         </ng-container>
 
+        <!-- ── Actions Column ───────────────────────────── -->
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let row">
+            <button mat-icon-button color="primary" (click)="navigateToEdit(row, $event)" matTooltip="Edit Visit">
+              <mat-icon>edit</mat-icon>
+            </button>
+          </td>
+        </ng-container>
+
         <!-- ── Header & Row Definitions ─────────────── -->
         <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
 

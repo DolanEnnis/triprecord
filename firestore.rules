@@ -25,7 +25,7 @@ service cloud.firestore {
     // Check if user has one of the specified roles
     // Usage: hasRole(['admin', 'pilot']) returns true if user is admin OR pilot
     function hasRole(roles) {
-      return userExists() && getUserData().userType in roles;
+      return userExists() && getUserData().userType.lower() in roles;
     }
 
     // Shorthand helper functions for common role checks

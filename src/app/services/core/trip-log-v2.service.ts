@@ -179,11 +179,19 @@ export class TripLogV2Service {
     const port = this.portFilter();
     const status = this.statusFilter();
     const user = this.authService.currentUserSig();
+    const now = new Date();
 
     return this._allRows().filter((row) => {
       // --- Ghost Trip Filter ---
       // Hide pending trips (no boarding date set) from non-admin users.
       if (row.isPending && user?.userType !== 'admin') {
+        return false;
+      }
+
+      // --- Future Trip Filter ---
+      // A trip cannot be confirmed if it hasn't actually happened yet.
+      // If the boarding date is in the future relative to the user's local clock, hide it.
+      if (row.boarding && row.boarding > now) {
         return false;
       }
 

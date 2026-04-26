@@ -143,9 +143,9 @@ export class CreateChargeDialogComponent implements OnInit {
   isDocketUploading = false;
 
   // --- Docket state (populated by DocketUploadComponent on successful upload) ---
-  private pendingDocketUrl: string | undefined;
-  private pendingDocketPath: string | undefined;
-  private pendingDocketType: 'image' | 'pdf' | undefined;
+  pendingDocketUrl?: string;
+  pendingDocketPath?: string;
+  pendingDocketType?: 'image' | 'pdf';
 
   /**
    * Provides the tripId to <app-docket-upload>.

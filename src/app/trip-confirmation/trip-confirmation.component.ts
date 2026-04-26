@@ -235,6 +235,19 @@ export class TripConfirmationComponent implements OnInit {
   // ROW INTERACTION
   // -------------------------------------------------------------------------
 
+  /**
+   * Navigates directly to the edit page for this trip's visit.
+   * We pass the Event to call stopPropagation() so the row's click handler doesn't also fire.
+   */
+  navigateToEdit(row: TripConfirmationRow, event: Event): void {
+    event.stopPropagation();
+    if (row.visitId) {
+      this.router.navigate(['/edit', row.visitId]);
+    } else {
+      this.snackBar.open('Error: Cannot edit this trip (Missing Visit ID)', 'Close', { duration: 5000 });
+    }
+  }
+
   onRowClicked(row: TripConfirmationRow): void {
     if (row.isActionable) {
       // Reconstruct a ChargeableEvent payload strictly for this dialog interaction. 
@@ -307,6 +320,6 @@ export class TripConfirmationComponent implements OnInit {
 
   /** Column order for the Material table — single source of truth used by both header and row defs. */
   readonly displayedColumns = [
-    'ship', 'gt', 'boarding', 'port', 'monthNo', 'pilot', 'typeTrip', 'status',
+    'ship', 'gt', 'boarding', 'port', 'monthNo', 'pilot', 'typeTrip', 'status', 'actions'
   ];
 }

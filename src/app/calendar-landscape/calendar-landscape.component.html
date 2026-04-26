@@ -150,7 +150,7 @@
             <div class="lc-night lc-night-right" [style.left.%]="solarBounds().duskMin / 14.4"></div>
           }
           <!-- Flood bands: left and width as % -->
-          @for (win of aughinishWindows(); track win.bandLeft) {
+          @for (win of aughinishWindows(); track $index) {
             <div class="lc-flood-band"
                  [style.left.%]="win.bandLeft / 14.4"
                  [style.width.%]="win.bandWidth / 14.4"></div>
@@ -160,7 +160,7 @@
           <div class="lc-shift-band" style="left: 79.17%"></div>
 
           <div class="lc-tide-zone">
-            @for (win of aughinishWindows(); track win.bandLeft) {
+            @for (win of aughinishWindows(); track $index) {
               @if (win.floodMin !== null) {
                 <div class="lc-tide-pin pilotage" [style.left.%]="win.floodMin / 14.4">
                   <span class="lc-pin-time">{{ minuteToHHmm(win.floodMin) }}</span>

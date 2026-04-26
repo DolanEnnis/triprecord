@@ -116,9 +116,9 @@
            This guarantees the Firestore write ONLY happens AFTER the Storage upload completes. -->
       <app-docket-upload
         [tripId]="docketTripId"
-        [existingDocketUrl]="chargeToEdit?.docketUrl"
-        [existingDocketPath]="chargeToEdit?.docketPath"
-        [existingDocketType]="chargeToEdit?.docketType"
+        [existingDocketUrl]="pendingDocketUrl"
+        [existingDocketPath]="pendingDocketPath"
+        [existingDocketType]="pendingDocketType"
         (docketUploaded)="onDocketUploaded($event)"
         (uploadingChange)="onDocketUploadingChange($event)"
       ></app-docket-upload>
