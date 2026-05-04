@@ -232,6 +232,33 @@
       </table>
     </div>
 
+    <!-- =====================================================
+         PAGE FOOTER
+    ===================================================== -->
+    <div class="tc-footer">
+      <button
+        mat-stroked-button
+        color="primary"
+        (click)="exportToCsv()"
+        matTooltip="Export confirmed trips to CSV">
+        <mat-icon>download</mat-icon>
+        Export Confirmed
+      </button>
+    </div>
+
   }<!-- end @else -->
+
+  <!-- =====================================================
+       FLOATING ACTION BUTTON
+       Provides quick access to create a new trip (visit).
+  ===================================================== -->
+  <button
+    mat-fab
+    color="primary"
+    class="create-trip-fab"
+    (click)="openStandaloneChargeDialog()"
+    matTooltip="Create standalone trip">
+    <mat-icon>add</mat-icon>
+  </button>
 
 </div>

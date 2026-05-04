@@ -54,24 +54,12 @@
   color: #333;
 }
 
-.lc-badge {
-  font-size: 0.6rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: white;
-  background: #7c4dff;
-  border-radius: 10px;
-  padding: 2px 7px;
-  vertical-align: middle;
+.lc-disclaimer {
+  font-size: 0.85rem;
+  color: #d32f2f;
+  font-weight: 500;
+  margin-left: 8px;
 }
-
-.lc-switch-link {
-  font-size: 0.8rem;
-  color: #1e88e5;
-  text-decoration: none;
-}
-.lc-switch-link:hover { text-decoration: underline; }
 
 /* Day-of-week centred between title and date picker */
 .lc-day-of-week {

@@ -11,7 +11,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { Router } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import {
   TripLogV2Service,
   TripDirectionFilter,
@@ -21,6 +21,8 @@ import {
 import { AuthService } from '../auth/auth';
 import type { TripConfirmationRow, ChargeableEvent } from '../models';
 import { CreateChargeDialogComponent } from '../create-charge-dialog/create-charge-dialog.component';
+import { ConfirmationDialogComponent } from '../shared/confirmation-dialog/confirmation-dialog.component';
+import { CsvExportService } from '../services/utilities/csv-export.service';
 
 // ---------------------------------------------------------------------------
 // SEVERANCE CONTRACT — enforced by imports above
@@ -64,7 +66,9 @@ import { CreateChargeDialogComponent } from '../create-charge-dialog/create-char
     MatTooltipModule,
     MatDialogModule,
     MatSnackBarModule,
+    RouterModule,
   ],
+  providers: [CsvExportService, DatePipe],
   templateUrl: './trip-confirmation.component.html',
   styleUrl: './trip-confirmation.component.css',
 })
@@ -82,6 +86,7 @@ export class TripConfirmationComponent implements OnInit {
   private  readonly router         = inject(Router);
   private  readonly dialog         = inject(MatDialog);
   private  readonly snackBar       = inject(MatSnackBar);
+  private  readonly csvExport      = inject(CsvExportService);
 
   // -------------------------------------------------------------------------
   // SERVICE SIGNAL ALIASES
@@ -297,6 +302,71 @@ export class TripConfirmationComponent implements OnInit {
         this.snackBar.open('Error: Cannot edit this trip (Missing Visit ID)', 'Close', { duration: 5000 });
       }
     }
+  }
+
+  /**
+   * Opens the CreateChargeDialogComponent in "New" (Standalone) mode.
+   * This is used for creating "orphaned" trips that are not linked to a scheduled visit.
+   * We pass the currently active ships so the dialog can warn the user if they try
+   * to create a standalone trip for a ship that already has an active visit.
+   */
+  openStandaloneChargeDialog(): void {
+    const confirmDialogRef = this.dialog.open(ConfirmationDialogComponent, {
+      data: {
+        title: 'Create Standalone Trip?',
+        message: 'Are you sure this ship does NOT already have an active visit?\n\nYou should only create a standalone trip if the ship was not entered into the system beforehand.',
+        confirmText: 'Yes, Create',
+        cancelText: 'Cancel'
+      }
+    });
+
+    confirmDialogRef.afterClosed().subscribe(confirmed => {
+      if (confirmed) {
+        // Extract active ships from the current table to warn about potential duplicates
+        const activeShips = this.rows()
+          .filter(row => row.typeTrip === 'In' || row.typeTrip === 'Out')
+          .map(row => row.ship);
+
+        const dialogRef = this.dialog.open(CreateChargeDialogComponent, {
+          width: '100%',
+          maxWidth: '600px',
+          data: { activeShips } // Sending this object shape triggers the 'new' mode
+        });
+
+        dialogRef.afterClosed().subscribe(result => {
+          if (result === 'success') {
+            this.snackBar.open('Standalone charge created successfully!', 'Close', { duration: 3000 });
+          }
+        });
+      }
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // EXPORT
+  // -------------------------------------------------------------------------
+
+  /**
+   * Exports the currently displayed, confirmed trips to a CSV file.
+   * 
+   * LEARNING: COMPONENT vs SERVICE RESPONSIBILITY
+   * This component just gathers the currently filtered 'confirmed' rows from the view.
+   * It delegates the actual CSV mapping, formatting, and DOM blob download 
+   * to the specialized `CsvExportService`.
+   */
+  exportToCsv(): void {
+    const confirmedTrips = this.displayedRows().filter(row => !row.isActionable);
+    
+    if (confirmedTrips.length === 0) {
+      this.snackBar.open('No confirmed trips available to export matching the current filters.', 'Close', { duration: 3000 });
+      return;
+    }
+
+    // The CsvExportService expects an interface (TripWithWarnings) that has all the 
+    // same properties we provide via TripConfirmationRow (ship, gt, updateTime, dataWarnings etc).
+    // We cast it as `any` because the structural shapes match exactly for what PapaParse needs.
+    this.csvExport.exportConfirmedTrips(confirmedTrips as any);
+    this.snackBar.open(`Exported ${confirmedTrips.length} confirmed trips to CSV.`, 'Close', { duration: 3000 });
   }
 
   // -------------------------------------------------------------------------
