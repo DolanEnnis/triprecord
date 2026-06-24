@@ -79,10 +79,12 @@ describe('CsvExportService', () => {
         'GT': 1000,
         'Date': datePipe.transform(mockTrip.boarding, 'dd/MM/yy'),
         'In / Out': 'In',
-        'To/From': 'Test Port',
+        'To/From': 'Foynes',
         'Late Order / Detention /Anchoring etc': 'Detention',
         'Pilot': 'Test Pilot',
-        'Note': '[(E1) A warning] A note.'
+        'Note': '[(E1) A warning] A note.',
+        'Month Number': '',
+        'PDF Exists': 'No'
       });
     });
   });

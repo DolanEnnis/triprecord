@@ -198,7 +198,19 @@
         <!-- ── Actions Column ───────────────────────────── -->
         <ng-container matColumnDef="actions">
           <th mat-header-cell *matHeaderCellDef></th>
-          <td mat-cell *matCellDef="let row">
+          <td mat-cell *matCellDef="let row" class="actions-cell">
+            <!-- 
+              We use the modern Angular @if control flow instead of *ngIf to conditionally
+              render the attachment icon. It's more readable and doesn't require importing CommonModule 
+              specifically for this structural directive.
+            -->
+            @if (row.docketUrl) {
+              @if (row.docketType === 'pdf') {
+                <mat-icon color="warn" matTooltip="PDF Attached" class="docket-icon">picture_as_pdf</mat-icon>
+              } @else {
+                <mat-icon color="primary" matTooltip="Image Attached" class="docket-icon">image</mat-icon>
+              }
+            }
             <button mat-icon-button color="primary" (click)="navigateToEdit(row, $event)" matTooltip="Edit Visit">
               <mat-icon>edit</mat-icon>
             </button>

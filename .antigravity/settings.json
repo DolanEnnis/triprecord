@@ -1,4 +1,21 @@
 {
+  "project": {
+    "name": "triprecord",
+    "framework": "Angular",
+    "database": "Firebase Cloud Firestore",
+    "auth": "Firebase Authentication"
+  },
+  "agent_guardrails": {
+    "execution_mode": "architectural_blueprint_only",
+    "write_code_directly": false,
+    "production_safety": "zero_disruption_engineering",
+    "cost_awareness": "strict_hobby_budget"
+  },
+  "constraints": {
+    "backwards_compatibility": "mandatory",
+    "live_database_protection": "never_alter_existing_schemas_without_migration_blueprints",
+    "ui_targets": ["Desktop", "Mobile phone responsive"]
+  },
   "agent": {
     "rules": [
       "MANDATORY: If any instruction in this configuration is ambiguous, contradicts another rule, or violates standard Angular/Firebase best practices, you MUST stop and ask the user for clarification before proceeding with any code changes.",      

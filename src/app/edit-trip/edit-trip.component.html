@@ -79,7 +79,7 @@
               (click)="$event.stopPropagation()"
             >
               <img
-                src="https://www.marinetraffic.com/favicon.ico"
+                src="/MarineTraffic.png"
                 alt="MarineTraffic"
                 class="marine-traffic-icon"
               />
@@ -385,24 +385,21 @@
               ></textarea>
             </mat-form-field>
 
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Extra</mat-label>
+              <textarea
+                matInput
+                formControlName="extraChargesNotes"
+                rows="2"
+              ></textarea>
+            </mat-form-field>
+
             <!-- PILOT'S OWN INFO - Only visible to assigned pilot -->
             @if (isCurrentUserInwardPilot()) {
               <div class="pilot-own-section">
                 <h4 class="pilot-section-title">Pilot's Own Info</h4>
 
-                <!-- Extra and Own Note - Full width, NOT in grid -->
-                <mat-form-field
-                  appearance="outline"
-                  class="pilot-textarea-field"
-                >
-                  <mat-label>Extra</mat-label>
-                  <textarea
-                    matInput
-                    formControlName="extraChargesNotes"
-                    rows="2"
-                  ></textarea>
-                </mat-form-field>
-
+                <!-- Own Note - Full width, NOT in grid -->
                 <mat-form-field
                   appearance="outline"
                   class="pilot-textarea-field"
@@ -635,24 +632,21 @@
               ></textarea>
             </mat-form-field>
 
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Extra</mat-label>
+              <textarea
+                matInput
+                formControlName="extraChargesNotes"
+                rows="2"
+              ></textarea>
+            </mat-form-field>
+
             <!-- PILOT'S OWN INFO - Only visible to assigned pilot -->
             @if (isCurrentUserOutwardPilot()) {
               <div class="pilot-own-section">
                 <h4 class="pilot-section-title">Pilot's Own Info</h4>
 
-                <!-- Extra and Own Note - Full width, NOT in grid -->
-                <mat-form-field
-                  appearance="outline"
-                  class="pilot-textarea-field"
-                >
-                  <mat-label>Extra</mat-label>
-                  <textarea
-                    matInput
-                    formControlName="extraChargesNotes"
-                    rows="2"
-                  ></textarea>
-                </mat-form-field>
-
+                <!-- Own Note - Full width, NOT in grid -->
                 <mat-form-field
                   appearance="outline"
                   class="pilot-textarea-field"
@@ -800,16 +794,18 @@
                 additionalTripsArray.length === 1 ? "" : "s"
               }}
             </span>
-            <button
-              mat-stroked-button
-              color="accent"
-              (click)="addTrip(); toggleAdditionalTrips()"
-              type="button"
-              class="inline-add-btn"
-            >
-              <mat-icon>add</mat-icon>
-              Add Trip
-            </button>
+            @if (!hasUnsavedAdditionalTrip) {
+              <button
+                mat-stroked-button
+                color="accent"
+                (click)="addTrip(); toggleAdditionalTrips()"
+                type="button"
+                class="inline-add-btn"
+              >
+                <mat-icon>add</mat-icon>
+                Add Trip
+              </button>
+            }
           </mat-card-content>
         }
 
@@ -980,27 +976,23 @@
               }
             </div>
 
-            <!-- Tooltip wrapper needed because disabled buttons don't receive mouse events -->
-            <div
-              class="add-trip-button-wrapper"
-              [matTooltip]="
-                hasUnsavedAdditionalTrip
-                  ? 'Please save before adding another trip'
-                  : 'Add a new additional trip'
-              "
-            >
-              <button
-                mat-raised-button
-                color="accent"
-                (click)="addTrip()"
-                type="button"
-                class="add-trip-btn"
-                [disabled]="hasUnsavedAdditionalTrip"
+            @if (!hasUnsavedAdditionalTrip) {
+              <div
+                class="add-trip-button-wrapper"
+                matTooltip="Add a new additional trip"
               >
-                <mat-icon>add</mat-icon>
-                Add Trip
-              </button>
-            </div>
+                <button
+                  mat-raised-button
+                  color="accent"
+                  (click)="addTrip()"
+                  type="button"
+                  class="add-trip-btn"
+                >
+                  <mat-icon>add</mat-icon>
+                  Add Trip
+                </button>
+              </div>
+            }
           </mat-card-content>
         }
       </mat-card>

@@ -34,6 +34,8 @@ export class CsvExportService {
         'Late Order / Detention /Anchoring etc': trip.extra,
         'Pilot': trip.pilot,
         'Note': noteWithWarnings,
+        'Month Number': trip.monthNo || '',
+        'PDF Exists': trip.docketType === 'pdf' ? 'Yes' : 'No',
       };
     });
   }
